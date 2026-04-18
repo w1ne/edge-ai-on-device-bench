@@ -2,7 +2,7 @@
 """
 End-to-end on-device pipeline demo:
 
-  synthesized wav  →  adb push  →  Whisper Tiny on phone (CPU)
+  synthesized wav  →  adb push  →  Whisper on phone (CPU)
                                        ↓ transcript
                                  keyword → pose name
                                        ↓
@@ -80,7 +80,7 @@ def main():
     print(f"[stage 1] synthesized {wav}")
 
     transcript, dt = phone_transcribe(wav)
-    print(f"[stage 2] Whisper Tiny on phone ({dt*1000:.0f} ms): {transcript!r}")
+    print(f"[stage 2] Whisper on phone ({dt*1000:.0f} ms): {transcript!r}")
 
     low = transcript.lower()
     cmd = next((c for trigs, c in KEYWORDS if any(t in low for t in trigs)), None)
