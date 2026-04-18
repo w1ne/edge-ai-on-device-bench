@@ -6,3 +6,4 @@ bin/
 !models-fixed/*.param
 __pycache__/
 *.pyc
+demo/_cmd.wav*
