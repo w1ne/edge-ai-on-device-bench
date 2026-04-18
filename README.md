@@ -65,6 +65,37 @@ This repo benchmarks *models* on *phones*. It does not:
 - Contain the walking-robot platform. That lives in a separate repo.
 - Promote any specific product.
 
+
+
+## Run it without complications
+
+Single pose (no voice, no LLM):
+
+```bash
+python3 demo/simple_pose.py bow_front
+python3 demo/simple_pose.py lean_left
+python3 demo/simple_pose.py walk
+python3 demo/simple_pose.py stop
+```
+
+Voice → pose (no LLM, keyword match):
+
+```bash
+python3 demo/voice_to_pose.py /path/to/command.wav
+```
+
+End-to-end demo (synthesizes the voice itself):
+
+```bash
+python3 demo/pipeline_demo.py "lean left"
+python3 demo/pipeline_demo.py "walk"
+```
+
+All three scripts use the firmware's documented JSON wire protocol
+(`{"c":"pose","n":"<name>","d":<speed>}`, `{"c":"walk","on":true,...}`,
+etc.) — see `w1ne/PhoneWalker:brain/wire.py` for the schema and
+`brain/schema/vocabulary.py` for the legal pose names.
+
 ## License
 
 MIT.
