@@ -1,0 +1,8 @@
+weights/
+bin/
+*.gguf
+*.pnnx.*
+!models-fixed/*.bin
+!models-fixed/*.param
+__pycache__/
+*.pyc
