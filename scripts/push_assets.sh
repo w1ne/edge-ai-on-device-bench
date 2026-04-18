@@ -30,7 +30,7 @@ for bin in llama-cli llama-bench llama-mtmd-cli whisper-cli benchncnn; do
 done
 
 echo "=== push weights ==="
-for f in tinyllama.gguf gemma3.gguf smolvlm.gguf smolvlm-mmproj.gguf ggml-tiny.bin test.wav test.png; do
+for f in tinyllama.gguf gemma3.gguf smolvlm.gguf smolvlm-mmproj.gguf ggml-tiny.bin ggml-base.en.bin test.wav test.png; do
   if [ -f "$REPO/weights/$f" ]; then
     adb $DEV_FLAG push "$REPO/weights/$f" "$REMOTE/$f"
   else

@@ -43,7 +43,7 @@ def phone_transcribe(wav):
     subprocess.run(["adb","push",wav,"/data/local/tmp/cmd.wav"], capture_output=True, check=True)
     t0 = time.time()
     r = subprocess.run(
-        ["adb","shell","cd /data/local/tmp && ./whisper-cli -m ggml-tiny.bin -f cmd.wav --no-timestamps -l en -t 8 2>&1"],
+        ["adb","shell","cd /data/local/tmp && ./whisper-cli -m ggml-base.en.bin -f cmd.wav --no-timestamps -l en -t 8 2>&1"],
         capture_output=True, text=True, timeout=60,
     )
     dt = time.time() - t0

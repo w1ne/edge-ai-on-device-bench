@@ -29,6 +29,7 @@ Raw runtimes: `llama.cpp`, `whisper.cpp`, `NCNN benchncnn`.
 | Model | Metric | P20 Lite | Pixel 6 |
 |---|---|---|---|
 | Whisper Tiny | real-time factor (5 s audio) | 0.92× RT | **0.52× RT** |
+| Whisper Base (recommended for short commands) | real-time factor (5 s audio) | — | **0.64× RT** (3.20 s) |
 | TinyLlama 1.1B | token generation | 5.39 t/s | **20.61 t/s** |
 | Gemma 3 1B | token generation | 4.10 t/s | **16.93 t/s** |
 | SmolVLM-256M | token generation (decode) | 12.97 t/s | **26.85 t/s** |
