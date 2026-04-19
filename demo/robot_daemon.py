@@ -798,6 +798,93 @@ def llm_fallback(transcript: str, model: str, fast: bool,
 llm_fallback.last_error = None  # type: ignore[attr-defined]
 
 
+# ------------------------------------------------------------------ intent-on-phone
+
+# Path the push_termux.sh script installs the wrapper to.  Kept in sync with
+# that script — update together.  Using the .sh variant (curl+jq) as the
+# default because it has zero Python runtime deps; the .py variant is the
+# fallback when jq is missing from the Termux install.
+PHONE_INTENT_SH = "/data/local/tmp/phone_intent.sh"
+PHONE_INTENT_PY = "/data/local/tmp/phone_intent.py"
+TERMUX_BASH     = "/data/data/com.termux/files/usr/bin/bash"
+TERMUX_PY       = "/data/data/com.termux/files/usr/bin/python3"
+
+
+def phone_intent_fallback(transcript: str, serial: str,
+                          timeout: float = 30.0) -> dict | None:
+    """Route intent parsing to the phone via `adb shell` → Termux.
+
+    The real point of --intent-on-phone: this is the first production byte of
+    "phone as brain."  The laptop does not hit DeepInfra in this path — the
+    phone does, using its own network and its own key file.  Laptop only
+    orchestrates adb.
+
+    Contract matches llm_fallback(): returns a canonical wire-command dict
+    on success, None on any failure.  Sets ``_llm_err.value`` so the main
+    loop can distinguish "Termux missing" from "API down" from "noop".
+    """
+    _llm_err.value = None  # type: ignore[attr-defined]
+    llm_fallback.last_error = None  # type: ignore[attr-defined]
+    # Prefer .sh (curl+jq, no Python).  The "&&" sequence makes the shell
+    # error loudly if the wrapper isn't installed, so we can surface the
+    # blocker instead of silently fabricating noop.
+    cmd = [
+        "adb", "-s", serial, "shell",
+        f"DIA_KEY_FILE=/data/local/tmp/.dia_key {TERMUX_BASH} {PHONE_INTENT_SH}",
+    ]
+    try:
+        r = subprocess.run(
+            cmd, input=transcript, capture_output=True, text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        _llm_err.value = f"adb-phone-intent timeout after {timeout}s"
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
+        return None
+    except FileNotFoundError:
+        _llm_err.value = "adb binary not found on laptop"
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
+        return None
+    except Exception as e:
+        _llm_err.value = f"adb-phone-intent spawn: {type(e).__name__}: {e}"
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
+        return None
+    stdout = (r.stdout or "").strip()
+    stderr = (r.stderr or "").strip()
+    # Termux-not-installed signature: /system/bin/sh says "inaccessible or not
+    # found" or rc=127.  Surface it loudly so the user reads PHONE_BRAIN_BLOCKED.
+    if r.returncode != 0 and ("not found" in stderr.lower()
+                              or "no such file" in stderr.lower()
+                              or "inaccessible" in stderr.lower()):
+        _llm_err.value = (
+            "Termux not installed on phone (see docs/PHONE_BRAIN_BLOCKED.md)"
+        )
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
+        return None
+    if r.returncode != 0:
+        _llm_err.value = f"phone rc={r.returncode}: {stderr[:200]}"
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
+        return None
+    # Last JSON-looking line wins (phone_intent.sh prints diagnostics on stderr,
+    # but a robust parse should handle stray stdout noise too).
+    last_json = None
+    for line in reversed(stdout.splitlines()):
+        s = line.strip()
+        if s.startswith("{") and s.endswith("}"):
+            try:
+                last_json = json.loads(s)
+                break
+            except json.JSONDecodeError:
+                continue
+    if last_json is None:
+        _llm_err.value = f"phone returned no JSON: {stdout[:200]!r}"
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
+        return None
+    if not isinstance(last_json, dict) or last_json.get("c") in (None, "noop"):
+        return None
+    return last_json
+
+
 # ------------------------------------------------------------------ eyes (async)
 
 def _vision_run_once(cmd: list[str], logger, stop_evt: threading.Event,
@@ -1140,25 +1227,39 @@ def one_turn(args, logger, state: dict,
     else:
         cmd = match_command(transcript)
     if cmd is None and args.with_llm and transcript:
-        use_api = getattr(args, "llm_api", "local") == "api"
-        # When --llm-api api, the default on-device model alias ("gemma"
-        # et al) is meaningless to parse_intent_api.py — use its default
-        # unless the user passed one of the API-alias names through --llm-model.
-        api_model_aliases = {"llama31-8b", "llama33-70b", "gemma3-27b", "qwen25-72b"}
-        if use_api:
-            model_for_api = args.llm_model if args.llm_model in api_model_aliases else "llama31-8b"
-            backend = f"api:{model_for_api}"
+        # New route: --intent-on-phone shells out to Termux via adb.  First
+        # real "phone as brain" byte — do not mix with the laptop-side API
+        # path; this replaces the llm_fallback() call entirely for this turn.
+        if getattr(args, "intent_on_phone", False):
+            phone_serial = PHONE_SERIALS.get(args.stt_phone, args.stt_phone)
+            logger(f"[llm] via adb -> phone ({phone_serial}) "
+                   f"[intent-on-phone=on]")
+            cmd = phone_intent_fallback(transcript, phone_serial)
+            err = getattr(llm_fallback, "last_error", None)
+            if err:
+                logger(f"[llm] phone call failed ({err}): falling through to noop")
+            if cmd is not None:
+                logger(f"[matcher] phone proposed: {cmd}")
         else:
-            model_for_api = args.llm_model
-            backend = ("fast:" if args.llm_fast else "cli:") + args.llm_model
-        logger(f"[matcher] no keyword hit, asking LLM ({backend})")
-        cmd = llm_fallback(transcript, model_for_api, args.llm_fast, api=use_api)
-        # Item 2: make API failures distinguishable from genuine noop output.
-        err = getattr(llm_fallback, "last_error", None)
-        if err:
-            logger(f"[llm] api call failed ({err}): falling through to noop")
-        if cmd is not None:
-            logger(f"[matcher] LLM proposed: {cmd}")
+            use_api = getattr(args, "llm_api", "local") == "api"
+            # When --llm-api api, the default on-device model alias ("gemma"
+            # et al) is meaningless to parse_intent_api.py — use its default
+            # unless the user passed one of the API-alias names through --llm-model.
+            api_model_aliases = {"llama31-8b", "llama33-70b", "gemma3-27b", "qwen25-72b"}
+            if use_api:
+                model_for_api = args.llm_model if args.llm_model in api_model_aliases else "llama31-8b"
+                backend = f"api:{model_for_api}"
+            else:
+                model_for_api = args.llm_model
+                backend = ("fast:" if args.llm_fast else "cli:") + args.llm_model
+            logger(f"[matcher] no keyword hit, asking LLM ({backend})")
+            cmd = llm_fallback(transcript, model_for_api, args.llm_fast, api=use_api)
+            # Item 2: make API failures distinguishable from genuine noop output.
+            err = getattr(llm_fallback, "last_error", None)
+            if err:
+                logger(f"[llm] api call failed ({err}): falling through to noop")
+            if cmd is not None:
+                logger(f"[matcher] LLM proposed: {cmd}")
 
     # Persistent-goal cancel phrases ("never mind", "cancel that", "forget it")
     # — only act on these when a GoalKeeper is active and holds a goal.
@@ -1580,6 +1681,17 @@ def main():
                         "api: DeepInfra Llama-3.1-8B (~1 s/call, 8/8 accuracy, "
                         "needs $DEEPINFRA_API_KEY).  default: auto — api if "
                         "$DEEPINFRA_API_KEY is set, else local.")
+    p.add_argument("--intent-on-phone", dest="intent_on_phone",
+                   action="store_true",
+                   help="route intent parsing through `adb shell` → Termux → "
+                        "scripts/termux/phone_intent.sh on the --stt-phone.  "
+                        "First 'phone as brain' byte: the laptop does NOT hit "
+                        "DeepInfra in this path; the phone does, using its own "
+                        "key file (/data/local/tmp/.dia_key).  Requires Termux "
+                        "installed on the phone (see docs/PHONE_BRAIN_BLOCKED.md) "
+                        "and `bash scripts/push_termux.sh` to deploy the "
+                        "wrapper.  Overrides --llm-api for the intent-parse "
+                        "subprocess; the rest of the --llm-api path stays as-is.")
     p.add_argument("--with-vision", metavar="CLASS", default=None,
                    help="launch demo/vision_watcher.py in the background; "
                         "emit greeting / auto-stop reactions when CLASS is "
