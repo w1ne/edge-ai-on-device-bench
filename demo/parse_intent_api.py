@@ -27,8 +27,9 @@ Legal schemas (canonicalize() downgrades anything else to noop):
     {"c":"walk","on":true,"stride":150,"step":400}
     {"c":"stop"} | {"c":"jump"} | {"c":"noop"}
 
-API key: reads $DEEPINFRA_API_KEY; falls back to the hardcoded project key
-if unset. Not rotated here — swap inline when it changes.
+API key: required via $DEEPINFRA_API_KEY (do NOT hardcode in this repo — it is
+public). Source the key from ~/Projects/AIHW/.env.local locally or set it in
+your shell before running.
 """
 from __future__ import annotations
 
@@ -44,8 +45,6 @@ import urllib.request
 
 DEEPINFRA_BASE_URL = "https://api.deepinfra.com/v1/openai"
 DEEPINFRA_CHAT_URL = DEEPINFRA_BASE_URL + "/chat/completions"
-# Fallback key matches /home/andrii/Projects/AIHW/.env.local; env takes priority.
-_FALLBACK_KEY = "REDACTED_DEEPINFRA_KEY"
 
 # CLI alias -> DeepInfra model id.  Pick fast + cheap + JSON-capable.
 # Llama-3.1-8B-Instruct is the default — it's the right size for this
@@ -204,7 +203,12 @@ def extract_first_json(text):
 
 def _api_key() -> str:
     k = os.environ.get("DEEPINFRA_API_KEY", "").strip()
-    return k or _FALLBACK_KEY
+    if not k:
+        print("ERR: DEEPINFRA_API_KEY not set in environment.\n"
+              "     source ~/Projects/AIHW/.env.local  (or export it manually)",
+              file=sys.stderr)
+        sys.exit(2)
+    return k
 
 
 def _resolve_model(arg: str | None) -> str:
