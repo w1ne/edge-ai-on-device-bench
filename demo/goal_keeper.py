@@ -249,6 +249,23 @@ class GoalKeeper:
         with self._lock:
             return self._version
 
+    def wait_idle(self, timeout: float = 30.0) -> bool:
+        """Block until no follow-up is in flight, or until `timeout` seconds
+        elapse.  Returns True if idle, False if we timed out.
+
+        Used by the end-to-end eval harness to quiesce between scripted
+        events.  Polls the single in-flight slot; no condition variable
+        (keeps the public surface small and avoids introducing signaling
+        the daemon would have to learn about)."""
+        deadline = time.time() + max(0.0, float(timeout))
+        while time.time() < deadline:
+            with self._lock:
+                if not self._inflight:
+                    return True
+            time.sleep(0.05)
+        with self._lock:
+            return not self._inflight
+
     # --------------------------------------------------------------- internals
 
     def _is_relevant(self, event: dict) -> bool:
