@@ -84,6 +84,21 @@ def _get(url: str, *, token: str | None = None,
         return e.code, e.read() if e.fp else b""
 
 
+def _post(url: str, *, token: str | None = None, origin: str | None = None,
+          timeout: float = 2.0) -> tuple[int, bytes]:
+    """Do a POST with empty body, return (status, body)."""
+    req = urllib.request.Request(url, data=b"", method="POST")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    if origin is not None:
+        req.add_header("Origin", origin)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read() if e.fp else b""
+
+
 # ---------------------------------------------------------------- tests
 def test_loopback_no_auth() -> None:
     """Phase 1: loopback bind, auth configured, but ROBOT_FORCE_AUTH is
@@ -228,14 +243,155 @@ def test_cors_allowlist() -> None:
         server.server_close()
 
 
+def test_timing_safe() -> None:
+    """Phase 4: token comparison uses secrets.compare_digest (constant
+    time over the shorter input).  We verify two ways:
+
+    1. Source inspection: the state_server module must import secrets and
+       call secrets.compare_digest in _auth_ok.  This guards against a
+       future refactor silently regressing to ``!=``.
+    2. Behavioural: two distinct wrong tokens both yield 403, and the
+       wall-clock delta is within 10x of each other (extremely loose, but
+       catches a catastrophic O(N) early-return regression where a token
+       sharing the 1st byte takes 32x longer to reject than one that
+       doesn't).
+    """
+    import inspect
+    import state_server as ss
+
+    src = inspect.getsource(ss)
+    assert "import secrets" in src, \
+        "state_server must import secrets for compare_digest"
+    assert "secrets.compare_digest" in src, \
+        "state_server._auth_ok must use secrets.compare_digest, not !="
+    print("  PASS secrets.compare_digest used in source")
+
+    os.environ["ROBOT_FORCE_AUTH"] = "1"
+    try:
+        port = _free_port()
+        state = StubState()
+        tok = "A" * 64  # long token so byte-compare has room to differ
+        server = make_server(
+            state, bind="127.0.0.1", port=port, stop_fn=None,
+            logger=lambda _m: None,
+            auth_token=tok, auth_token_path="/tmp/fake-token",
+            cors_origins=("http://127.0.0.1:5555",),
+        )
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        try:
+            # Warmup both paths (JIT, DNS, connect caching).
+            for _ in range(5):
+                _get(f"http://127.0.0.1:{port}/state", token="Z" * 64)
+                _get(f"http://127.0.0.1:{port}/state", token="A" + "Z" * 63)
+
+            # Token sharing 0 bytes of prefix vs 1 byte of prefix.
+            # With compare_digest, both take the same constant time.
+            # With ``!=`` short-circuit, the 1-byte-prefix token could
+            # take measurably longer -- but even with !=, the difference
+            # is a handful of ns, swamped by HTTP RTT.  So: we just
+            # assert both return 403 within the same order of magnitude.
+            n = 30
+            t_a = time.perf_counter()
+            for _ in range(n):
+                code, _ = _get(f"http://127.0.0.1:{port}/state",
+                               token="Z" * 64)
+                assert code == 403
+            dt_a = time.perf_counter() - t_a
+
+            t_b = time.perf_counter()
+            for _ in range(n):
+                code, _ = _get(f"http://127.0.0.1:{port}/state",
+                               token="A" + "Z" * 63)
+                assert code == 403
+            dt_b = time.perf_counter() - t_b
+
+            # Loose sanity: neither side dominated by >10x.  Real timing
+            # attacks need thousands of samples + kernel-bypass networking;
+            # this is just a smoke test that both branches run.
+            ratio = max(dt_a, dt_b) / max(min(dt_a, dt_b), 1e-6)
+            assert ratio < 10.0, \
+                f"suspicious timing ratio {ratio:.2f} (dt_a={dt_a:.3f} dt_b={dt_b:.3f})"
+            print(f"  PASS timing-safe 403/403 within {ratio:.2f}x")
+        finally:
+            server.shutdown()
+            server.server_close()
+    finally:
+        os.environ.pop("ROBOT_FORCE_AUTH", None)
+
+
+def test_csrf_stop() -> None:
+    """Phase 5: /stop must reject browser-origin POSTs whose Origin isn't
+    on the CORS allowlist, even with a valid bearer.  No Origin header
+    (curl / native clients) passes.  Allowed Origin passes."""
+    os.environ["ROBOT_FORCE_AUTH"] = "1"
+    try:
+        port = _free_port()
+        state = StubState()
+        tok = "CSRF_GOOD_TOKEN"
+        calls = {"n": 0}
+
+        def fake_stop() -> tuple:
+            calls["n"] += 1
+            return ("ACK", {"servo0": 0})
+
+        server = make_server(
+            state, bind="127.0.0.1", port=port, stop_fn=fake_stop,
+            logger=lambda _m: None,
+            auth_token=tok, auth_token_path="/tmp/fake-token",
+            cors_origins=("http://127.0.0.1:5555",),
+        )
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        try:
+            # (a) No Origin header -> 200 (curl / native).
+            before = calls["n"]
+            code, body = _post(f"http://127.0.0.1:{port}/stop", token=tok)
+            assert code == 200, \
+                f"no-Origin /stop: expected 200, got {code} ({body!r})"
+            assert calls["n"] == before + 1, "stop_fn not invoked"
+            print("  PASS CSRF /stop no-Origin -> 200")
+
+            # (b) Allowed Origin -> 200.
+            before = calls["n"]
+            code, body = _post(f"http://127.0.0.1:{port}/stop", token=tok,
+                               origin="http://127.0.0.1:5555")
+            assert code == 200, \
+                f"allowed-Origin /stop: expected 200, got {code} ({body!r})"
+            assert calls["n"] == before + 1, "stop_fn not invoked"
+            print("  PASS CSRF /stop allowed Origin -> 200")
+
+            # (c) Disallowed Origin -> 403, stop_fn NOT invoked.
+            before = calls["n"]
+            code, body = _post(f"http://127.0.0.1:{port}/stop", token=tok,
+                               origin="http://evil.example")
+            assert code == 403, \
+                f"evil-Origin /stop: expected 403, got {code} ({body!r})"
+            js = json.loads(body)
+            assert "csrf" in js.get("error", "").lower(), \
+                f"expected csrf error, got {js}"
+            assert calls["n"] == before, \
+                "stop_fn was invoked despite CSRF rejection"
+            print("  PASS CSRF /stop disallowed Origin -> 403")
+        finally:
+            server.shutdown()
+            server.server_close()
+    finally:
+        os.environ.pop("ROBOT_FORCE_AUTH", None)
+
+
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     t0 = time.time()
-    print("[1/3] loopback carve-out...")
+    print("[1/5] loopback carve-out...")
     test_loopback_no_auth()
-    print("[2/3] FORCE_AUTH 401/403/200...")
+    print("[2/5] FORCE_AUTH 401/403/200...")
     test_force_auth()
-    print("[3/3] CORS allowlist...")
+    print("[3/5] CORS allowlist...")
     test_cors_allowlist()
+    print("[4/5] timing-safe token compare...")
+    test_timing_safe()
+    print("[5/5] CSRF on /stop...")
+    test_csrf_stop()
     dt = time.time() - t0
     print(f"ALL PASS ({dt:.2f}s)")

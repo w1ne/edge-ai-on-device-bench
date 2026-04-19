@@ -47,6 +47,7 @@ import ipaddress
 import json
 import os
 import queue
+import secrets
 import ssl
 import threading
 import time
@@ -145,7 +146,10 @@ def make_server(state: "RobotState",
                 presented = self._query_token()
             if presented is None:
                 return False, 401
-            if presented != auth_token:
+            # Timing-safe compare: constant-time over the shorter of the
+            # two strings.  Defeats the byte-by-byte timing oracle that a
+            # plain `!=` exposes.
+            if not secrets.compare_digest(presented, auth_token):
                 return False, 403
             return True, 0
 
@@ -159,6 +163,23 @@ def make_server(state: "RobotState",
                     ("Access-Control-Allow-Credentials", "true"),
                 ]
             return []
+
+        # ---- CSRF ------------------------------------------------------
+        def _csrf_ok(self) -> bool:
+            """Origin-check for state-mutating POSTs.
+
+            CORS does NOT protect state-mutating requests: the browser sends
+            them (and attaches cookies / Authorization if the attacker
+            injects it) before it checks the response's CORS headers.  For
+            /stop we additionally require the Origin header to be absent
+            (curl / native clients) or in our allowlist.  A browser page on
+            http://evil.example cannot forge a matching Origin -- the UA
+            sets it based on the real page origin.
+            """
+            origin = self.headers.get("Origin")
+            if origin is None or origin == "":
+                return True  # curl / native clients: no browser-forged CSRF
+            return origin in cors_set
 
         # ---- response helpers ------------------------------------------
         def _send_json(self, code: int, body: dict) -> None:
@@ -217,6 +238,11 @@ def make_server(state: "RobotState",
                 self._send_auth_error(err)
                 return
             if path == "/stop":
+                # CSRF: even with a valid bearer, refuse browser-origin
+                # POSTs whose Origin isn't in the allowlist.  See _csrf_ok.
+                if not self._csrf_ok():
+                    self._send_json(403, {"error": "csrf: origin not allowed"})
+                    return
                 if stop_fn is None:
                     self._send_json(501, {"error": "stop_fn not configured"})
                     return
