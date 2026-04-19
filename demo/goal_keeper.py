@@ -278,8 +278,12 @@ class GoalKeeper:
         if etype in ("battery", "imu"):
             return True
         # Extract any class/label/phrase fields vision events carry.
+        # Include 'description' too so events like
+        # {"class":"cup","description":"a blue ceramic mug"} match a goal
+        # phrased with "mug" — the short class label alone (cup) may not
+        # token-overlap the goal.
         bits: list[str] = []
-        for key in ("class", "label", "phrase", "query", "text"):
+        for key in ("class", "label", "phrase", "query", "text", "description"):
             v = event.get(key)
             if isinstance(v, str) and v:
                 bits.append(v)
