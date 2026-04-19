@@ -765,6 +765,54 @@ def make_logger(path: str | None):
             fh.write(text + "\n")
     return log
 
+_MEM_REPEAT = re.compile(
+    r"\b(do\s+(it|that)\s+again|repeat(\s+that)?|again|once\s+more|one\s+more\s+time)\b"
+)
+_MEM_UNDO = re.compile(r"\b(undo|undo\s+that|cancel\s+that|revert|go\s+back)\b")
+
+# inverse map for undo — dropping to neutral after a pose is the sane default
+_UNDO = {
+    "lean_left":  {"c": "pose", "n": "neutral",  "d": 1500},
+    "lean_right": {"c": "pose", "n": "neutral",  "d": 1500},
+    "bow_front":  {"c": "pose", "n": "neutral",  "d": 1500},
+    # for walk/jump there's no semantic inverse — map both to stop
+}
+
+
+def resolve_memory(transcript: str, state: dict) -> dict | None:
+    """Resolve short anaphoric commands (‘do it again’, ‘undo’) against the
+    daemon's ring buffer.  Returns the wire cmd to execute, or None to fall
+    through to the regular matcher."""
+    t = transcript.lower().strip()
+    if not t:
+        return None
+    history = state.setdefault("history", [])  # list[dict], newest last
+    if _MEM_REPEAT.search(t):
+        if not history:
+            return None
+        return dict(history[-1])
+    if _MEM_UNDO.search(t):
+        if not history:
+            return None
+        last = history[-1]
+        if last.get("c") == "pose" and last.get("n") in _UNDO:
+            return dict(_UNDO[last["n"]])
+        if last.get("c") in ("walk", "jump"):
+            return {"c": "stop"}
+        return None
+    return None
+
+
+def _push_history(state: dict, cmd: dict, limit: int = 8) -> None:
+    """Append a wire command to the recent-command ring buffer (max `limit`)."""
+    if not cmd or cmd.get("_exit") or cmd.get("c") in (None, "ping"):
+        return
+    hist = state.setdefault("history", [])
+    hist.append({k: v for k, v in cmd.items() if not k.startswith("_")})
+    if len(hist) > limit:
+        del hist[:-limit]
+
+
 def one_turn(args, logger, state: dict,
              engine: BehaviorEngine | None = None,
              mute_evt: "threading.Event | None" = None) -> dict | None:
@@ -804,7 +852,14 @@ def one_turn(args, logger, state: dict,
                                           backend=args.stt_backend)
     logger(f"heard ({dt*1000:.0f} ms): {transcript!r}")
 
-    cmd = match_command(transcript)
+    # Conversational memory — resolve anaphora ("do it again", "repeat that",
+    # "undo") against the recent-command ring buffer BEFORE normal matching.
+    mem_cmd = resolve_memory(transcript, state)
+    if mem_cmd is not None:
+        logger(f"[mem] resolved '{transcript}' -> {mem_cmd}")
+        cmd = mem_cmd
+    else:
+        cmd = match_command(transcript)
     if cmd is None and args.with_llm and transcript:
         use_api = getattr(args, "llm_api", "local") == "api"
         # When --llm-api api, the default on-device model alias ("gemma"
@@ -839,6 +894,8 @@ def one_turn(args, logger, state: dict,
     if wire_cmd and not wire_cmd.get("_exit"):
         wire_ack, pos = send_wire(wire_cmd, args.dry_run)
         logger(f"wire:   {wire_ack}   servos: {pos}")
+        # record the wire command to the ring buffer for 'do it again' / 'undo'
+        _push_history(state, wire_cmd)
         # legacy walking flag — only meaningful when we don't have an engine
         if engine is None:
             if wire_cmd.get("c") == "walk":
