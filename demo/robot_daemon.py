@@ -583,6 +583,12 @@ def _scan_llm_stderr(stderr: str) -> str | None:
     return None
 
 
+# Thread-local for llm_fallback's out-of-band error reason.  Previously the
+# reason was stashed on the function object itself, which raced between
+# threads; a thread-local means each caller reads its own last error.
+_llm_err = threading.local()
+
+
 def llm_fallback(transcript: str, model: str, fast: bool,
                  api: bool = False) -> dict | None:
     """Route to an intent parser.
@@ -602,10 +608,12 @@ def llm_fallback(transcript: str, model: str, fast: bool,
 
     Out-of-band failure reporting (item 2): when the API subprocess surfaces a
     transport-level error (5xx / timeout / network), we stash a short reason
-    string on ``llm_fallback.last_error``.  Callers can read that immediately
-    after the call to distinguish 'API down' from 'matcher+LLM both said
-    noop'.  Cleared to None on every call.
+    string in thread-local storage.  Callers can read that immediately after
+    the call via ``llm_fallback.last_error`` (for backward-compat) or via
+    ``_llm_err.value`` directly (thread-safe).  I4 fix: previously we used a
+    plain function attribute, which raced between threads.
     """
+    _llm_err.value = None  # type: ignore[attr-defined]
     llm_fallback.last_error = None  # type: ignore[attr-defined]
     if api:
         script = "parse_intent_api.py"
@@ -621,22 +629,26 @@ def llm_fallback(transcript: str, model: str, fast: bool,
             capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        llm_fallback.last_error = f"subprocess timeout after {timeout}s"  # type: ignore[attr-defined]
+        _llm_err.value = f"subprocess timeout after {timeout}s"
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
         return None
     except Exception as e:
-        llm_fallback.last_error = f"subprocess spawn: {type(e).__name__}: {e}"  # type: ignore[attr-defined]
+        _llm_err.value = f"subprocess spawn: {type(e).__name__}: {e}"
+        llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
         return None
     # Even before looking at stdout, check stderr for API-level failure
     # signatures (only parse_intent_api.py emits these; the others are quiet).
     if api:
         why = _scan_llm_stderr(r.stderr or "")
         if why is not None:
+            _llm_err.value = why
             llm_fallback.last_error = why  # type: ignore[attr-defined]
     try:
         obj = json.loads(r.stdout.strip().splitlines()[-1])
     except Exception:
-        if llm_fallback.last_error is None:  # type: ignore[attr-defined]
-            llm_fallback.last_error = "unparseable output"  # type: ignore[attr-defined]
+        if getattr(_llm_err, "value", None) is None:
+            _llm_err.value = "unparseable output"
+            llm_fallback.last_error = _llm_err.value  # type: ignore[attr-defined]
         return None
     if not isinstance(obj, dict) or obj.get("c") in (None, "noop"):
         return None
@@ -665,6 +677,26 @@ def _vision_run_once(cmd: list[str], logger, stop_evt: threading.Event,
     except Exception as e:
         logger(f"[vision] spawn failed: {e}")
         return False, time.time() - t_launch
+
+    # I3 fix: drain the watcher's stderr on a side thread, log-throttled.
+    # Default pipe buffer is 64 KiB — a chatty watcher (e.g. webcam WARNs
+    # every frame) fills it in ~30 s, blocks the child's next print, which
+    # in turn freezes stdout output, which looks like an end-of-stream to
+    # us and triggers a false-positive restart.  Drain continuously.
+    def _drain_stderr(p):
+        last_log = 0.0
+        try:
+            while p.poll() is None:
+                line = p.stderr.readline()
+                if not line:
+                    break
+                now = time.time()
+                if now - last_log > 5.0:
+                    logger(f"[vision-stderr] {line.rstrip()[:200]}")
+                    last_log = now
+        except Exception:
+            pass
+    threading.Thread(target=_drain_stderr, args=(proc,), daemon=True).start()
 
     tick_count = 0
     try:
@@ -802,15 +834,36 @@ def _maybe_rotate_log(path: str) -> None:
 
 
 def make_logger(path: str | None):
+    """Returns a logger callable that rotates the file mid-run too (I5 fix).
+
+    Previously we only rotated at open time, so a multi-hour daemon session
+    would silently exceed LOG_ROTATE_BYTES.  Now we track bytes written and
+    rotate in place when we cross the threshold.
+    """
     if path:
         _maybe_rotate_log(path)
-    fh = open(path, "a", buffering=1) if path else None
+    fh_box = {"fh": open(path, "a", buffering=1) if path else None,
+              "path": path, "written": 0}
+    _lock = threading.Lock()  # log is called from multiple threads
     def log(line: str):
         stamp = datetime.datetime.now().strftime("%H:%M:%S")
         text = f"{stamp} {line}"
         print(text)
-        if fh:
-            fh.write(text + "\n")
+        fh = fh_box["fh"]
+        if fh is None:
+            return
+        with _lock:
+            try:
+                fh.write(text + "\n")
+            except Exception:
+                return
+            fh_box["written"] += len(text) + 1
+            if fh_box["written"] > LOG_ROTATE_BYTES and fh_box["path"]:
+                try: fh.close()
+                except Exception: pass
+                _maybe_rotate_log(fh_box["path"])
+                fh_box["fh"] = open(fh_box["path"], "a", buffering=1)
+                fh_box["written"] = 0
     return log
 
 _MEM_REPEAT = re.compile(
@@ -941,7 +994,13 @@ def one_turn(args, logger, state: dict,
 
     if wire_cmd and not wire_cmd.get("_exit"):
         wire_ack, pos = send_wire(wire_cmd, args.dry_run)
-        logger(f"wire:   {wire_ack}   servos: {pos}")
+        # I2 fix: render missing ack / pos as visible strings so the web UI
+        # regex (which matches '{...}' for ack and '[...]' for servos)
+        # doesn't silently drop these lines — they're exactly the lines
+        # the user most wants to see when something goes wrong.
+        ack_str = wire_ack if wire_ack else "{no-ack}"
+        pos_str = f"[{','.join(str(x) for x in pos)}]" if pos else "[none]"
+        logger(f"wire:   {ack_str}   servos: {pos_str}")
         # record the wire command to the ring buffer for 'do it again' / 'undo'
         _push_history(state, wire_cmd)
         # legacy walking flag — only meaningful when we don't have an engine
