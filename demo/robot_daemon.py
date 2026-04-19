@@ -142,14 +142,19 @@ def speak(text: str, enabled: bool):
 
 # ------------------------------------------------------------------ phone STT
 
-def phone_transcribe(wav: str, dry_run: bool) -> tuple[str, float]:
+PHONE_SERIALS = {"pixel6": "1B291FDF600260", "p20": "9WV4C18C11005454"}
+
+
+def phone_transcribe(wav: str, dry_run: bool,
+                     phone: str = "pixel6") -> tuple[str, float]:
     if dry_run:
         return "", 0.0
-    subprocess.run(["adb", "push", wav, "/data/local/tmp/cmd.wav"],
+    serial = PHONE_SERIALS.get(phone, phone)  # allow raw serial pass-through
+    subprocess.run(["adb", "-s", serial, "push", wav, "/data/local/tmp/cmd.wav"],
                    capture_output=True, check=True)
     t0 = time.time()
     r = subprocess.run(
-        ["adb", "shell",
+        ["adb", "-s", serial, "shell",
          "cd /data/local/tmp && ./whisper-cli -m ggml-base.en.bin "
          "-f cmd.wav --no-timestamps -l en -t 8 2>&1"],
         capture_output=True, text=True, timeout=120,
@@ -353,7 +358,7 @@ def one_turn(args, logger, state: dict,
         except (EOFError, KeyboardInterrupt):
             return {"_exit": True}
         record_window(args.seconds, CAP_WAV)
-        transcript, dt = phone_transcribe(CAP_WAV, args.dry_run)
+        transcript, dt = phone_transcribe(CAP_WAV, args.dry_run, args.stt_phone)
     logger(f"heard ({dt*1000:.0f} ms): {transcript!r}")
 
     cmd = match_command(transcript)
@@ -477,20 +482,19 @@ def main():
                    help="use parse_intent_fast.py (talks to llama-server on "
                         "phone — much faster if you've started the server via "
                         "scripts/start_llm_server.sh).  default: false.")
-    p.add_argument("--llm-api", choices=["local", "api"], default="local",
+    p.add_argument("--llm-api", choices=["local", "api"], default=None,
                    help="with --with-llm, choose where the LLM runs.  "
-                        "local (default): on-phone (parse_intent.py / "
-                        "parse_intent_fast.py).  api: DeepInfra-hosted "
-                        "(parse_intent_api.py, Llama-3.1-8B by default, "
-                        "~1 s/call, 8/8 on self-test; requires internet + "
-                        "$DEEPINFRA_API_KEY).  When --llm-api api, "
-                        "--llm-model accepts llama31-8b / llama33-70b / "
-                        "gemma3-27b / qwen25-72b — anything else falls "
-                        "through to llama31-8b.")
+                        "local: on-phone (parse_intent.py / parse_intent_fast.py). "
+                        "api: DeepInfra Llama-3.1-8B (~1 s/call, 8/8 accuracy, "
+                        "needs $DEEPINFRA_API_KEY).  default: auto — api if "
+                        "$DEEPINFRA_API_KEY is set, else local.")
     p.add_argument("--with-vision", metavar="CLASS", default=None,
                    help="launch demo/vision_watcher.py in the background; "
                         "emit greeting / auto-stop reactions when CLASS is "
                         "seen (e.g. 'person').")
+    p.add_argument("--stt-phone", choices=["pixel6", "p20"], default="pixel6",
+                   help="phone that runs Whisper on-device (default: pixel6). "
+                        "only used in voice mode.")
     p.add_argument("--vision-source", choices=["phone", "webcam"], default="webcam",
                    help="frame source for vision_watcher.  webcam: laptop "
                         "/dev/video0 via OpenCV (~20 FPS, default); phone: "
@@ -509,9 +513,20 @@ def main():
     args = p.parse_args()
 
     logger = make_logger(args.log)
+    # Auto-pick LLM backend if user didn't force it: API when the key is set,
+    # local otherwise.  Reduces the default invocation to `scripts/run_robot.sh`
+    # without forcing users to remember --llm-api api.
+    if args.llm_api is None:
+        args.llm_api = "api" if os.environ.get("DEEPINFRA_API_KEY") else "local"
+    # Default ANDROID_SERIAL so any subprocess using plain `adb` (parse_intent*,
+    # vision_watcher --source phone, etc.) targets the right device when both
+    # Pixel 6 and P20 Lite are plugged in.
+    os.environ.setdefault("ANDROID_SERIAL",
+                          PHONE_SERIALS.get(args.stt_phone, args.stt_phone))
     logger(f"robot_daemon up  mode={args.mode}  dry_run={args.dry_run}  "
            f"with_llm={args.with_llm}/fast={args.llm_fast}/api={args.llm_api}  "
-           f"with_vision={args.with_vision}  tts={args.tts}")
+           f"with_vision={args.with_vision}  tts={args.tts}  "
+           f"stt_phone={args.stt_phone}(ANDROID_SERIAL={os.environ.get('ANDROID_SERIAL','')})")
     speak("robot online", args.tts)
 
     stop_evt = threading.Event()
