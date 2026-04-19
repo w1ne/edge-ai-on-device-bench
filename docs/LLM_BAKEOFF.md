@@ -23,6 +23,24 @@ The Planner defaults to `meta-llama/Meta-Llama-3.1-8B-Instruct` purely because t
 
 DeepSeek-V3.2-Exp is available on DeepInfra (chat completions verified with `curl`) but exceeded the 300 s time cap on the full 21-case run — in both attempts the process was SIGTERMed before reporting results. Disqualified on latency.
 
+### DeepSeek retry — post-DNF probe (2026-04-20)
+
+Followup probe ran a single-turn smoke test with a 3-tool schema:
+`tools_calls=1 (jump({}))`, total wall **4.79 s**, prompt=409 / completion=41 tokens. Then ran the full planner loop on "Jump once and tell me you are happy" (8-tool schema): 3 steps, **11.91 s wall** (~4 s per LLM turn).
+
+Verdict: **DeepSeek-V3.2 is not structurally broken** — the DNF was a
+scope issue. The model emits one tool call per turn (no parallel calls)
+so a 3-step goal costs ~3 × 4 s = 12 s of LLM wall, versus Qwen-2.5-72B
+which parallelises and finishes the same goal in ~2 s. Extrapolated, a
+21-case run that averages 3 steps/case lands at ~4 minutes — just
+barely within the 300 s cap, but with zero headroom.
+
+Not worth retrying at scale: even if it passed every case, the 5-6×
+per-goal latency disadvantage vs Qwen makes it a non-starter for an
+interactive voice agent. Result stays as DNF with the asterisk that the
+cause is "serial tool calls + slow throughput," not "broken
+tool-calling."
+
 ## Results
 
 | Model | Score | Median latency | Total wall | Failures |
