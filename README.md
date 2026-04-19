@@ -40,6 +40,33 @@ Raw runtimes: `llama.cpp`, `whisper.cpp`, `NCNN benchncnn`.
 | **Depth Anything V2 Small (fixed, 256×256, 4thr)** | **depth map throughput** | **❌ crash** | **7.90 FPS (126 ms)** |
 | RL locomotion (fixed) | policy inference | **~33 kHz avg, 50 kHz peak** (4 thr) | **~20 kHz avg, 100 kHz peak** (4 thr) |
 
+## Pixel 6 GPU acceleration (Mali-G78 via Vulkan)
+
+A Vulkan-enabled llama.cpp + ncnn build was cross-compiled with Android NDK r26d
+and run on Pixel 6's Mali-G78 (Tensor G1). Vulkan runtime is available, fp16
+and int8 paths present, no matrix / cooperative-matrix cores. Patched
+`ggml-vulkan.cpp` to grow its descriptor pool on demand (see
+`scripts/vulkan-patches/`); ncnn needed no patch.
+
+| Workload | 4-thread CPU | Vulkan Mali-G78 | GPU vs CPU |
+|---|---|---|---|
+| TinyLlama 1.1B Q4_0 — tg64 | 24.9 t/s | 10.4 t/s | **2.4× slower** |
+| TinyLlama 1.1B Q4_0 — pp32 | 35.3 t/s | 3.6 t/s | **9.8× slower** |
+| Gemma 3 1B Q4_0 — tg64 | 22.8 t/s | 9.6 t/s | 2.4× slower |
+| YOLO-Fastest v2 | 9.97 ms | 21.79 ms | 2.2× slower |
+| NanoDet-M | 7.55 ms | 71.23 ms | 9.4× slower |
+| Depth Anything V2 @ 256 | 119.5 ms | 4837 ms | **40× slower** |
+| squeezenet / mobilenet / shufflenet | (various) | 1.5–4.8× slower | GPU loses |
+
+**Conclusion:** on Pixel 6's Mali-G78, CPU beats GPU for every model in the
+stack. Quantized matvec is memory-bandwidth bound; the GPU has no matrix cores
+and only 32 KiB shared memory per workgroup. The real acceleration path on
+Tensor G1 is the **Edge TPU via NNAPI**, which requires `.tflite` models —
+neither llama.cpp (GGUF) nor ncnn (`.param`/`.bin`) targets that backend. That
+port is the next investment if we want a "TPU-accelerated" column. Full raw
+logs: `logs/pixel6_vulkan_accelerated_2026-04-19.log` and
+`logs/pixel6_ncnn_vulkan_2026-04-19.log`.
+
 ## What had to be fixed before numbers were measurable
 
 Two of the eight models shipped with broken artifacts that prevented them from running on either device:
