@@ -38,7 +38,7 @@ Raw runtimes: `llama.cpp`, `whisper.cpp`, `NCNN benchncnn`.
 | NanoDet-M | detection throughput | 12 FPS (85 ms) | **80 FPS (12.5 ms)** |
 | Depth Anything V2 Small (fixed, 518×518, 4thr) | depth map throughput | ❌ crash | 1.46 FPS (687 ms) |
 | **Depth Anything V2 Small (fixed, 256×256, 4thr)** | **depth map throughput** | **❌ crash** | **7.90 FPS (126 ms)** |
-| RL locomotion (fixed) | policy inference | n/a | **~20 kHz avg, 100 kHz peak** |
+| RL locomotion (fixed) | policy inference | **~33 kHz avg, 50 kHz peak** (4 thr) | **~20 kHz avg, 100 kHz peak** (4 thr) |
 
 ## What had to be fixed before numbers were measurable
 
