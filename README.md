@@ -130,11 +130,10 @@ python3 demo/robot_daemon.py --mode text --dry-run
 
 # full stack: webcam vision + BehaviorEngine (greets on new class, stops
 # on close obstacle while walking) + DeepInfra API for out-of-vocab phrases
-source ~/Projects/AIHW/.env.local     # export DEEPINFRA_API_KEY
-python3 demo/robot_daemon.py --with-vision person \
-                             --vision-phone pixel6 \
-                             --with-llm --llm-api api \
-                             --log logs/robot.log
+scripts/run_robot.sh
+
+# same thing but typed-mode (no mic), no USB (no ESP32 needed):
+scripts/run_robot.sh --mode text --dry-run --no-tts
 
 # offline-only LLM fallback (on-phone, slower, less accurate):
 python3 demo/robot_daemon.py --with-llm --llm-api local --llm-model gemma
