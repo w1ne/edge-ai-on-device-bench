@@ -165,25 +165,143 @@ def record_window(seconds: int, out_path: str):
     )
     return out_path
 
-def speak(text: str, enabled: bool,
-          mute_evt: "threading.Event | None" = None):
-    """Speak via espeak-ng.  If `mute_evt` is supplied, set it for
-    max(len(text)*0.05, 1.5) s around the call so the wake-word detector
-    drops its own TTS audio.  We arm the flag before espeak-ng launches
-    and schedule clearing on a timer so the mute window reliably covers
-    laptop speaker output even if espeak-ng returns early."""
-    if not enabled or not text:
-        return
-    mute_dur = max(len(text) * 0.05, 1.5)
-    if mute_evt is not None:
-        mute_evt.set()
+# ---- TTS backend selection (Piper with espeak-ng fallback).
+#
+# Piper is a fast neural TTS that sounds much more natural than espeak-ng.
+# We load the voice lazily on first use and cache the PiperVoice instance
+# module-level so subsequent calls skip the ~900 ms ONNX load.  If Piper is
+# unavailable (missing package, missing voice, runtime error), we fall back
+# to espeak-ng for that call without disabling Piper permanently.
+#
+# Controlled by args.tts_mode / args.tts_voice (threaded in from argparse);
+# the global _TTS_MODE / _TTS_VOICE below are set by main() before the first
+# speak() call.
+
+_TTS_MODE: str = "piper"                      # "piper" | "espeak" | "off"
+_TTS_VOICE: str = "en_US-lessac-low"
+_TTS_VOICE_DIR: str = os.path.expanduser("~/.cache/piper")
+_TTS_DUMP_DIR: str | None = None              # if set, WAVs are saved here
+_PIPER_VOICE = None                           # cached PiperVoice
+_PIPER_PROBED: bool = False                   # True once we've tried to load
+_PIPER_AVAILABLE: bool = False                # set by _piper_probe()
+_PIPER_LOCK = threading.Lock()
+
+
+def _piper_paths(voice: str) -> tuple[str, str]:
+    base = os.path.join(_TTS_VOICE_DIR, voice)
+    return base + ".onnx", base + ".onnx.json"
+
+
+def _piper_probe() -> bool:
+    """Load the Piper voice if not yet loaded.  Caches the result so repeat
+    calls are free.  Returns True if Piper is ready to synthesize."""
+    global _PIPER_VOICE, _PIPER_PROBED, _PIPER_AVAILABLE
+    with _PIPER_LOCK:
+        if _PIPER_PROBED:
+            return _PIPER_AVAILABLE
+        _PIPER_PROBED = True
+        try:
+            from piper import PiperVoice  # type: ignore
+        except Exception:
+            _PIPER_AVAILABLE = False
+            return False
+        onnx, cfg = _piper_paths(_TTS_VOICE)
+        if not (os.path.exists(onnx) and os.path.exists(cfg)):
+            _PIPER_AVAILABLE = False
+            return False
+        try:
+            _PIPER_VOICE = PiperVoice.load(onnx, config_path=cfg)
+        except Exception:
+            _PIPER_VOICE = None
+            _PIPER_AVAILABLE = False
+            return False
+        _PIPER_AVAILABLE = True
+        return True
+
+
+def _piper_synth_and_play(text: str) -> bool:
+    """Synthesize `text` to an in-memory WAV, pipe it to `aplay`.  Blocks
+    until playback finishes or aplay fails.  Returns True on success.
+    Any exception/error returns False so the caller can fall back to
+    espeak-ng for this call."""
+    global _PIPER_VOICE
+    if _PIPER_VOICE is None:
+        return False
+    import io, wave
+    buf = io.BytesIO()
+    try:
+        with wave.open(buf, "wb") as wf:
+            _PIPER_VOICE.synthesize_wav(text, wf)
+    except Exception:
+        return False
+    wav_bytes = buf.getvalue()
+    if not wav_bytes:
+        return False
+    # Optional: save every synthesis to a dump dir for offline listening.
+    if _TTS_DUMP_DIR:
+        try:
+            os.makedirs(_TTS_DUMP_DIR, exist_ok=True)
+            stamp = datetime.datetime.now().strftime("%H%M%S_%f")[:-3]
+            safe = re.sub(r"[^a-z0-9]+", "_", text.lower())[:40].strip("_")
+            fn = os.path.join(_TTS_DUMP_DIR, f"{stamp}_{safe}.wav")
+            with open(fn, "wb") as fh:
+                fh.write(wav_bytes)
+        except Exception:
+            pass
+    try:
+        r = subprocess.run(
+            ["aplay", "-q", "-"],
+            input=wav_bytes, stderr=subprocess.DEVNULL, timeout=15,
+        )
+    except Exception:
+        return False
+    return r.returncode == 0
+
+
+def _espeak_speak(text: str) -> None:
     try:
         subprocess.run(["espeak-ng", "-v", "en-us", "-s", "160", text],
                        stderr=subprocess.DEVNULL, timeout=15)
     except Exception:
         pass
+
+
+def speak(text: str, enabled: bool,
+          mute_evt: "threading.Event | None" = None):
+    """Speak via Piper (natural-sounding neural TTS), falling back to
+    espeak-ng if Piper is unavailable or fails on this call.  If `mute_evt`
+    is supplied, set it for max(len(text)*0.05, 1.5) s around the call so
+    the wake-word detector drops its own TTS audio.  We arm the flag before
+    synthesis starts and schedule clearing on a timer so the mute window
+    reliably covers laptop speaker output even if TTS returns early.
+
+    `enabled` accepts legacy bool (True/False) or the string mode
+    ("piper" | "espeak" | "off").  False or "off" is a no-op."""
+    if not text:
+        return
+    # Normalize the `enabled` gate — keep backward compat with callers that
+    # still pass a bool (e.g. battery_watcher's partial-applied lambdas).
+    if enabled is False or enabled == "off":
+        return
+    mode = _TTS_MODE if enabled is True else (enabled if isinstance(enabled, str) else _TTS_MODE)
+    if mode == "off":
+        return
+
+    mute_dur = max(len(text) * 0.05, 1.5)
     if mute_evt is not None:
-        # keep muted for the full envelope (espeak return + tail reverb)
+        mute_evt.set()
+
+    spoke = False
+    if mode == "piper":
+        if _piper_probe():
+            spoke = _piper_synth_and_play(text)
+        # else: fall through to espeak silently
+
+    if not spoke:
+        _espeak_speak(text)
+
+    if mute_evt is not None:
+        # keep muted for the full envelope (TTS return + tail reverb)
         t = threading.Timer(mute_dur, mute_evt.clear)
         t.daemon = True
         t.start()
@@ -906,13 +1024,29 @@ def main():
                    help="seconds between vision frames (default 0.5)")
     p.add_argument("--dry-run", action="store_true",
                    help="skip adb + USB; print decisions only")
-    p.add_argument("--no-tts", dest="tts", action="store_false", default=True,
-                   help="disable espeak-ng output")
+    p.add_argument("--tts", choices=["piper", "espeak", "off"], default="piper",
+                   help="TTS backend.  piper: neural voice (fast, natural); "
+                        "espeak: espeak-ng (robotic, no extra deps); "
+                        "off: silent.  default: piper (falls back to espeak "
+                        "automatically if the Piper voice is missing).")
+    p.add_argument("--tts-voice", default="en_US-lessac-low",
+                   help="Piper voice name (looked up in ~/.cache/piper/ as "
+                        "<name>.onnx + <name>.onnx.json).  default: "
+                        "en_US-lessac-low.")
+    p.add_argument("--no-tts", dest="no_tts", action="store_true",
+                   help="shortcut for --tts off")
     p.add_argument("--log", metavar="PATH",
                    help="append transcripts + decisions to logfile")
     args = p.parse_args()
 
     logger = make_logger(args.log)
+    # --no-tts is a shortcut for --tts off.
+    if getattr(args, "no_tts", False):
+        args.tts = "off"
+    # Plumb TTS config into the module-level speak() backend selector.
+    global _TTS_MODE, _TTS_VOICE
+    _TTS_MODE = args.tts
+    _TTS_VOICE = args.tts_voice
     # Auto-pick LLM backend if user didn't force it: API when the key is set,
     # local otherwise.  Reduces the default invocation to `scripts/run_robot.sh`
     # without forcing users to remember --llm-api api.

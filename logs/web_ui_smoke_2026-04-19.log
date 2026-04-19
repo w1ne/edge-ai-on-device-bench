@@ -1,0 +1,62 @@
+=== web_ui smoke test Sun Apr 19 03:51:14 PM UTC 2026 ===
+daemon pid: 847679
+web_ui pid: 848005
+--- web_ui startup log ---
+[web_ui] robot=PhoneWalker  logs_dir=/home/andrii/Projects/edge-ai-on-device-bench/logs  flask=True
+ * Serving Flask app 'web_ui'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5555
+Press CTRL+C to quit
+
+--- curl -i http://127.0.0.1:5555/healthz ---
+HTTP/1.1 200 OK
+Server: Werkzeug/3.1.8 Python/3.10.12
+Date: Sun, 19 Apr 2026 15:51:14 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 2
+Connection: close
+
+ok
+
+--- curl -i http://127.0.0.1:5555/ (headers only) ---
+HTTP/1.1 200 OK
+Server: Werkzeug/3.1.8 Python/3.10.12
+Date: Sun, 19 Apr 2026 15:51:14 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 3834
+Connection: close
+
+
+--- curl http://127.0.0.1:5555/ (full HTML body) ---
+<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>PhoneWalker dashboard</title><style>*{box-sizing:border-box;font-family:ui-monospace,Menlo,Consolas,monospace}body{background:#0b0f14;color:#cfe;margin:0;padding:18px}h1{margin:0 0 10px 0;font-size:20px;color:#7df}h2{margin:14px 0 6px 0;font-size:13px;color:#9ac;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid #244;padding-bottom:3px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:#111820;border:1px solid #234;border-radius:6px;padding:12px}.hdr{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#13202b;border:1px solid #245;border-radius:6px;padding:10px}.tag{background:#0a2a3a;padding:2px 8px;border-radius:4px;font-size:12px}.ok{color:#7f8}.warn{color:#fc6}.bad{color:#f77}.big{font-size:15px}pre{background:#06090d;border:1px solid #1a2530;padding:8px;border-radius:4px;white-space:pre-wrap;word-break:break-word;margin:0;font-size:12px;max-height:240px;overflow:auto}.kv{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:12px}.kv b{color:#9cd}.stop{background:#b00;color:#fff;border:0;padding:16px 28px;font-size:18px;font-weight:bold;border-radius:6px;cursor:pointer;margin-right:12px}.stop:hover{background:#d22}.sdn{background:#333;color:#eee;border:1px solid #555}.sdn:hover{background:#555}img.eye{max-width:320px;max-height:240px;border:1px solid #234;border-radius:4px}.row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}.small{font-size:11px;color:#789}form{display:inline}</style></head><body><div class="hdr"><h1>PhoneWalker</h1><span class="tag"><span class="ok">PID 847679</span> &middot; uptime 48s</span><span class="tag">behavior: <span class="">idle</span></span><span class="tag">vision: <span class="warn">silent</span></span><form method="POST" action="/stop"><button class="stop">STOP</button></form><form method="POST" action="/shutdown"><button class="stop sdn">SHUTDOWN daemon</button></form></div><div class="small">mode=text  dry_run=True  with_llm=False/fast=False/api=local  with_vision=None  tts=off  stt_phone=pixel6(ANDROID_SERIAL=1B291FDF600260)</div><div class="grid"><div class="card"><h2>last heard</h2><div class="big">&#x27;do something fun&#x27;</div><div class="small">@ 17:50:32</div><h2>last decision</h2><div class="big">None</div><div class="small">@ 17:50:32</div><h2>tail (last 10 lines)</h2><pre>17:50:29 decision: {&#x27;c&#x27;: &#x27;pose&#x27;, &#x27;n&#x27;: &#x27;neutral&#x27;, &#x27;d&#x27;: 1500}
+17:50:29 wire:   dry-run   servos: None
+17:50:30 heard (0 ms): &#x27;lean left&#x27;
+17:50:30 decision: {&#x27;c&#x27;: &#x27;pose&#x27;, &#x27;n&#x27;: &#x27;lean_left&#x27;, &#x27;d&#x27;: 1500}
+17:50:30 wire:   dry-run   servos: None
+17:50:31 heard (0 ms): &#x27;bow&#x27;
+17:50:31 decision: {&#x27;c&#x27;: &#x27;pose&#x27;, &#x27;n&#x27;: &#x27;bow_front&#x27;, &#x27;d&#x27;: 1800}
+17:50:31 wire:   dry-run   servos: None
+17:50:32 heard (0 ms): &#x27;do something fun&#x27;
+17:50:32 decision: None</pre></div><div class="card"><h2>vision</h2><div class="kv"><b>state</b><span class="warn">silent</span><b>ticks</b><span>--</span><b>avg latency</b><span>--</span><b>last event</b><span><span class="small">(no vision events yet)</span></span></div><div class="row" style="margin-top:10px"><div class="small">(no /tmp/_robot_eye.png yet)</div></div><h2>behavior</h2><div class="big"><span class="">idle</span></div><h2>ESP32 telemetry</h2><div class="kv"><b>--</b><span class="small">no telemetry in log yet</span></div><h2>LLM</h2><div class="kv"><b>DEEPINFRA_API_KEY</b><span class="bad">UNSET</span></div></div></div><div class="small" style="margin-top:12px">refresh 1s &middot; log: /home/andrii/Projects/edge-ai-on-device-bench/logs/robot-ui-smoke.log</div></body></html>
+
+=== additional checks ===
+
+--- /stop pyusb path (daemon is DOWN - proves STOP is decoupled) ---
+flash: STOP: ok
+daemon-not-running tag present: True
+
+--- direct fire_stop() while daemon is dead (independent) ---
+fire_stop() -> ok
+
+--- lsusb confirms ESP32 attached ---
+Bus 001 Device 024: ID 303a:1001 Espressif USB JTAG/serial debug unit
+
+--- /eye.png response with file present ---
+HTTP/1.1 200 OK
+Server: Werkzeug/3.1.8 Python/3.10.12
+Date: Sun, 19 Apr 2026 15:51:51 GMT
+Content-Type: image/png
+
+--- /healthz ---
+ok

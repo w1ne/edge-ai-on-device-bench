@@ -1,0 +1,17 @@
+17:50:26 robot_daemon up  mode=text  dry_run=True  with_llm=False/fast=False/api=local  with_vision=None  tts=off  stt_phone=pixel6(ANDROID_SERIAL=1B291FDF600260)
+17:50:26 [self-test] esp32:   SKIPPED (--dry-run)
+17:50:26 [self-test] adb:     ok (serial=1B291FDF600260)
+17:50:26 [self-test] webcam:  present (/dev/video0)
+17:50:26 [self-test] llm-key: unset (DEEPINFRA_API_KEY)
+17:50:26 === self-test: PASS ===
+17:50:29 heard (0 ms): 'neutral'
+17:50:29 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+17:50:29 wire:   dry-run   servos: None
+17:50:30 heard (0 ms): 'lean left'
+17:50:30 decision: {'c': 'pose', 'n': 'lean_left', 'd': 1500}
+17:50:30 wire:   dry-run   servos: None
+17:50:31 heard (0 ms): 'bow'
+17:50:31 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+17:50:31 wire:   dry-run   servos: None
+17:50:32 heard (0 ms): 'do something fun'
+17:50:32 decision: None
