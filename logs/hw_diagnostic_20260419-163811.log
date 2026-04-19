@@ -1,0 +1,9 @@
+=== PING + state field audit ===
+captured 20 state packets in 2 s (~10.0 Hz)
+first state: {"t":"state","p":[2045,2048,2048,2047],"v":71,"tmp":27,"ms":3564507,"imu":[-0.00,-0.02,0.98,-4.3,-1.2,-0.1]}
+last  state: {"t":"state","p":[2045,2048,2048,2047],"v":71,"tmp":27,"ms":3566407,"imu":[-0.01,-0.01,0.99,-4.3,-1.2,-0.1]}
+
+=== telemetry variance over 3 s ===
+Traceback (most recent call last):
+  File "<stdin>", line 39, in <module>
+AttributeError: 'array.array' object has no attribute 'decode'

@@ -1,0 +1,22 @@
+=== pose sweep ===
+  neutral       2159 ms  ack=ok  final_servos=[2045,2048,2048,2047]
+  lean_left     2103 ms  ack=ok  final_servos=[1701,1700,1696,1695]
+  lean_right    2102 ms  ack=ok  final_servos=[2400,2399,2397,2395]
+  bow_front     2103 ms  ack=ok  final_servos=[1501,2501,2597,1595]
+  neutral       2102 ms  ack=ok  final_servos=[2049,2048,2048,2046]
+
+=== ping storm (20x back-to-back) ===
+  sent 20 pings in 11.98 s  (1.7 cmd/s)  ok=20 fail=0
+
+=== jump ===
+  ack: {"t":"ack","c":"jump","ok":true}
+
+=== unknown cmd error path ===
+  err: {"t":"err","msg":"unknown cmd"}
+
+=== IMU response to pose change (lean_left, then neutral) ===
+  baseline imu: [-0.01, -0.01, 0.98, -4.3, -1.1, -0.1]
+  lean_left imu: [-0.01, -0.01, 0.99, -4.3, -1.1, -0.1]
+  Δ: ['+0.000', '+0.000', '+0.010', '+0.000', '+0.000', '+0.000']
+
+=== done ===

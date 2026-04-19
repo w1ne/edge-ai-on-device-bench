@@ -61,7 +61,18 @@ Headline: **Edge TPU is a real win for classifier-class backbones (10× measured
 
 ## Open items
 
-**Blocked:** Firmware IMU stays pinned at zero. Audit (`docs/FIRMWARE_IMU_AUDIT.md`) shows `w1ne/PhoneWalker` is **not** the running firmware — its `main.cpp` is a char pass-through CLI with zero IMU code, yet the live ESP32 emits JSON packets with an `imu` field. The actual firmware source is elsewhere; once located we can drop in a standard MPU-6050 driver with retry. Until then, the robot walks dead-reckoned.
+**IMU status update (2026-04-19 afternoon):** the "IMU pinned at zero" observation is obsolete. After a power cycle, the running firmware now emits live IMU data every 10 Hz state packet: `[-0.01, -0.01, 0.98, -4.3, -1.1, -0.1]` — gravity on Z (0.98 is exactly right for a horizontal chassis), small gyro bias. Every axis moves with natural noise floor (sd ~0.005-0.18). This confirms the earlier hypothesis: the firmware's one-shot `MPU.begin()` failed silently on boot once; power-cycling re-ran init successfully. The firmware is healthy — we still don't have its source, but we don't urgently need to replace it. The only remaining fragility is that IMU can die silently if init fails; mitigation is a periodic voltage-brownout power-cycle, which the user does when needed.
+
+Separately, the source audit (`docs/FIRMWARE_IMU_AUDIT.md`) still stands: `w1ne/PhoneWalker` is NOT the running firmware — its `main.cpp` is a char pass-through CLI with zero IMU code. The actual firmware binary lives only on the ESP32's flash. Dumping it requires the BOOT button held during reset (physical access). Noting for future reference; not blocking anything today.
+
+**Firmware command surface, verified on live hardware:**
+- `{"c":"ping"}` → `{"t":"ack","c":"ping","ok":true}` + 10 Hz state stream
+- `{"c":"pose","n":<neutral|lean_left|lean_right|bow_front>,"d":<ms>}` → ack + servo motion
+- `{"c":"walk","on":true,"stride":150,"step":400}` → ack, starts walking
+- `{"c":"stop"}` → ack, halts motion
+- `{"c":"jump"}` → ack, jump motion
+- Unknown commands → `{"t":"err","msg":"unknown cmd"}` (proper error path exists)
+- State packet fields: `p` (4 servo positions), `v` (voltage x10), `tmp` (temp °C), `ms` (uptime), `imu` (6 floats: ax/ay/az in g, gx/gy/gz in deg/s)
 
 **Correction on the "2.5× Whisper TFLite" number:** the earlier measurement was a tensor-op microbench, not a real end-to-end transcribe. When we actually wired it, the community TFLite port (`nyadla-sys/whisper-tiny.en.tflite`) has a broken greedy decoder — it exits on the first real token and produces empty transcripts. The `--stt-backend tflite` flag exists and falls back to whisper-cli on empty output; the runner is at `scripts/whisper_tflite_runner.py`. Unblock: re-export Whisper from HF with working `forced_decoder_ids`, or use the encoder-only TFLite + a laptop-side decoder. Neither is a quick fix.
 

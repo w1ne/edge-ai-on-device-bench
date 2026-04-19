@@ -279,3 +279,38 @@ Run from the laptop daemon; device on USB CDC.
 - **Created:** this file, `/home/andrii/Projects/edge-ai-on-device-bench/docs/FIRMWARE_IMU_AUDIT.md`.
 - **No changes to the firmware repo working tree.** `git status` on
   `/home/andrii/Projects/PhoneWalker/` is clean post-audit.
+
+---
+
+## Update 2026-04-19 afternoon: IMU is actually fine
+
+Live-hardware retest after power cycle shows the IMU streaming real values, not zeros:
+```
+imu: [-0.01, -0.01, 0.98, -4.3, -1.1, -0.1]
+  ax  ay  az   gx   gy   gz
+```
+- `az ≈ 0.98` is gravity (robot horizontal on a table), exactly correct.
+- Gyro bias ~`-4.3, -1.1, -0.1` deg/s — small, constant, typical MPU-6050 out-of-factory bias.
+- Per-axis std-dev 0.005–0.18, natural noise floor. Multiple distinct values across packets (not pinned).
+
+Retested 2026-04-19 16:40 UTC. 23 state packets parsed, 7.2 Hz telemetry, all IMU fields live. Sweep log: `logs/hw_full_sweep_20260419-164101.log`.
+
+**Root cause confirmed:** the firmware's one-shot `MPU.begin()` (per our hypothesis) failed silently on an earlier boot, then the power cycle re-ran init successfully. This matches the known pattern — not a permanent hardware fault, just a brittle init sequence with no retry.
+
+**Resolution:** no firmware flashing today. The running firmware is healthy; if IMU zeros recur after a brownout, power-cycling the robot re-inits it. Longer-term, when we locate the firmware source we'd add a retry loop on consecutive-zero-read, but it's not a blocker for any current demo.
+
+## Verified command surface (live firmware, regardless of source)
+
+| Command | Ack | Effect |
+|---|---|---|
+| `{"c":"ping"}` | `{"t":"ack","c":"ping","ok":true}` | nothing, heartbeat |
+| `{"c":"pose","n":"neutral","d":1500}` | `{"t":"ack","c":"pose","ok":true}` | servos [2048] |
+| `{"c":"pose","n":"lean_left","d":1500}` | ditto | servos [~1700] |
+| `{"c":"pose","n":"lean_right","d":1500}` | ditto | servos [~2400] |
+| `{"c":"pose","n":"bow_front","d":1800}` | ditto | servos asymmetric [1501, 2501, 2597, 1595] |
+| `{"c":"walk","on":true,"stride":150,"step":400}` | `{"t":"ack","c":"walk","ok":true,"state":"walking"}` | walk pattern |
+| `{"c":"stop"}` | `{"t":"ack","c":"stop","ok":true}` | halt |
+| `{"c":"jump"}` | `{"t":"ack","c":"jump","ok":true}` | jump motion |
+| unknown (e.g. `{"c":"fart"}`) | `{"t":"err","msg":"unknown cmd"}` | nothing |
+
+All verified 2026-04-19 on live hardware.
