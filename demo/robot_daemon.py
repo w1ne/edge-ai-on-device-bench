@@ -192,16 +192,19 @@ def send_wire(cmd: dict, dry_run: bool):
 
 # ------------------------------------------------------------------ LLM fallback
 
-def llm_fallback(transcript: str, model: str) -> dict | None:
-    """Call demo/parse_intent.py --model <model>.  Best-effort; returns None on failure.
+def llm_fallback(transcript: str, model: str, fast: bool) -> dict | None:
+    """Route to parse_intent_fast.py (if --with-llm-fast) or parse_intent.py.
 
-    TinyLlama Q4_0 is 4/8 correct on the test set; Gemma 3 1B Q4_0 is 7/8 but
-    ~2x slower per call on P20 Lite.  See logs/parse_intent_tests.log.
+    Fast path talks to a persistent llama-server on the phone (start via
+    scripts/start_llm_server.sh) — second and later calls drop from ~25 s
+    to ~2–8 s on Gemma 3 1B Q4_0.  Slow path reloads the model per call.
+    TinyLlama Q4_0 is 4/8 correct on the test set; Gemma 3 1B Q4_0 is 7/8.
+    See logs/parse_intent_tests.log.
     """
+    script = "parse_intent_fast.py" if fast else "parse_intent.py"
     try:
         r = subprocess.run(
-            [sys.executable, str(HERE / "parse_intent.py"),
-             "--model", model, transcript],
+            [sys.executable, str(HERE / script), "--model", model, transcript],
             capture_output=True, text=True, timeout=150,
         )
     except Exception:
@@ -217,35 +220,60 @@ def llm_fallback(transcript: str, model: str) -> dict | None:
 
 # ------------------------------------------------------------------ eyes (async)
 
-def eyes_loop(interval: int, logger, dry_run: bool, stop_evt: threading.Event):
-    """Poll vision in background.  Logs top detection; does not act."""
-    eye = HERE / "eyes.py"
-    if not eye.exists():
-        logger("[eyes] skipped (demo/eyes.py missing)")
+def vision_loop(phone: str, watch_for: str, interval: float, logger,
+                dry_run: bool, stop_evt: threading.Event,
+                event_queue: "queue.Queue[dict]"):
+    """Background consumer of demo/vision_watcher.py stdout.
+
+    Each JSONL line from the watcher is either {"t":"tick", ...} (liveness) or
+    {"t":"event", "class": ..., "conf": ..., "bbox": [...], "streak": ...}.
+    Events get pushed into event_queue; ticks are just logged at low volume.
+    """
+    watcher = HERE / "vision_watcher.py"
+    if not watcher.exists() or dry_run:
+        logger("[vision] skipped (watcher missing or dry-run)")
         return
-    # eyes.py handles its own adb calls; fine to run even when the daemon
-    # is in --dry-run mode (voice/USB stubbed but vision still useful).
-    while not stop_evt.is_set():
-        try:
-            r = subprocess.run(
-                [sys.executable, str(eye), "--out", EYE_PNG, "--top", "1"],
-                capture_output=True, text=True, timeout=25,
-            )
-            # eyes.py prints detection lines + some banner; pick first non-empty
-            # line that looks like a detection (has a bbox) or just the first line.
-            picked = "(none)"
-            for l in r.stdout.splitlines():
-                s = l.strip()
-                if s and ("conf" in s.lower() or re.search(r"\d+\s+\d+\s+\d+\s+\d+", s)):
-                    picked = s
-                    break
-            logger(f"[eyes] {picked}")
-        except subprocess.TimeoutExpired:
-            logger("[eyes] timeout")
-        except Exception as e:
-            logger(f"[eyes] err: {type(e).__name__}: {e}")
-        # sleep, but wake on stop
-        stop_evt.wait(interval)
+    cmd = [sys.executable, str(watcher),
+           "--phone", phone,
+           "--interval", str(interval),
+           "--watch-for", watch_for,
+           "--output", "jsonl"]
+    logger(f"[vision] launching: {' '.join(cmd)}")
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, bufsize=1)
+    except Exception as e:
+        logger(f"[vision] spawn failed: {e}")
+        return
+
+    tick_count = 0
+    try:
+        while not stop_evt.is_set():
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if not line or not line.startswith("{"):
+                continue
+            try:
+                msg = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            t = msg.get("t")
+            if t == "tick":
+                tick_count += 1
+                if tick_count % 20 == 0:
+                    logger(f"[vision] alive (ticks={tick_count}, "
+                           f"last_latency={msg.get('latency_ms')} ms)")
+            elif t == "event":
+                logger(f"[vision] EVENT {msg.get('class')} "
+                       f"conf={msg.get('conf'):.2f} streak={msg.get('streak')}")
+                try: event_queue.put_nowait(msg)
+                except queue.Full: pass
+    finally:
+        try: proc.terminate(); proc.wait(timeout=3)
+        except Exception: pass
+        logger("[vision] watcher stopped")
 
 
 # ------------------------------------------------------------------ main loop
@@ -260,7 +288,7 @@ def make_logger(path: str | None):
             fh.write(text + "\n")
     return log
 
-def one_turn(args, logger) -> dict | None:
+def one_turn(args, logger, state: dict) -> dict | None:
     if args.mode == "text":
         try:
             transcript = input("> ").strip()
@@ -278,8 +306,9 @@ def one_turn(args, logger) -> dict | None:
 
     cmd = match_command(transcript)
     if cmd is None and args.with_llm and transcript:
-        logger(f"[matcher] no keyword hit, asking LLM ({args.llm_model})")
-        cmd = llm_fallback(transcript, args.llm_model)
+        logger(f"[matcher] no keyword hit, asking LLM ({args.llm_model}, "
+               f"{'fast' if args.llm_fast else 'reload-per-call'})")
+        cmd = llm_fallback(transcript, args.llm_model, args.llm_fast)
         if cmd is not None:
             logger(f"[matcher] LLM proposed: {cmd}")
 
@@ -287,8 +316,42 @@ def one_turn(args, logger) -> dict | None:
     if cmd and not cmd.get("_exit"):
         wire_ack, pos = send_wire(cmd, args.dry_run)
         logger(f"wire:   {wire_ack}   servos: {pos}")
+        # track walking state so vision events can auto-stop us
+        if cmd.get("c") == "walk":
+            state["walking"] = True
+        elif cmd.get("c") in ("stop", "pose"):
+            state["walking"] = False
     speak(ack_phrase(cmd), args.tts)
     return cmd
+
+
+def drain_vision_events(event_queue: "queue.Queue[dict]", state: dict,
+                        args, logger):
+    """Called between voice turns. If vision queue has an event, greet or
+    emergency-stop depending on walking state.  Debounced to once per
+    GREETING_COOLDOWN seconds per class.
+    """
+    GREETING_COOLDOWN = 10.0
+    now = time.time()
+    try:
+        while True:
+            ev = event_queue.get_nowait()
+            cls = ev.get("class", "?")
+            last = state["last_greet"].get(cls, 0.0)
+            if now - last < GREETING_COOLDOWN:
+                continue
+            state["last_greet"][cls] = now
+            if state["walking"]:
+                logger(f"[react] {cls} in frame while walking — auto-stop")
+                wire_ack, pos = send_wire({"c": "stop"}, args.dry_run)
+                logger(f"[react] wire: {wire_ack}")
+                state["walking"] = False
+                speak(f"there is a {cls} in front of me, stopping", args.tts)
+            else:
+                logger(f"[react] {cls} detected — greeting")
+                speak(f"hello, I see a {cls}", args.tts)
+    except queue.Empty:
+        return
 
 def main():
     p = argparse.ArgumentParser(
@@ -307,10 +370,19 @@ def main():
                    help="use on-phone LLM fallback when keyword matcher fails")
     p.add_argument("--llm-model", choices=["gemma", "tinyllama"], default="gemma",
                    help="which on-phone model to use for --with-llm "
-                        "(gemma: 7/8 accuracy, ~30 s/call;  "
-                        "tinyllama: 4/8 accuracy, ~25 s/call).  default: gemma.")
-    p.add_argument("--with-eyes", metavar="N", type=int, default=0,
-                   help="poll YOLO on a background thread every N seconds")
+                        "(gemma: 7/8 accuracy; tinyllama: 4/8).  default: gemma.")
+    p.add_argument("--llm-fast", action="store_true",
+                   help="use parse_intent_fast.py (talks to llama-server on "
+                        "phone — much faster if you've started the server via "
+                        "scripts/start_llm_server.sh).  default: false.")
+    p.add_argument("--with-vision", metavar="CLASS", default=None,
+                   help="launch demo/vision_watcher.py in the background; "
+                        "emit greeting / auto-stop reactions when CLASS is "
+                        "seen (e.g. 'person').")
+    p.add_argument("--vision-phone", choices=["pixel6", "p20"], default="pixel6",
+                   help="phone to source camera frames from (default: pixel6)")
+    p.add_argument("--vision-interval", type=float, default=0.5,
+                   help="seconds between vision frames (default 0.5)")
     p.add_argument("--dry-run", action="store_true",
                    help="skip adb + USB; print decisions only")
     p.add_argument("--no-tts", dest="tts", action="store_false", default=True,
@@ -321,15 +393,19 @@ def main():
 
     logger = make_logger(args.log)
     logger(f"robot_daemon up  mode={args.mode}  dry_run={args.dry_run}  "
-           f"with_llm={args.with_llm}  with_eyes={args.with_eyes}  tts={args.tts}")
+           f"with_llm={args.with_llm}/fast={args.llm_fast}  "
+           f"with_vision={args.with_vision}  tts={args.tts}")
     speak("robot online", args.tts)
 
     stop_evt = threading.Event()
+    event_queue: "queue.Queue[dict]" = queue.Queue(maxsize=32)
+    state = {"walking": False, "last_greet": {}}
     eye_thread: threading.Thread | None = None
-    if args.with_eyes > 0:
+    if args.with_vision:
         eye_thread = threading.Thread(
-            target=eyes_loop,
-            args=(args.with_eyes, logger, args.dry_run, stop_evt),
+            target=vision_loop,
+            args=(args.vision_phone, args.with_vision, args.vision_interval,
+                  logger, args.dry_run, stop_evt, event_queue),
             daemon=True,
         )
         eye_thread.start()
@@ -337,7 +413,8 @@ def main():
     try:
         while True:
             try:
-                cmd = one_turn(args, logger)
+                drain_vision_events(event_queue, state, args, logger)
+                cmd = one_turn(args, logger, state)
             except KeyboardInterrupt:
                 logger("interrupted during turn; idle.")
                 continue

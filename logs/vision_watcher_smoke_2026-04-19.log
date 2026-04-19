@@ -1,0 +1,33 @@
+# === phase 1: live adb screencap from Pixel 6 (2026-04-19T15:03:14+02:00) ===
+{"t":"tick","detections":0,"latency_ms":364.4,"infer_ms":9.2,"ts":"2026-04-19T13:03:15.048+00:00"}
+{"t":"tick","detections":0,"latency_ms":426.3,"infer_ms":8.7,"ts":"2026-04-19T13:03:15.611+00:00"}
+{"t":"tick","detections":0,"latency_ms":360.8,"infer_ms":6.9,"ts":"2026-04-19T13:03:16.045+00:00"}
+{"t":"tick","detections":0,"latency_ms":358.8,"infer_ms":5.9,"ts":"2026-04-19T13:03:16.543+00:00"}
+{"t":"tick","detections":0,"latency_ms":376.5,"infer_ms":7.0,"ts":"2026-04-19T13:03:17.062+00:00"}
+{"t":"tick","detections":0,"latency_ms":343.7,"infer_ms":5.5,"ts":"2026-04-19T13:03:17.529+00:00"}
+{"t":"tick","detections":0,"latency_ms":400.8,"infer_ms":6.3,"ts":"2026-04-19T13:03:18.087+00:00"}
+{"t":"tick","detections":0,"latency_ms":383.8,"infer_ms":6.5,"ts":"2026-04-19T13:03:18.570+00:00"}
+{"t":"tick","detections":0,"latency_ms":312.2,"infer_ms":5.3,"ts":"2026-04-19T13:03:18.999+00:00"}
+{"t":"tick","detections":0,"latency_ms":310.5,"infer_ms":5.6,"ts":"2026-04-19T13:03:19.499+00:00"}
+{"t":"tick","detections":0,"latency_ms":329.8,"infer_ms":6.3,"ts":"2026-04-19T13:03:20.019+00:00"}
+{"t":"tick","detections":0,"latency_ms":364.4,"infer_ms":7.0,"ts":"2026-04-19T13:03:20.554+00:00"}
+{"t":"tick","detections":0,"latency_ms":398.9,"infer_ms":7.3,"ts":"2026-04-19T13:03:21.089+00:00"}
+{"t":"tick","detections":0,"latency_ms":390.1,"infer_ms":6.2,"ts":"2026-04-19T13:03:21.580+00:00"}
+{"t":"tick","detections":0,"latency_ms":368.7,"infer_ms":6.3,"ts":"2026-04-19T13:03:22.060+00:00"}
+{"t":"tick","detections":0,"latency_ms":320.9,"infer_ms":5.9,"ts":"2026-04-19T13:03:22.512+00:00"}
+{"t":"tick","detections":0,"latency_ms":354.8,"infer_ms":5.8,"ts":"2026-04-19T13:03:23.047+00:00"}
+{"t":"tick","detections":0,"latency_ms":332.3,"infer_ms":10.3,"ts":"2026-04-19T13:03:23.525+00:00"}
+{"t":"tick","detections":0,"latency_ms":350.9,"infer_ms":7.5,"ts":"2026-04-19T13:03:24.044+00:00"}
+{"t":"tick","detections":0,"latency_ms":400.9,"infer_ms":5.3,"ts":"2026-04-19T13:03:24.594+00:00"}
+{"t":"tick","detections":0,"latency_ms":433.2,"infer_ms":8.9,"ts":"2026-04-19T13:03:25.127+00:00"}
+# === phase 2: replay mode with known-person image (proves event path fires) ===
+{"t":"tick","detections":1,"latency_ms":16.9,"infer_ms":9.3,"ts":"2026-04-19T13:03:25.489+00:00"}
+{"t":"tick","detections":1,"latency_ms":10.5,"infer_ms":6.3,"ts":"2026-04-19T13:03:25.985+00:00"}
+{"t":"event","class":"person","conf":0.855,"bbox":[21.5,-2.4,587.0,574.8],"streak":2,"ts":"2026-04-19T13:03:25.985+00:00"}
+{"t":"tick","detections":1,"latency_ms":10.2,"infer_ms":6.6,"ts":"2026-04-19T13:03:26.486+00:00"}
+{"t":"tick","detections":1,"latency_ms":10.9,"infer_ms":8.2,"ts":"2026-04-19T13:03:26.989+00:00"}
+{"t":"tick","detections":1,"latency_ms":11.5,"infer_ms":7.9,"ts":"2026-04-19T13:03:27.492+00:00"}
+{"t":"tick","detections":1,"latency_ms":11.6,"infer_ms":6.8,"ts":"2026-04-19T13:03:27.994+00:00"}
+{"t":"tick","detections":1,"latency_ms":8.4,"infer_ms":5.0,"ts":"2026-04-19T13:03:28.494+00:00"}
+{"t":"tick","detections":1,"latency_ms":8.2,"infer_ms":4.6,"ts":"2026-04-19T13:03:28.995+00:00"}
+{"t":"tick","detections":1,"latency_ms":9.8,"infer_ms":5.6,"ts":"2026-04-19T13:03:29.499+00:00"}
