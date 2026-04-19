@@ -272,6 +272,11 @@ def _espeak_speak(text: str) -> None:
 # utterances anyway, so a single mutex is both cheapest and correct.
 _SPEAK_LOCK = threading.Lock()
 
+# Active VoiceLoop when --voice pipecat is in effect.  speak() routes
+# through this when non-None so we get unified barge-in + TTS scheduling.
+_VOICE_LOOP = None
+_VOICE_UTT_Q: "queue.Queue[str] | None" = None
+
 
 def speak(text: str, enabled: bool,
           mute_evt: "threading.Event | None" = None):
@@ -299,6 +304,20 @@ def speak(text: str, enabled: bool,
     mute_dur = max(len(text) * 0.05, 1.5)
     if mute_evt is not None:
         mute_evt.set()
+
+    # When a VoiceLoop is active, let it handle TTS so barge-in works and
+    # it can drop its own wake-word inference during playback.  The loop
+    # has its own internal serialization; no need to hold _SPEAK_LOCK.
+    if _VOICE_LOOP is not None:
+        try:
+            _VOICE_LOOP.speak(text)
+        except Exception:
+            pass
+        if mute_evt is not None:
+            t = threading.Timer(mute_dur, mute_evt.clear)
+            t.daemon = True
+            t.start()
+        return
 
     with _SPEAK_LOCK:
         spoke = False
@@ -916,8 +935,18 @@ def _push_history(state: dict, cmd: dict, limit: int = 8) -> None:
 
 def one_turn(args, logger, state: dict,
              engine: BehaviorEngine | None = None,
-             mute_evt: "threading.Event | None" = None) -> dict | None:
-    if args.mode == "text":
+             mute_evt: "threading.Event | None" = None,
+             planner=None) -> dict | None:
+    # When VoiceLoop is running (--voice pipecat), transcripts arrive on the
+    # shared queue from its on_utterance callback.  Block until one shows up.
+    if _VOICE_UTT_Q is not None:
+        try:
+            transcript = _VOICE_UTT_Q.get()
+        except (EOFError, KeyboardInterrupt):
+            return {"_exit": True}
+        dt = 0.0
+        logger(f"[voice] utterance: {transcript!r}")
+    elif args.mode == "text":
         try:
             transcript = input("> ").strip()
         except (EOFError, KeyboardInterrupt):
@@ -981,6 +1010,25 @@ def one_turn(args, logger, state: dict,
             logger(f"[llm] api call failed ({err}): falling through to noop")
         if cmd is not None:
             logger(f"[matcher] LLM proposed: {cmd}")
+
+    # Planner fallback: multi-step goals that regex + intent-LLM both
+    # couldn't collapse into a single primitive.  Requires --planner and
+    # at least 3 words (short utterances are more likely typos than goals).
+    # The planner executes wire commands itself via injected tool bindings,
+    # so on a successful run we return None here and skip the one-shot
+    # wire/speak that follows.
+    if (cmd is None and planner is not None and transcript
+            and len(transcript.split()) >= 3):
+        logger(f"[planner] routing to goal loop: {transcript!r}")
+        try:
+            result = planner.run(transcript)
+            steps = len(result.get("steps", []))
+            ok = result.get("success")
+            logger(f"[planner] {'success' if ok else 'fail'}: "
+                   f"{result.get('reason')} ({steps} steps)")
+            return {"c": "planner_done", "_planner": result}
+        except Exception as e:
+            logger(f"[planner] error: {type(e).__name__}: {e}")
 
     logger(f"decision: {cmd}")
 
@@ -1284,6 +1332,14 @@ def main():
                    help="shortcut for --tts off")
     p.add_argument("--log", metavar="PATH",
                    help="append transcripts + decisions to logfile")
+    p.add_argument("--planner", action="store_true",
+                   help="enable LLM tool-calling planner as a fallback for "
+                        "long utterances that regex + parse_intent_api both "
+                        "return noop for. requires DEEPINFRA_API_KEY.")
+    p.add_argument("--voice", choices=["default", "pipecat"], default="default",
+                   help="voice I/O backend. default: existing arecord + "
+                        "whisper-cli + piper/espeak path. pipecat: use "
+                        "VoiceLoop (barge-in, streaming VAD).")
     args = p.parse_args()
 
     logger = make_logger(args.log)
@@ -1359,11 +1415,82 @@ def main():
         )
         tick_thread.start()
 
+    # Voice I/O — optional pipecat-style loop with barge-in.  When off, the
+    # existing arecord + whisper-cli + piper path is used (unchanged).
+    voice_loop = None
+    if args.voice == "pipecat":
+        try:
+            from voice_pipecat import VoiceLoop
+            global _VOICE_LOOP, _VOICE_UTT_Q
+            _VOICE_UTT_Q = queue.Queue(maxsize=8)
+            wake = args.wake_word if args.mode == "wake" else None
+            voice_loop = VoiceLoop(
+                on_utterance=_VOICE_UTT_Q.put,
+                wake_word=wake,
+            )
+            voice_loop.start()
+            _VOICE_LOOP = voice_loop
+            logger(f"[voice] VoiceLoop started (wake_word={wake!r})")
+        except Exception as e:
+            logger(f"[voice] VoiceLoop init failed ({type(e).__name__}: {e}); "
+                   f"falling back to default voice path")
+            voice_loop = None
+            _VOICE_LOOP = None
+            _VOICE_UTT_Q = None
+
+    planner = None
+    if args.planner:
+        if not os.environ.get("DEEPINFRA_API_KEY"):
+            logger("[planner] --planner requested but DEEPINFRA_API_KEY unset; disabled")
+        else:
+            try:
+                from robot_planner import Planner
+
+                def _tool_pose(name: str, duration_ms: int = 400) -> dict:
+                    send_wire({"c": "pose", "n": name, "d": int(duration_ms)}, args.dry_run)
+                    return {"ok": True}
+
+                def _tool_walk(on: bool, stride: int = 150, step: int = 400) -> dict:
+                    send_wire({"c": "walk", "on": bool(on),
+                               "stride": int(stride), "step": int(step)}, args.dry_run)
+                    return {"ok": True}
+
+                def _tool_stop() -> dict:
+                    send_wire({"c": "stop"}, args.dry_run)
+                    return {"ok": True}
+
+                def _tool_jump() -> dict:
+                    send_wire({"c": "jump"}, args.dry_run)
+                    return {"ok": True}
+
+                def _tool_look(direction: str) -> dict:
+                    seen = sorted(getattr(engine, "_seen_classes", set())) if engine else []
+                    return {"ok": True, "direction": direction, "seen": seen}
+
+                def _tool_say(text: str) -> dict:
+                    speak(text, args.tts, mute_evt=mute_evt)
+                    return {"ok": True}
+
+                def _tool_wait(seconds: float) -> dict:
+                    time.sleep(max(0.0, min(5.0, float(seconds))))
+                    return {"ok": True}
+
+                planner = Planner({
+                    "pose": _tool_pose, "walk": _tool_walk, "stop": _tool_stop,
+                    "jump": _tool_jump, "look": _tool_look, "say": _tool_say,
+                    "wait": _tool_wait,
+                }, logger=logger)
+                logger("[planner] enabled (tool-calling fallback for multi-step goals)")
+            except Exception as e:
+                logger(f"[planner] init failed ({type(e).__name__}: {e}); disabled")
+                planner = None
+
     try:
         while True:
             try:
                 drain_vision_events(event_queue, state, args, logger, engine)
-                cmd = one_turn(args, logger, state, engine, mute_evt=mute_evt)
+                cmd = one_turn(args, logger, state, engine, mute_evt=mute_evt,
+                               planner=planner)
             except KeyboardInterrupt:
                 logger("interrupted during turn; idle.")
                 continue
@@ -1379,6 +1506,11 @@ def main():
         if tick_thread is not None:
             tick_thread.join(timeout=3)
         speak("goodbye", args.tts, mute_evt=mute_evt)
+        if voice_loop is not None:
+            try:
+                voice_loop.stop()
+            except Exception:
+                pass
         logger("shutdown")
 
 if __name__ == "__main__":
