@@ -7,3 +7,7 @@ bin/
 __pycache__/
 *.pyc
 demo/_cmd.wav*
+firmware_backup/
+firmware/ble_controller/.pio/
+firmware/ble_controller/.pioenvs/
+firmware/ble_controller/.piolibdeps/
