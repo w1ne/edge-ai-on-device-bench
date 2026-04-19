@@ -237,8 +237,8 @@ def llm_fallback(transcript: str, model: str, fast: bool,
 
 # ------------------------------------------------------------------ eyes (async)
 
-def vision_loop(phone: str, watch_for: str, interval: float, logger,
-                dry_run: bool, stop_evt: threading.Event,
+def vision_loop(source: str, phone: str, watch_for: str, interval: float,
+                logger, dry_run: bool, stop_evt: threading.Event,
                 event_queue: "queue.Queue[dict]"):
     """Background consumer of demo/vision_watcher.py stdout.
 
@@ -247,10 +247,14 @@ def vision_loop(phone: str, watch_for: str, interval: float, logger,
     Events get pushed into event_queue; ticks are just logged at low volume.
     """
     watcher = HERE / "vision_watcher.py"
-    if not watcher.exists() or dry_run:
-        logger("[vision] skipped (watcher missing or dry-run)")
+    if not watcher.exists():
+        logger("[vision] skipped (demo/vision_watcher.py missing)")
         return
+    # Note: we intentionally RUN vision in --dry-run mode.  Dry-run only gates
+    # USB wire writes and on-phone Whisper; the vision path is laptop-side and
+    # safe to exercise without an ESP32 attached.
     cmd = [sys.executable, str(watcher),
+           "--source", source,
            "--phone", phone,
            "--interval", str(interval),
            "--watch-for", watch_for,
@@ -457,8 +461,13 @@ def main():
                    help="launch demo/vision_watcher.py in the background; "
                         "emit greeting / auto-stop reactions when CLASS is "
                         "seen (e.g. 'person').")
+    p.add_argument("--vision-source", choices=["phone", "webcam"], default="webcam",
+                   help="frame source for vision_watcher.  webcam: laptop "
+                        "/dev/video0 via OpenCV (~20 FPS, default); phone: "
+                        "adb screencap (~2 FPS, fallback).")
     p.add_argument("--vision-phone", choices=["pixel6", "p20"], default="pixel6",
-                   help="phone to source camera frames from (default: pixel6)")
+                   help="if --vision-source=phone, which phone to pull frames "
+                        "from (default: pixel6)")
     p.add_argument("--vision-interval", type=float, default=0.5,
                    help="seconds between vision frames (default 0.5)")
     p.add_argument("--dry-run", action="store_true",
@@ -484,8 +493,9 @@ def main():
     if args.with_vision:
         eye_thread = threading.Thread(
             target=vision_loop,
-            args=(args.vision_phone, args.with_vision, args.vision_interval,
-                  logger, args.dry_run, stop_evt, event_queue),
+            args=(args.vision_source, args.vision_phone, args.with_vision,
+                  args.vision_interval, logger, args.dry_run, stop_evt,
+                  event_queue),
             daemon=True,
         )
         eye_thread.start()
