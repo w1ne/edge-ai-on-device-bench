@@ -75,7 +75,7 @@ def _extract_text_tool_calls(text: str) -> list[dict]:
 DEEPINFRA_BASE_URL = "https://api.deepinfra.com/v1/openai"
 DEEPINFRA_CHAT_URL = DEEPINFRA_BASE_URL + "/chat/completions"
 
-DEFAULT_MODEL = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+DEFAULT_MODEL = "Qwen/Qwen2.5-72B-Instruct"
 DEFAULT_MAX_STEPS = 10
 REQUEST_TIMEOUT_S = 20.0
 NO_TOOL_CALL_LIMIT = 2  # consecutive text-only replies before we abort
@@ -661,9 +661,12 @@ def _run_self_tests() -> int:
             "name": "look-for-person",
             "goal": "Look around and tell me if you see a person.",
             "look_queue": [{"seen": ["person"]}, {"seen": []}],
+            # Accept either `look` (old direction-enumerated scan) or
+            # `look_for` (newer open-vocab vision).  Smarter models pick
+            # `look_for`; either is a correct tool for this goal.
             "expect": lambda log, res: (
                 res["success"]
-                and any(c["tool"] == "look" for c in log)
+                and any(c["tool"] in ("look", "look_for") for c in log)
                 and any(c["tool"] == "say" for c in log)
                 and "person" in (res.get("final_say") or "").lower()
             ),

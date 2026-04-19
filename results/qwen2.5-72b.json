@@ -1,0 +1,418 @@
+{
+  "model": "Qwen/Qwen2.5-72B-Instruct",
+  "subset": null,
+  "pass_count": 20,
+  "total": 21,
+  "total_wall_s": 71.74369645118713,
+  "median_latency_s": 3.072354555130005,
+  "mean_latency_s": 3.41631285349528,
+  "cases": [
+    {
+      "id": "A1-jump-happy",
+      "group": "A",
+      "goal": "Jump once and tell me you're happy.",
+      "wall_s": 4.335773468017578,
+      "step_count": 3,
+      "success_flag": true,
+      "reason": "Jumped once and expressed happiness.",
+      "final_say": "I'm happy!",
+      "tool_calls": [
+        "jump",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "A2-bow-then-say",
+      "group": "A",
+      "goal": "Bow forward and then say hello to the audience.",
+      "wall_s": 2.667436122894287,
+      "step_count": 3,
+      "success_flag": true,
+      "reason": "Bowed forward and greeted the audience.",
+      "final_say": "Hello, audience!",
+      "tool_calls": [
+        "pose",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "A3-walk-then-stop",
+      "group": "A",
+      "goal": "Start walking, then stop after a moment.",
+      "wall_s": 2.553623676300049,
+      "step_count": 4,
+      "success_flag": true,
+      "reason": "Walked and stopped as requested.",
+      "final_say": "",
+      "tool_calls": [
+        "walk",
+        "wait",
+        "stop"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "A4-lean-right-say",
+      "group": "A",
+      "goal": "Lean to the right and tell me what you did.",
+      "wall_s": 2.8549606800079346,
+      "step_count": 3,
+      "success_flag": true,
+      "reason": "Leaned to the right and confirmed.",
+      "final_say": "I leaned to the right.",
+      "tool_calls": [
+        "pose",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "A5-look-say",
+      "group": "A",
+      "goal": "Look ahead and tell me what you see.",
+      "wall_s": 6.410794496536255,
+      "step_count": 3,
+      "success_flag": true,
+      "reason": "Described what was seen ahead.",
+      "final_say": "I see a chair and a table.",
+      "tool_calls": [
+        "look",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "B1-lean-wait-neutral",
+      "group": "B",
+      "goal": "Lean left, wait one second, then return to neutral.",
+      "wall_s": 5.993932723999023,
+      "step_count": 4,
+      "success_flag": true,
+      "reason": "Completed leaning left, waiting, and returning to neutral.",
+      "final_say": "",
+      "tool_calls": [
+        "pose",
+        "wait",
+        "pose"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "B2-bow-walk-stop",
+      "group": "B",
+      "goal": "Bow forward, then walk a bit, then stop.",
+      "wall_s": 3.018143653869629,
+      "step_count": 4,
+      "success_flag": true,
+      "reason": "Completed the bow and walk sequence.",
+      "final_say": "",
+      "tool_calls": [
+        "pose",
+        "walk",
+        "stop"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "B3-jump-say-jump",
+      "group": "B",
+      "goal": "Jump, say ready, then jump again.",
+      "wall_s": 3.472259044647217,
+      "step_count": 4,
+      "success_flag": true,
+      "reason": "Completed the sequence of jumps and saying 'ready'.",
+      "final_say": "ready",
+      "tool_calls": [
+        "jump",
+        "say",
+        "jump"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "B4-lean-both",
+      "group": "B",
+      "goal": "Lean left, then lean right, then come back to neutral.",
+      "wall_s": 3.954822540283203,
+      "step_count": 4,
+      "success_flag": true,
+      "reason": "Completed leaning left, right, and returned to neutral.",
+      "final_say": "",
+      "tool_calls": [
+        "pose",
+        "pose",
+        "pose"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "B5-walk-wait-stop-say",
+      "group": "B",
+      "goal": "Walk forward, wait two seconds, stop, then say done.",
+      "wall_s": 3.5571467876434326,
+      "step_count": 5,
+      "success_flag": true,
+      "reason": "Completed walking, waiting, and stopping.",
+      "final_say": "done",
+      "tool_calls": [
+        "walk",
+        "wait",
+        "stop",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "C1-look-person-seen",
+      "group": "C",
+      "goal": "Look around, and if you see a person, say hello.",
+      "wall_s": 3.0203750133514404,
+      "step_count": 3,
+      "success_flag": true,
+      "reason": "Said hello to the person.",
+      "final_say": "Hello there!",
+      "tool_calls": [
+        "look",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "C2-look-person-absent",
+      "group": "C",
+      "goal": "Look around, and if you see a person, say hello, otherwise say nobody is here.",
+      "wall_s": 2.4361138343811035,
+      "step_count": 4,
+      "success_flag": true,
+      "reason": "Completed the task of looking around and greeting or stating no one is present.",
+      "final_say": "Nobody is here.",
+      "tool_calls": [
+        "look",
+        "say",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "C3-find-keys",
+      "group": "C",
+      "goal": "Look around for my keys and tell me if you found them.",
+      "wall_s": 3.072354555130005,
+      "step_count": 3,
+      "success_flag": true,
+      "reason": "Keys not found.",
+      "final_say": "I couldn't find your keys.",
+      "tool_calls": [
+        "look_for",
+        "say"
+      ],
+      "passed": false,
+      "terminated_ok": true,
+      "expect_pass": false,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "C4-scan-report",
+      "group": "C",
+      "goal": "Look left, then look right, then tell me what you saw.",
+      "wall_s": 4.1366236209869385,
+      "step_count": 4,
+      "success_flag": true,
+      "reason": "Completed looking left and right, and reported what was seen.",
+      "final_say": "I saw a dog on the left and a cat on the right.",
+      "tool_calls": [
+        "look",
+        "look",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "C5-look-for-laptop",
+      "group": "C",
+      "goal": "Look for a laptop on the desk and tell me if you see one.",
+      "wall_s": 5.0793983936309814,
+      "step_count": 3,
+      "success_flag": true,
+      "reason": "Found the laptop on the desk.",
+      "final_say": "I see a laptop on the desk.",
+      "tool_calls": [
+        "look_for",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "D1-weather",
+      "group": "D",
+      "goal": "Tell me about the weather today.",
+      "wall_s": 2.467291831970215,
+      "step_count": 2,
+      "success_flag": true,
+      "reason": "Provided a response about the weather.",
+      "final_say": "I can't check the weather, but you can try looking out the window or checking a weather app.",
+      "tool_calls": [
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "D2-math",
+      "group": "D",
+      "goal": "What is two plus two?",
+      "wall_s": 1.8398377895355225,
+      "step_count": 2,
+      "success_flag": true,
+      "reason": "Answered the math question.",
+      "final_say": "Two plus two is four.",
+      "tool_calls": [
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "D3-name",
+      "group": "D",
+      "goal": "What is your name?",
+      "wall_s": 1.9313476085662842,
+      "step_count": 2,
+      "success_flag": true,
+      "reason": "Answered the user's question.",
+      "final_say": "I'm a robot, I don't have a name.",
+      "tool_calls": [
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "E1-do-something",
+      "group": "E",
+      "goal": "Do something.",
+      "wall_s": 3.1371588706970215,
+      "step_count": 2,
+      "success_flag": true,
+      "reason": "Asked user for a specific task.",
+      "final_say": "I'm ready to help! What would you like me to do?",
+      "tool_calls": [
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "E2-walk-and-stop",
+      "group": "E",
+      "goal": "Walk forward and also stop.",
+      "wall_s": 1.8641741275787354,
+      "step_count": 2,
+      "success_flag": true,
+      "reason": "stop_called",
+      "final_say": "",
+      "tool_calls": [
+        "walk",
+        "stop"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    },
+    {
+      "id": "E3-long-list",
+      "group": "E",
+      "goal": "Lean left, lean right, lean left again, jump, then say done.",
+      "wall_s": 3.9390010833740234,
+      "step_count": 6,
+      "success_flag": true,
+      "reason": "Completed all requested actions.",
+      "final_say": "done",
+      "tool_calls": [
+        "pose",
+        "pose",
+        "pose",
+        "jump",
+        "say"
+      ],
+      "passed": true,
+      "terminated_ok": true,
+      "expect_pass": true,
+      "expect_err": null,
+      "exec_err": null
+    }
+  ]
+}
