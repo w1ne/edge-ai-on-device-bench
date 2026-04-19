@@ -51,11 +51,16 @@ MAX_STEPS = 10
 
 # ------------------------------------------------------------------ stubs
 
-def _build_stub_tools(look_queue: list[dict]) -> tuple[dict, list[dict]]:
+def _build_stub_tools(look_queue: list[dict],
+                      look_for_queue: list[dict] | None = None,
+                      ) -> tuple[dict, list[dict]]:
     """Inert tool stubs that just append to a call log.  `look_queue` is
     consumed left-to-right; once exhausted, subsequent look() calls
-    return {"seen": []}."""
+    return {"seen": []}.  `look_for_queue` feeds the open-vocab path the
+    same way; once exhausted, look_for() returns {'seen': False,
+    'score': 0.0, 'frame_ms': 0}."""
     call_log: list[dict] = []
+    lf_queue = list(look_for_queue or [])
 
     def pose(name: str, duration_ms: int = 400) -> dict:
         call_log.append({"tool": "pose",
@@ -80,6 +85,13 @@ def _build_stub_tools(look_queue: list[dict]) -> tuple[dict, list[dict]]:
         seen = look_queue.pop(0) if look_queue else {"seen": []}
         return {"ok": True, **seen}
 
+    def look_for(query: str) -> dict:
+        call_log.append({"tool": "look_for", "args": {"query": query}})
+        out = lf_queue.pop(0) if lf_queue else {
+            "seen": False, "score": 0.0, "frame_ms": 0,
+        }
+        return {"ok": True, **out}
+
     def say(text: str) -> dict:
         call_log.append({"tool": "say", "args": {"text": text}})
         return {"ok": True}
@@ -90,7 +102,7 @@ def _build_stub_tools(look_queue: list[dict]) -> tuple[dict, list[dict]]:
 
     tools = {
         "pose": pose, "walk": walk, "stop": stop, "jump": jump,
-        "look": look, "say": say, "wait": wait,
+        "look": look, "look_for": look_for, "say": say, "wait": wait,
     }
     return tools, call_log
 
@@ -282,6 +294,19 @@ def _build_cases() -> list[dict]:
                 _tool_names(log).count("look") >= 2
                 and "say" in _tool_names(log),
         },
+        {
+            "id": "C5-look-for-laptop",
+            "group": "C",
+            "goal": "Look for a laptop on the desk and tell me if you see one.",
+            "look_queue": [],
+            # Open-vocabulary question: planner must pick look_for, not look.
+            "look_for_queue": [{"seen": True, "score": 0.82, "frame_ms": 180}],
+            "expect": lambda log, res:
+                "look_for" in _tool_names(log)
+                and "look" not in _tool_names(log)
+                and "say" in _tool_names(log)
+                and "laptop" in _say_text(log),
+        },
     ])
 
     # Group D — Should refuse / finish quickly (no actuation) ------------
@@ -366,7 +391,10 @@ def _build_cases() -> list[dict]:
 # ------------------------------------------------------------------ runner
 
 def _run_case(case: dict, model: str) -> dict:
-    tools, call_log = _build_stub_tools(list(case["look_queue"]))
+    tools, call_log = _build_stub_tools(
+        list(case["look_queue"]),
+        list(case.get("look_for_queue") or []),
+    )
     planner = Planner(tools, model=model, max_steps=MAX_STEPS,
                       logger=lambda *_a, **_kw: None)  # quiet planner logs
     t0 = time.time()

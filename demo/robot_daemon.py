@@ -1469,6 +1469,33 @@ def main():
                     seen = sorted(getattr(engine, "_seen_classes", set())) if engine else []
                     return {"ok": True, "direction": direction, "seen": seen}
 
+                # Open-vocabulary CLIP query — lazily constructed so the
+                # ~350 MB model download only happens the first time
+                # look_for is actually invoked.
+                _vision_query_holder: dict = {"vq": None}
+
+                def _tool_look_for(query: str) -> dict:
+                    try:
+                        vq = _vision_query_holder.get("vq")
+                        if vq is None:
+                            from vision_query import VisionQuery
+                            vq = VisionQuery(camera_index=0, logger=logger)
+                            _vision_query_holder["vq"] = vq
+                        r = vq.query([str(query)], threshold=0.15)
+                        if r.get("error"):
+                            return {"ok": False, "error": r["error"],
+                                    "seen": False, "score": 0.0,
+                                    "frame_ms": int(r.get("frame_ms", 0))}
+                        score = float((r.get("scores") or {}).get(str(query), 0.0))
+                        return {"ok": True,
+                                "seen": bool(r.get("seen")),
+                                "score": round(score, 3),
+                                "frame_ms": int(r.get("frame_ms", 0))}
+                    except Exception as e:
+                        return {"ok": False,
+                                "error": f"{type(e).__name__}: {e}",
+                                "seen": False, "score": 0.0, "frame_ms": 0}
+
                 def _tool_say(text: str) -> dict:
                     speak(text, args.tts, mute_evt=mute_evt)
                     return {"ok": True}
@@ -1479,7 +1506,8 @@ def main():
 
                 planner = Planner({
                     "pose": _tool_pose, "walk": _tool_walk, "stop": _tool_stop,
-                    "jump": _tool_jump, "look": _tool_look, "say": _tool_say,
+                    "jump": _tool_jump, "look": _tool_look,
+                    "look_for": _tool_look_for, "say": _tool_say,
                     "wait": _tool_wait,
                 }, logger=logger)
                 logger("[planner] enabled (tool-calling fallback for multi-step goals)")

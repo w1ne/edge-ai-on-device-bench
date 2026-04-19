@@ -175,6 +175,31 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "look_for",
+            "description": (
+                "Open-vocabulary visual query.  Use when the user asks about "
+                "an arbitrary object that may or may not be one of the "
+                "robot's known classes (e.g. 'do you see a red mug?', "
+                "'is there a laptop on the desk?').  Runs a single CLIP "
+                "zero-shot pass on a fresh webcam frame and returns whether "
+                "the phrase was seen, a 0-1 confidence score, and the wall "
+                "time in ms."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Free-form phrase, e.g. 'a red mug'.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "say",
             "description": "Speak a short sentence to the user.",
             "parameters": {
@@ -229,6 +254,10 @@ SYSTEM_PROMPT = (
     "only for questions about the physical scene around the robot.\n"
     "  - If the goal involves finding / spotting something physically "
     "present, use `look` and then `say` what you saw (or didn't).\n"
+    "  - For open-ended visual questions about arbitrary objects "
+    "('do you see a red mug?', 'is there a laptop on the desk?'), use "
+    "`look_for` with the phrase.  For structured class names already "
+    "known to the robot, `look` is cheaper.\n"
     "  - To halt any motion, call `stop`.  Do not call `walk` with an "
     "off/disable argument — `walk` only starts walking.\n"
     "  - Always call `finish` once the goal is done.  Do not keep calling "
@@ -572,6 +601,14 @@ def _build_stub_tools(look_queue: list[dict]) -> tuple[dict, list[dict]]:
         print(f"  [stub] look(direction={direction!r}) -> {seen}")
         return {"ok": True, **seen}
 
+    def look_for(query: str) -> dict:
+        # Stubbed open-vocab vision — self-tests don't exercise it, but we
+        # register it so the planner never hits 'unknown tool' if the model
+        # opportunistically picks look_for instead of look.
+        call_log.append({"tool": "look_for", "args": {"query": query}})
+        print(f"  [stub] look_for(query={query!r}) -> seen=False")
+        return {"ok": True, "seen": False, "score": 0.0, "frame_ms": 0}
+
     def say(text: str) -> dict:
         call_log.append({"tool": "say", "args": {"text": text}})
         print(f"  [stub] say({text!r})")
@@ -588,6 +625,7 @@ def _build_stub_tools(look_queue: list[dict]) -> tuple[dict, list[dict]]:
         "stop": stop,
         "jump": jump,
         "look": look,
+        "look_for": look_for,
         "say":  say,
         "wait": wait,
     }
