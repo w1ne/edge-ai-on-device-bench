@@ -52,6 +52,13 @@ fetch efficientdet_lite0_fp32.tflite \
 # YOLOv8n detector from SpotLab (fp32)
 fetch yolov8_det.tflite \
   "https://huggingface.co/SpotLab/YOLOv8Detection/resolve/main/tflite_model.tflite"
+# Whisper Tiny (English-only) full enc+greedy-decode TFLite from the community
+# port. fp32 weights, ~41.5 MB. Signature: serving_default(input_features
+# [1,80,3000] fp32) -> sequences [1,449] int32. NNAPI rejects this graph
+# outright because the decoder has dynamic-sized KV-cache tensors; kept in
+# the bench to document the failure mode and measure XNNPack CPU baseline.
+fetch whisper-tiny.en.tflite \
+  "https://huggingface.co/nyadla-sys/whisper-tiny.en.tflite/resolve/main/whisper-tiny.en.tflite"
 
 # ---------- Step 3: convert YOLO-FastestV2 ncnn/pytorch -> tflite -----------
 # Upstream repo: https://github.com/dog-qiuqiu/Yolo-FastestV2
@@ -60,6 +67,64 @@ fetch yolov8_det.tflite \
 # onnx2tf -> fp32/fp16/dynamic-range tflite.  Int8 PTQ fails on CONV_2D
 # grouped-conv (input_channel % filter_input_channel != 0) – known onnx2tf
 # issue for shufflenet-derived graphs.
+# ---------- Step 3a: build a whisper-tiny.en ENCODER-ONLY tflite -----------
+# The HF full graph has a decoder loop with dynamic KV-cache shapes which
+# NNAPI refuses before even partitioning. An encoder-only fp32 graph is a
+# fair apples-to-apples test of "can NNAPI accelerate the heavy transformer
+# block at all?" Pipeline:
+#   HF transformers  openai/whisper-tiny.en  .get_encoder()
+#   -> torch.onnx.export  (opset 14, static [1,80,3000])
+#   -> onnx-graphsurgeon: rewrite every Erf(y) as
+#        tanh(1.12838*y + 0.04451*y^3)        (polynomial GELU approx)
+#      Without this, onnx2tf emits tf.math.erf -> a FlexErf TF-Select op
+#      which the stripped benchmark_model binary does not link.
+#   -> onnx2tf float32 output.
+# Result: encoder_noerf_float32.tflite, 262 ops, all builtin, ~32.9 MB.
+if [ ! -f "$MODELS_DIR/whisper_enc_tiny_en_fp32.tflite" ]; then
+  WHISPER_WORK=$(mktemp -d)
+  python3 - <<PY
+import os, onnx, torch, numpy as np
+import torch.nn as nn
+import torch.nn.functional as F
+from transformers import WhisperModel
+import onnx_graphsurgeon as gs
+from onnx2tf import convert
+
+model = WhisperModel.from_pretrained("openai/whisper-tiny.en")
+enc = model.get_encoder(); enc.eval()
+dummy = torch.randn(1, 80, 3000)
+onnx_path = "$WHISPER_WORK/encoder.onnx"
+torch.onnx.export(enc, dummy, onnx_path,
+                  input_names=["mel"], output_names=["enc_out"],
+                  opset_version=14)
+# Rewrite Erf -> tanh poly-approx so the graph is TFLite-builtin only
+onnx_m = onnx.load(onnx_path)
+g = gs.import_onnx(onnx_m)
+for i, erf in enumerate([n for n in g.nodes if n.op == "Erf"]):
+    y_in, y_out = erf.inputs[0], erf.outputs[0]
+    c1 = gs.Constant(f"e1_{i}", np.array(1.1283791670955126, dtype=np.float32))
+    c2 = gs.Constant(f"e2_{i}", np.array(0.04450735,         dtype=np.float32))
+    three = gs.Constant(f"e3_{i}", np.array(3.0,             dtype=np.float32))
+    p = gs.Variable(f"ep_{i}", dtype=np.float32); m1 = gs.Variable(f"em1_{i}", dtype=np.float32)
+    m2 = gs.Variable(f"em2_{i}", dtype=np.float32); ad = gs.Variable(f"ea_{i}", dtype=np.float32)
+    g.nodes.extend([
+        gs.Node("Pow", inputs=[y_in, three], outputs=[p]),
+        gs.Node("Mul", inputs=[y_in, c1],     outputs=[m1]),
+        gs.Node("Mul", inputs=[p, c2],        outputs=[m2]),
+        gs.Node("Add", inputs=[m1, m2],       outputs=[ad]),
+        gs.Node("Tanh", inputs=[ad],          outputs=[y_out]),
+    ])
+    erf.inputs = []; erf.outputs = []
+g.cleanup().toposort()
+onnx.save(gs.export_onnx(g), "$WHISPER_WORK/encoder_noerf.onnx")
+convert(input_onnx_file_path="$WHISPER_WORK/encoder_noerf.onnx",
+        output_folder_path="$WHISPER_WORK/enc_tf",
+        output_signaturedefs=True, non_verbose=True)
+PY
+  cp "$WHISPER_WORK/enc_tf/encoder_noerf_float32.tflite" \
+     "$MODELS_DIR/whisper_enc_tiny_en_fp32.tflite"
+fi
+
 if [ ! -f "$MODELS_DIR/yolo-fastestv2_float32.tflite" ]; then
   WORK=$(mktemp -d)
   git clone --depth=1 https://github.com/dog-qiuqiu/Yolo-FastestV2.git "$WORK/yfv2"
@@ -98,7 +163,8 @@ for f in mobilenet_v1_quant.tflite \
          efficientnet_lite0_int8.tflite efficientnet_lite0_fp32.tflite \
          efficientdet_lite0_int8.tflite efficientdet_lite0_fp32.tflite \
          yolov8_det.tflite \
-         yolo-fastestv2_float32.tflite yolo-fastestv2_float16.tflite; do
+         yolo-fastestv2_float32.tflite yolo-fastestv2_float16.tflite \
+         whisper-tiny.en.tflite whisper_enc_tiny_en_fp32.tflite; do
   adb push "$MODELS_DIR/$f" "$PHONE_DIR/"
 done
 
@@ -138,5 +204,15 @@ run "yolo-fastestv2 fp32 CPU (4T)"                yolo-fastestv2_float32.tflite 
 run "yolo-fastestv2 fp32 NNAPI edgetpu fp16"      yolo-fastestv2_float32.tflite       "--use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true"
 run "yolo-fastestv2 fp16 CPU (4T)"                yolo-fastestv2_float16.tflite       "--num_threads=4"
 run "yolo-fastestv2 fp16 NNAPI edgetpu fp16"      yolo-fastestv2_float16.tflite       "--use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true"
+
+# Whisper Tiny English-only. FULL graph = encoder + greedy autoregressive
+# decoder in one tflite (dynamic-shape decoder -> NNAPI refuses it; we
+# still run CPU for a baseline). ENCODER-ONLY = 262-op static fp32 graph
+# we build above (NNAPI accepts 228/262 ops but fragments into 18 partitions
+# and the Edge TPU driver returns ANEURALNETWORKS_MISSED_DEADLINE_TRANSIENT).
+run "whisper-tiny.en FULL CPU (4T)"               whisper-tiny.en.tflite              "--num_threads=4 --num_runs=10 --warmup_runs=2"
+run "whisper-tiny.en FULL NNAPI edgetpu fp16"     whisper-tiny.en.tflite              "--use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true --num_runs=10 --warmup_runs=2"
+run "whisper-tiny.en encoder CPU (4T)"            whisper_enc_tiny_en_fp32.tflite     "--num_threads=4 --num_runs=20 --warmup_runs=3"
+run "whisper-tiny.en encoder NNAPI edgetpu fp16"  whisper_enc_tiny_en_fp32.tflite     "--use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true --num_runs=20 --warmup_runs=3"
 
 echo "Log written: $LOG"

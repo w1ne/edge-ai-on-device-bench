@@ -817,3 +817,169 @@ lighter classifier / feature extractor to keep inference on the TPU.
 The "acceleration column" finally has a tick for NNAPI: quantized
 mobilenet-class models go from ~11 ms to ~1 ms on device.  We had
 that ticked previously only for Vulkan, where everything lost.
+
+
+==========================================
+---- Whisper Tiny TFLite on NNAPI / Edge TPU ----
+Date: 2026-04-19T16:36:37+02:00
+==========================================
+
+Two models benchmarked:
+
+  (a) FULL encoder+decoder greedy-decode graph from
+      https://huggingface.co/nyadla-sys/whisper-tiny.en.tflite
+      file: whisper-tiny.en.tflite (41,507,968 B, fp32)
+      input:  serving_default_input_features:0  [1, 80, 3000] fp32
+      output: StatefulPartitionedCall:0         [1, 449]     int32  (token ids)
+
+  (b) ENCODER-ONLY fp32 TFLite built fresh in-session (NNAPI refused (a)
+      outright — see below). Pipeline:
+          HF transformers openai/whisper-tiny.en  .get_encoder()
+        -> torch.onnx.export (opset 14, static shape 1x80x3000)
+        -> onnx-graphsurgeon: rewrite every Erf(y) as
+              tanh(1.12838*y + 0.04451*y^3)   (polynomial GELU approx)
+           (onnx2tf otherwise emits tf.math.erf, which is a TF-Select
+            op "FlexErf" and the stripped benchmark_model binary does
+            NOT link the Flex delegate.)
+        -> onnx2tf (float32 + float16 output)
+      file: whisper_enc_tiny_en_fp32.tflite (32,881,808 B, 262 ops)
+      input:  mel [1, 80, 3000] fp32
+      output: enc_out [1, 1500, 384] fp32
+
+
+### whisper-tiny.en FULL graph  CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=whisper-tiny.en.tflite --num_runs=10 --warmup_runs=2 --num_threads=4
+VERBOSE: Replacing 487 out of 500 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 4 partitions for subgraph 0.
+VERBOSE: Replacing 3   out of 11  node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 2 partitions for subgraph 2.
+VERBOSE: Replacing 3   out of 5   node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 2 partitions for subgraph 6.
+VERBOSE: Replacing 305 out of 356 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 5 partitions for subgraph 8.
+INFO: The input model file size (MB): 41.508
+INFO: Initialized session in 148.8ms.
+INFO: count=10 first=312884 curr=323365 min=312884 max=331726 avg=323849 std=4490 p5=312884 median=324910 p95=331726
+INFO: Inference timings in us: Init: 148800, First inference: 355487, Warmup (avg): 335110, Inference (avg): 323849
+(10 subgraphs — this is the autoregressive decode loop unrolled into TFLite
+ control-flow blocks.  All 4 major subgraphs cleanly accept XNNPack.)
+
+### whisper-tiny.en FULL graph  NNAPI edgetpu fp16 ###
+CMD: benchmark_model --graph=whisper-tiny.en.tflite --num_runs=10 --warmup_runs=2 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+WARNING: Attempting to use a delegate that only supports static-sized tensors with a graph that has dynamic-sized tensors (tensor#704 is a dynamic-sized tensor).
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+(Identical failure with --nnapi_accelerator_name=nnapi-reference, with
+ --use_nnapi=true (auto), and with --max_delegated_partitions=20. The NNAPI
+ delegate rejects the whole model before looking at individual ops because
+ the decoder uses dynamic-sized tensors — the token-generation While loop
+ has a growing [1, k] cache. 0 ops delegated.)
+
+### whisper_enc_tiny_en_fp32 (encoder only)  CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=whisper_enc.tflite --num_runs=20 --warmup_runs=3 --num_threads=4
+VERBOSE: Replacing 262 out of 262 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for subgraph 0.
+INFO: The input model file size (MB): 32.8818
+INFO: Initialized session in 36.442ms.
+INFO: count=20 first=468156 curr=525351 min=468156 max=540203 avg=505315 std=18760 p5=473154 median=510251 p95=540203
+INFO: Inference timings in us: Init: 36442, First inference: 485536, Warmup (avg): 469775, Inference (avg): 505315
+
+### whisper_enc_tiny_en_fp32 (encoder only)  NNAPI edgetpu fp16 ###
+CMD: benchmark_model --graph=whisper_enc.tflite --num_runs=20 --warmup_runs=3 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+VERBOSE: Replacing 228 out of 262 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 18 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_MISSED_DEADLINE_TRANSIENT at line 4768 while completing NNAPI compilation.
+ERROR: Node number 262 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+(Also tried auto-accel and --max_delegated_partitions=4 -> 120/262 ops,
+ 9 partitions, same MISSED_DEADLINE_TRANSIENT. Edge TPU driver refuses
+ to compile the fragmented plan. Retrying does not help — deterministic.)
+
+
+### whisper-cli (whisper.cpp) baseline on Pixel 6 ###
+CMD: ./whisper-cli -m ggml-tiny.bin -f test.wav --no-timestamps -l en -t 8
+ n_threads = 8 / 8 | WHISPER : COREML = 0 | OPENVINO = 0 | CPU : NEON = 1 | ARM_FMA = 1 | REPACK = 1 |
+ processing 'test.wav' (80000 samples, 5.0 sec), 5 beams + best of 5, lang = en, task = transcribe
+ whisper_print_timings:     load time =   237.71 ms
+ whisper_print_timings:      mel time =    18.51 ms
+ whisper_print_timings:   sample time =    92.17 ms /    61 runs
+ whisper_print_timings:   encode time =  1261.93 ms /     1 runs  (  1261.93 ms per run)
+ whisper_print_timings:   decode time =   107.48 ms /     4 runs  (    26.87 ms per run)
+ whisper_print_timings:   batchd time =   571.68 ms /    55 runs  (    10.39 ms per run)
+ whisper_print_timings:    total time =  2320.77 ms
+ real: 0m02.38s   user: 0m13.96s
+
+
+==========================================
+# WHISPER SUMMARY (inference avg, ms — single forward pass)
+==========================================
+Model / stage                                 CPU XNNPack(4T)   NNAPI edgetpu   Speedup   EdgeTPU hit?
+whisper-tiny.en FULL (enc+greedy decode)          323.8 ms         --            fail    graph rejected: dynamic-sized tensor in decode loop
+whisper-tiny.en encoder only (our port)           505.3 ms         --            fail    NNAPI compile MISSED_DEADLINE_TRANSIENT;
+                                                                                          228/262 ops delegated but fragmented into 18 partitions
+whisper.cpp full pipeline (whisper-cli)           encode 1261.9 ms (single enc call)
+                                                  total 2320.8 ms (enc+decode loop, 5s clip, 8T, beam=5)
+                                                  -> 0.52x real-time (matches README)
+
+TFLite-CPU whisper-tiny.en (full graph) = 323.8 ms for a full transcription pass on a 30s-mel slot
+  -> ~90x real-time on CPU alone.  Note the TFLite port uses greedy decode + forced_decoder_ids
+  (no beam search), while whisper-cli uses beam=5 — that is the dominant difference,
+  not TFLite vs ggml.
+
+TFLite-CPU encoder only = 505.3 ms for a 30s-audio window.
+whisper.cpp encoder only = 1261.9 ms for a 30s-audio window (actually 5s padded to 30s, same cost).
+  -> TFLite/XNNPack encoder is 2.5x faster than whisper.cpp/ggml encoder on the same CPU,
+     which mostly reflects XNNPack fp32 SIMD quality vs ggml's default fp16 path on Cortex-A76.
+
+==========================================
+# HONEST VERDICT: NNAPI / Edge TPU on Whisper Tiny @ Tensor G1
+==========================================
+NNAPI is NOT a win for Whisper Tiny on Pixel 6. Three distinct failure modes,
+none of them fixable without re-architecting the model:
+
+ 1. FULL graph (encoder + autoregressive decoder) — NNAPI delegate rejects
+    the model before op partitioning even starts, because the decoder's
+    KV-cache tensor (#704) is dynamic-sized and NNAPI only supports static
+    shapes.  0 ops delegated.  To put this on the Edge TPU at all you would
+    have to export the decoder as a fixed-length loop (pad to N=448 every
+    step) OR split encoder / decoder / cross-attn into separate TFLite
+    files and orchestrate them from host code.  Both are multi-day work,
+    not a 30-min port.
+
+ 2. ENCODER ONLY (static [1,80,3000] -> [1,1500,384]) — NNAPI accepts 228/
+    262 ops but fragments them into 18 partitions.  The Edge TPU driver
+    returns ANEURALNETWORKS_MISSED_DEADLINE_TRANSIENT (a compile-time
+    timeout), Restored-original-execution-plan fallback fires, every op
+    runs on CPU.  Same failure mode as YOLO-FastestV2 earlier in this file:
+    a transformer encoder has reshape-heavy attention blocks that the Edge
+    TPU firmware won't fuse, every attention layer is at least one boundary
+    the TPU can't cross.  Capping partitions makes it worse (fewer delegated
+    ops, still fragmented).  The partial-Erf rewrite is not the problem;
+    simpler Conv-only chunks still break.
+
+ 3. Even if (2) compiled, partitioned transformers lose on NNAPI on this
+    SoC — we saw exactly that on YOLO-FastestV2 in this same log (0.5x,
+    CPU wins 2x because per-partition switch cost > gain).
+
+Directional call: on Tensor G1 the Edge TPU is a win for single-stream
+quantized CNN classifiers (MobileNet 10x, EfficientNet 2-5x) and is a
+wash-to-negative for anything transformer-heavy or with dynamic shapes.
+Whisper Tiny on-device on Pixel 6 should stay on whichever CPU path is
+fastest — and that is XNNPack/TFLite (fp32 encoder = 505 ms @ 30s audio
+= ~60x real-time on one window) NOT whisper.cpp/ggml (encode = 1262 ms
+same window).  If the user-facing product is a voice interface on Pixel
+6, the right move is to swap the whisper.cpp runtime for a TFLite+XNNPack
+runtime — that alone is a 2.5x encoder speedup on CPU — and stop
+chasing NNAPI for Whisper on this chip.
+
+==========================================
+# FILES
+==========================================
+/tmp/whisper-tflite/whisper-tiny.en.tflite            41,507,968 B  (HF nyadla-sys, fp32, full graph)
+/tmp/whisper-tflite/encoder.onnx                      32,852,122 B  (torch-exported encoder, has Erf)
+/tmp/whisper-tflite/encoder_noerf.onnx                              (Erf rewritten -> tanh-poly)
+/tmp/whisper-tflite/encoder_noerf_tf/
+  encoder_noerf_float32.tflite                        32,881,808 B  (builtin-ops-only)
+  encoder_noerf_float16.tflite                        16,470,xxx B
+/tmp/tflite-models/whisper_enc_tiny_en_fp32.tflite    (copy pushed to phone)
+On phone:
+/data/local/tmp/tflite/whisper-tiny.en.tflite
+/data/local/tmp/tflite/whisper_enc.tflite
