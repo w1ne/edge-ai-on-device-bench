@@ -407,14 +407,37 @@ def render_page(state: dict, daemon: tuple, flash: str | None,
         frozen_html = (f'<span class="tag frozen">daemon frozen '
                        f'({snapshot_age:.0f}s since last update)</span>')
 
-    # meta http-equiv refresh only accepts integer seconds, so for the 500 ms
-    # state-json refresh we additionally issue a JS timer (cheap, stdlib-safe).
+    # Preferred path: SSE subscription to the daemon's state-server pushes an
+    # event on every RobotState.update().  We reload on each event — this is
+    # the rendering cost of the server-rendered HTML, but we avoid polling.
+    # Fallback: if EventSource never connects or drops for >5 s, resume the
+    # classic meta-refresh + JS-timer so the page doesn't go stale when the
+    # daemon's HTTP server is unreachable.
     meta_refresh_s = max(1, refresh_ms // 1000) if refresh_ms >= 1000 else 1
+    sse_js = (
+        "(function(){"
+        "try{"
+        "var es=new EventSource('http://'+location.hostname+':5556/events');"
+        "var last=Date.now();"
+        "es.onmessage=function(e){last=Date.now();"
+        "if(!window._ssePending){window._ssePending=true;"
+        "setTimeout(function(){location.reload();},150);}};"
+        "es.onerror=function(){setTimeout(function(){"
+        "if(Date.now()-last>5000){location.reload();}},1000);};"
+        "window._sse=es;"
+        "}catch(e){}"
+        "})();"
+    )
+    fallback_js = (
+        f"setTimeout(function(){{"
+        f"if(!window._sse||window._sse.readyState!==1){{location.reload();}}"
+        f"}}, {refresh_ms});"
+    )
     return (
         '<!doctype html><html><head><meta charset="utf-8">'
         f'<meta http-equiv="refresh" content="{meta_refresh_s}">'
         f'<title>{esc(ROBOT_NAME)} dashboard</title><style>{CSS}</style>'
-        f'<script>setTimeout(function(){{location.reload();}}, {refresh_ms});</script>'
+        f'<script>{sse_js}{fallback_js}</script>'
         '</head><body>'
         f'<div class="hdr"><h1>{esc(ROBOT_NAME)}</h1>'
         f'<span class="tag">{pid_html}</span>'

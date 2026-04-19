@@ -113,6 +113,7 @@ class RobotState:
     def __init__(self, path: str | None = "/tmp/robot_state.json"):
         self._path = path
         self._lock = threading.Lock()
+        self._subs: list[queue.Queue] = []      # SSE subscriber queues
         self._data: dict = {
             "ts": time.time(),
             "transcript": None,
@@ -136,6 +137,27 @@ class RobotState:
     def path(self) -> str | None:
         return self._path
 
+    def subscribe(self) -> queue.Queue:
+        """Register a new SSE subscriber.  Returns a queue the server thread
+        reads from; each enqueued item is a full snapshot dict."""
+        q: queue.Queue = queue.Queue(maxsize=16)
+        with self._lock:
+            self._subs.append(q)
+            # Send the current snapshot immediately so clients don't wait
+            # for the next event to render initial state.
+            try:
+                q.put_nowait(dict(self._data))
+            except queue.Full:
+                pass
+        return q
+
+    def unsubscribe(self, q: queue.Queue) -> None:
+        with self._lock:
+            try:
+                self._subs.remove(q)
+            except ValueError:
+                pass
+
     def update(self, **kwargs) -> None:
         with self._lock:
             # "_vision_seen" is append-only-with-cap; everything else is a
@@ -150,12 +172,26 @@ class RobotState:
                             "ts": float(kwargs.get("ts", time.time()))})
                 self._data["vision_recent"] = lst[-10:]
             self._data["ts"] = float(kwargs.get("ts", time.time()))
+            snap = dict(self._data)
+            # Fan out to SSE subscribers — non-blocking; drop on full so a
+            # stuck client can't stall the daemon.
+            dead = []
+            for q in self._subs:
+                try:
+                    q.put_nowait(snap)
+                except queue.Full:
+                    dead.append(q)
+            for q in dead:
+                try: self._subs.remove(q)
+                except ValueError: pass
+            # Optional legacy file publish (kept so existing web_ui fallback
+            # still works without the HTTP server).
             if self._path is None:
                 return
             try:
                 tmp = self._path + ".tmp"
                 with open(tmp, "w") as fh:
-                    json.dump(self._data, fh)
+                    json.dump(snap, fh)
                 os.replace(tmp, self._path)
             except Exception:
                 # Never crash the daemon because the UI snapshot failed.
@@ -1519,6 +1555,16 @@ def main():
     p.add_argument("--no-state-file", dest="no_state_file", action="store_true",
                    help="disable writing the state JSON snapshot (zero I/O "
                         "cost when off — every update() call early-returns).")
+    p.add_argument("--state-port", type=int, default=5556,
+                   help="bind port for the state HTTP/SSE server "
+                        "(GET /state, GET /events SSE, POST /stop).  "
+                        "default: 5556")
+    p.add_argument("--state-bind", default="127.0.0.1",
+                   help="bind address for the state server.  "
+                        "default: 127.0.0.1 (loopback only)")
+    p.add_argument("--no-state-server", dest="no_state_server",
+                   action="store_true",
+                   help="disable the HTTP/SSE state server entirely.")
     args = p.parse_args()
 
     logger = make_logger(args.log)
@@ -1552,6 +1598,35 @@ def main():
            f"state_file={state_path or '(disabled)'}")
     # Seed the structured snapshot so readers don't see a half-blank file.
     state_obj.update(mode=args.mode, walking=False)
+
+    # Push-based state API: HTTP + SSE on localhost.  Clients (web_ui,
+    # metrics, MCP) subscribe to /events and get a JSON snapshot on every
+    # update() without polling the filesystem.
+    state_httpd = None
+    state_httpd_thread = None
+    if not args.no_state_server:
+        try:
+            from state_server import make_server
+
+            def _emergency_stop():
+                return send_wire({"c": "stop"}, args.dry_run)
+
+            state_httpd = make_server(
+                state_obj,
+                bind=args.state_bind,
+                port=args.state_port,
+                stop_fn=_emergency_stop,
+                logger=logger,
+            )
+            state_httpd_thread = threading.Thread(
+                target=state_httpd.serve_forever, daemon=True,
+                name="state-server",
+            )
+            state_httpd_thread.start()
+        except Exception as e:
+            logger(f"[state-server] start failed "
+                   f"({type(e).__name__}: {e}); continuing without push API")
+            state_httpd = None
 
     # Item 4: surface broken hardware / env BEFORE the user types anything.
     # Does not abort on failure — every probe logs present/missing/skip.
@@ -1731,6 +1806,12 @@ def main():
         if voice_loop is not None:
             try:
                 voice_loop.stop()
+            except Exception:
+                pass
+        if state_httpd is not None:
+            try:
+                state_httpd.shutdown()
+                state_httpd.server_close()
             except Exception:
                 pass
         logger("shutdown")
