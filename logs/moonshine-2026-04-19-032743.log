@@ -1,0 +1,38 @@
+# Moonshine benchmark  2026-04-19T03:27:43
+host         : pop-os
+python       : 3.10.12
+platform     : Linux-6.17.9-76061709-generic-x86_64-with-glibc2.35
+cpu          : Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz (8 logical CPUs)
+onnxruntime  : 1.23.2
+ort providers: ['AzureExecutionProvider', 'CPUExecutionProvider']
+moonshine    : 20251121
+models       : ['moonshine/tiny', 'moonshine/base']
+clips        : ['/tmp/test.wav', '/tmp/cmd.wav', '/tmp/cmd16k.wav', '/tmp/cmd2_16k.wav']
+
+# Results (resident model, inference-only latency)
+model             clip                   dur_s    peak   lat_s     rtf  transcript
+--------------------------------------------------------------------------------------------------------------
+moonshine/tiny    test.wav                5.00     100   0.058   0.012  ''
+moonshine/tiny    cmd.wav                 1.20   18441   0.021   0.018  ''
+moonshine/tiny    cmd16k.wav              1.65   26121   0.118   0.072  'Go to the random jacket.'
+moonshine/tiny    cmd2_16k.wav            2.43   22069   0.141   0.058  'Go to the red knob jacket.'
+moonshine/base    test.wav                5.00     100   0.143   0.029  ''
+moonshine/base    cmd.wav                 1.20   18441   0.122   0.102  'Lean left'
+moonshine/base    cmd16k.wav              1.65   26121   0.097   0.059  ''
+moonshine/base    cmd2_16k.wav            2.43   22069   0.203   0.084  'Go to the red arm jacket'
+
+Cold model load (ORT session init, one-time per daemon start):
+  moonshine/tiny    2.69 s
+  moonshine/base    2.71 s
+
+# Comparison vs Whisper Base (Pixel 6 reference, 0.64x RT)
+  moonshine/tiny    n=3  mean RTF=0.049x  mean latency=93 ms  RTF-speedup vs Whisper Base Pixel 6 = 13.0x
+  moonshine/base    n=3  mean RTF=0.081x  mean latency=141 ms  RTF-speedup vs Whisper Base Pixel 6 = 7.9x
+  NOTE: x86 laptop CPU vs Pixel 6 ARM is not apples-to-apples. This is a first-pass laptop baseline; on-phone ONNX Runtime ARM64 CPU numbers are the real decision point for the robot daemon.
+
+# Verdict (laptop CPU baseline)
+  moonshine/tiny: mean inference latency 93 ms, mean RTF 0.049x on i7-8650U CPU
+  moonshine/base: mean inference latency 141 ms, mean RTF 0.081x on i7-8650U CPU
+
+Moonshine runs comfortably in real-time on laptop CPU: sub-200 ms for ~1-2 s command clips. Transcription quality is a mixed bag on the Andrii command wavs (laptop-mic recordings with background noise): tiny hallucinated 'go to the random/red knob jacket' on multi-word prompts, while base correctly decoded 'Lean left' from cmd.wav but returned empty on cmd16k.wav. This is quality concern territory, not speed. For a direct RTF comparison to README.md's Whisper Base Pixel 6 bar (0.64x RT, 3.20 s / 5 s), Moonshine base on x86 already comes in ~3-10x faster in RTF terms - consistent with Useful Sensors' ~5x-over-Whisper-Tiny claim. The useful next step is porting the ONNX models to ARM64 on the P20 Lite and Pixel 6 and re-running this same script there; that number, combined with a WER sweep on real robot-command clips, decides whether Moonshine replaces Whisper Base in the daemon. Recommend proceeding to on-device port; do not swap yet.
+

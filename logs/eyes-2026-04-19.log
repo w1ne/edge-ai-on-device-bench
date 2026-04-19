@@ -1,0 +1,51 @@
+### eyes.py run log
+date: 2026-04-19T03:29:23+02:00
+host: pop-os
+python: Python 3.10.12
+ncnn wheel: ok (CPU-only)
+phone: ANE-LX1 (arm64-v8a)
+
+### model files located on phone (canonical):
+-rw-rw-rw- 1 shell shell 20921 2026-04-17 10:30 /data/local/tmp/ncnn-bench/nanodet_m.param
+-rw-rw-rw- 1 shell shell 15139 2026-04-17 10:30 /data/local/tmp/ncnn-bench/yolo-fastestv2.param
+# NOTE: only .param files exist on phone for these detectors (no .bin weights).
+# benchncnn generates random weights for timing, but real inference needs weights.
+# Pulled matching opt pair from upstream dog-qiuqiu repo -> /tmp/eyes-models/
+total 532
+drwxrwxr-x  2 andrii andrii   4096 Apr 19 03:25 .
+drwxrwxrwt 34 root   root    24576 Apr 19 03:29 ..
+-rw-rw-r--  1 andrii andrii 500756 Apr 19 03:25 yolo-fastestv2-opt.bin
+-rw-rw-r--  1 andrii andrii  11939 Apr 19 03:25 yolo-fastestv2-opt.param
+
+### run 1: --image /tmp/eyes-bus.jpg  (YOLOv5 standard test image, 3 objs expected)
+# source=file:/tmp/eyes-bus.jpg  size=810x1080
+# latency_ms=38.49  detections=3
+# class_id class_name confidence x y w h
+0 person 0.941 35.9 399.5 184.7 495.7
+5 bus 0.819 21.1 212.0 771.4 553.2
+0 person 0.796 225.1 402.1 117.3 424.4
+# overlay=/tmp/eyes-out.png
+
+### run 2: --image /tmp/eyes-zidane.jpg (YOLOv5 standard test image, 2 people)
+# source=file:/tmp/eyes-zidane.jpg  size=1280x720
+# latency_ms=20.58  detections=2
+# class_id class_name confidence x y w h
+0 person 0.942 667.0 34.8 483.6 687.6
+0 person 0.798 170.8 214.7 510.6 502.9
+# overlay=/tmp/eyes-out.png
+
+### run 3: adb screencap (phone UI)
+# pushed frame -> /data/local/tmp/eye.png
+# source=screencap:/tmp/eyes-screencap.png  size=1080x2280
+# latency_ms=6.55  detections=0
+# class_id class_name confidence x y w h
+# overlay=/tmp/eyes-out.png
+
+### overlays saved:
+-rw-rw-r-- 1 andrii andrii  1812144 Apr 19 03:29 /tmp/eyes-out-bus.png
+-rw-rw-r-- 1 andrii andrii    11235 Apr 19 03:29 /tmp/eyes-out.png
+-rw-rw-r-- 1 andrii andrii 13731542 Apr 19 03:28 /tmp/eyes-out-run1.png
+-rw-rw-r-- 1 andrii andrii    11235 Apr 19 03:28 /tmp/eyes-out-run2.png
+-rw-rw-r-- 1 andrii andrii 15684677 Apr 19 03:28 /tmp/eyes-out-run3.png
+-rw-rw-r-- 1 andrii andrii    11235 Apr 19 03:29 /tmp/eyes-out-screencap.png
+-rw-rw-r-- 1 andrii andrii  1267718 Apr 19 03:29 /tmp/eyes-out-zidane.png

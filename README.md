@@ -92,7 +92,49 @@ python3 demo/pipeline_demo.py "lean left"
 python3 demo/pipeline_demo.py "walk"
 ```
 
-All three scripts use the firmware's documented JSON wire protocol
+Long-running voice loop (the "usable robot"):
+
+```bash
+# push-to-talk voice loop + USB to ESP32 + spoken ack
+python3 demo/robot_daemon.py
+
+# typed commands + no hardware, for testing the matcher
+python3 demo/robot_daemon.py --mode text --dry-run
+
+# optional: poll phone camera + YOLO in a background thread
+python3 demo/robot_daemon.py --with-eyes 5 --log logs/robot.log
+
+# optional: TinyLlama fallback when keyword match misses (slow, ~25 s/call on P20)
+python3 demo/robot_daemon.py --with-llm
+```
+
+Vision on a single frame (phone camera → YOLO-Fastest v2 → detections + overlay PNG):
+
+```bash
+python3 demo/eyes.py                      # phone screencap
+python3 demo/eyes.py --image photo.jpg    # laptop file
+```
+
+Intent parser (free-form transcript → JSON wire command, via TinyLlama on phone):
+
+```bash
+python3 demo/parse_intent.py "could you bow a little"
+# {"c":"pose","n":"bow_front","d":1800}
+```
+
+> The keyword matcher inside `robot_daemon.py` handles the small pose vocabulary
+> reliably and is the primary path. `parse_intent.py` uses TinyLlama Q4_0 with a
+> grammar-constrained JSON output; it works for clearly phrased commands but
+> collapses to the first schema option on ambiguous inputs (e.g. "tell me a joke"
+> → `pose lean_left`). Treat it as an experimental fallback, not the default.
+
+Moonshine STT benchmark (alternative to Whisper for short commands):
+
+```bash
+python3 scripts/benchmark_moonshine.py
+```
+
+All scripts use the firmware's documented JSON wire protocol
 (`{"c":"pose","n":"<name>","d":<speed>}`, `{"c":"walk","on":true,...}`,
 etc.) — see `w1ne/PhoneWalker:brain/wire.py` for the schema and
 `brain/schema/vocabulary.py` for the legal pose names.
