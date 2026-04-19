@@ -1,0 +1,40 @@
+
+# robot_behaviors smoke — 2026-04-19T15:43:50.092212
+state0 = idle
+LOG   [behav] -> walking (voice)
+after walk cmd, state=walking -> wire {'c': 'walk', 'on': True, 'stride': 150, 'step': 400}
+WIRE  {'c': 'walk', 'on': True, 'stride': 150, 'step': 400}
+LOG   [behav] walking->paused: close person conf=0.82 bbox_h=240/480
+WIRE  {'c': 'stop'}
+SPEAK 'something in front of me'
+after close-person event, state=paused
+tick@+2s -> None, state=paused
+LOG   [behav] paused->walking: auto-resume
+SPEAK 'resuming'
+tick@+7.5s -> {'c': 'walk', 'on': True, 'stride': 150, 'step': 400}, state=walking
+LOG   [behav] walking->idle (voice stop)
+after voice stop, state=idle, wire={'c': 'stop'}
+SPEAK 'hi there, I see a chair'
+LOG   [behav] greet chair (new=True)
+after new-class chair event, speaks=['hi there, I see a chair']
+PASS
+
+# robot_behaviors smoke — 2026-04-19T15:45:38.798736
+state0 = idle
+LOG   [behav] -> walking (voice)
+after walk cmd, state=walking -> wire {'c': 'walk', 'on': True, 'stride': 150, 'step': 400}
+WIRE  {'c': 'walk', 'on': True, 'stride': 150, 'step': 400}
+LOG   [behav] walking->paused: close person conf=0.82 bbox_h=240/480
+WIRE  {'c': 'stop'}
+SPEAK 'something in front of me'
+after close-person event, state=paused
+tick@+2s -> None, state=paused
+LOG   [behav] paused->walking: auto-resume
+SPEAK 'resuming'
+tick@+7.5s -> {'c': 'walk', 'on': True, 'stride': 150, 'step': 400}, state=walking
+LOG   [behav] walking->idle (voice stop)
+after voice stop, state=idle, wire={'c': 'stop'}
+SPEAK 'hi there, I see a chair'
+LOG   [behav] greet chair (new=True)
+after new-class chair event, speaks=['hi there, I see a chair']
+PASS

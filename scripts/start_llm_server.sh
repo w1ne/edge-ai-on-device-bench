@@ -44,10 +44,19 @@ case "$PHONE" in
 esac
 
 case "$MODEL" in
-  gemma)     GGUF="/data/local/tmp/gemma3.gguf" ;;
+  gemma)     GGUF="/data/local/tmp/gemma3.gguf"  ;;  # Gemma 3 1B Q4_0,  ~720 MB
+  gemma4)    GGUF="/data/local/tmp/gemma4.gguf"  ;;  # Gemma 4 E2B Q4_K_S, ~3 GB, Pixel 6 only
   tinyllama) GGUF="/data/local/tmp/tinyllama.gguf" ;;
-  *) echo "ERR: unknown model: $MODEL (use gemma|tinyllama)" >&2; exit 2 ;;
+  *) echo "ERR: unknown model: $MODEL (use gemma|gemma4|tinyllama)" >&2; exit 2 ;;
 esac
+
+# memory sanity: Gemma 4 at 3 GB needs room on a 3.7-GB-RAM phone.  P20 will
+# swap-thrash or OOM; we refuse.
+if [ "$MODEL" = "gemma4" ] && [ "$PHONE" = "p20" ]; then
+  echo "ERR: gemma4 is 3 GB — won't fit in P20 Lite's 3.7 GB RAM budget." >&2
+  echo "     use --model gemma (Gemma 3 1B, 720 MB) for P20." >&2
+  exit 2
+fi
 
 PORT=18080
 REMOTE_DIR=/data/local/tmp/vulkan

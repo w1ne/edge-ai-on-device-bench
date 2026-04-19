@@ -13,10 +13,14 @@ emits one JSON-ish line per frame on stdout:
 Lines are flushed immediately so a consumer daemon can pipe stdout.
 
 Usage:
-    python3 vision_watcher.py [--phone pixel6|p20] [--interval 0.5]
-                              [--watch-for <class_name>] [--threshold 0.5]
-                              [--min-streak 2] [--output stdout|jsonl]
-                              [--log PATH]
+    python3 vision_watcher.py [--source phone|webcam] [--phone pixel6|p20]
+                              [--interval 0.5] [--watch-for <class_name>]
+                              [--threshold 0.5] [--min-streak 2]
+                              [--output stdout|jsonl] [--log PATH]
+
+Sources:
+    phone  - adb exec-out screencap -p (default, ~2 FPS, backward-compatible)
+    webcam - cv2.VideoCapture(N), laptop webcam (20+ FPS, --webcam-index N)
 
 Ctrl-C exits cleanly.
 """
@@ -95,9 +99,18 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="Continuous YOLO vision watcher (streams ticks + class events)."
     )
+    ap.add_argument("--source", choices=["phone", "webcam"], default="phone",
+                    help="frame source (default phone = adb screencap)")
+    ap.add_argument("--webcam-index", type=int, default=0,
+                    help="/dev/videoN index for --source webcam (default 0)")
+    ap.add_argument("--webcam-width", type=int, default=640,
+                    help="requested webcam capture width (default 640)")
+    ap.add_argument("--webcam-height", type=int, default=480,
+                    help="requested webcam capture height (default 480)")
     ap.add_argument("--phone", choices=list(PHONE_SERIALS.keys()), default="pixel6")
     ap.add_argument("--interval", type=float, default=0.5,
-                    help="seconds between frames (default 0.5 = ~2 FPS)")
+                    help="seconds between frames (default 0.5 = ~2 FPS; "
+                         "for --source webcam, consider 0.05 = ~20 FPS)")
     ap.add_argument("--watch-for", default=None,
                     help="COCO class name to emit events for (e.g. 'person')")
     ap.add_argument("--threshold", type=float, default=0.5,
@@ -131,13 +144,40 @@ def main() -> int:
 
     # Announce startup on stderr so pipes stay clean.
     print(
-        f"# vision_watcher phone={args.phone} serial={serial} "
+        f"# vision_watcher source={args.source} phone={args.phone} serial={serial} "
         f"interval={args.interval}s threshold={args.threshold} "
         f"watch_for={args.watch_for} min_streak={args.min_streak} "
         f"output={args.output}",
         file=sys.stderr,
         flush=True,
     )
+
+    # Open webcam once if requested.  Kept local so phone path is untouched.
+    cap = None
+    if args.source == "webcam":
+        cap = cv2.VideoCapture(args.webcam_index, cv2.CAP_V4L2)
+        if not cap.isOpened():
+            # Fall back to default backend.
+            cap = cv2.VideoCapture(args.webcam_index)
+        if not cap.isOpened():
+            print(f"FATAL: cannot open /dev/video{args.webcam_index}",
+                  file=sys.stderr, flush=True)
+            return 3
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.webcam_width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.webcam_height)
+        # Keep latency low: only buffer one frame if the backend supports it.
+        try:
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            pass
+        # Warm up: first few reads on some UVC cams return None.
+        for _ in range(3):
+            cap.read()
+        actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        print(f"# webcam opened index={args.webcam_index} "
+              f"size={actual_w}x{actual_h}",
+              file=sys.stderr, flush=True)
 
     # Streak tracking per class name.  Resets to 0 if class isn't in current frame.
     streaks: dict[str, int] = {}
@@ -157,7 +197,13 @@ def main() -> int:
     try:
         while not stopping["v"]:
             loop_t0 = time.time()
-            if args.fake_frame:
+            if args.source == "webcam":
+                ok, img_bgr = cap.read()
+                if not ok or img_bgr is None:
+                    print("WARN: webcam read failed", file=sys.stderr, flush=True)
+                    time.sleep(args.interval)
+                    continue
+            elif args.fake_frame:
                 # Offline mode: simulate the adb-screencap latency so the
                 # tick numbers remain realistic, then load the local image.
                 try:
@@ -169,6 +215,12 @@ def main() -> int:
                           file=sys.stderr, flush=True)
                     time.sleep(args.interval)
                     continue
+                img_bgr = cv2.imread(str(FRAME_PATH))
+                if img_bgr is None:
+                    print(f"WARN: cv2.imread returned None for {FRAME_PATH}",
+                          file=sys.stderr, flush=True)
+                    time.sleep(args.interval)
+                    continue
             else:
                 try:
                     adb_screencap(serial, FRAME_PATH)
@@ -177,13 +229,12 @@ def main() -> int:
                           file=sys.stderr, flush=True)
                     time.sleep(args.interval)
                     continue
-
-            img_bgr = cv2.imread(str(FRAME_PATH))
-            if img_bgr is None:
-                print(f"WARN: cv2.imread returned None for {FRAME_PATH}",
-                      file=sys.stderr, flush=True)
-                time.sleep(args.interval)
-                continue
+                img_bgr = cv2.imread(str(FRAME_PATH))
+                if img_bgr is None:
+                    print(f"WARN: cv2.imread returned None for {FRAME_PATH}",
+                          file=sys.stderr, flush=True)
+                    time.sleep(args.interval)
+                    continue
 
             try:
                 dets, infer_ms = eyes.infer(net, img_bgr)
@@ -262,6 +313,8 @@ def main() -> int:
         )
         if log_fh is not None:
             log_fh.close()
+        if cap is not None:
+            cap.release()
 
     return 0
 

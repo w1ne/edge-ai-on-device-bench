@@ -49,6 +49,8 @@ from __future__ import annotations
 import argparse, datetime, json, os, queue, re, subprocess, sys, threading, time
 from pathlib import Path
 
+from robot_behaviors import BehaviorEngine
+
 HERE     = Path(__file__).parent
 CAP_WAV  = str(HERE / "_mic.wav")
 EYE_PNG  = "/tmp/_robot_eye.png"
@@ -192,20 +194,35 @@ def send_wire(cmd: dict, dry_run: bool):
 
 # ------------------------------------------------------------------ LLM fallback
 
-def llm_fallback(transcript: str, model: str, fast: bool) -> dict | None:
-    """Route to parse_intent_fast.py (if --with-llm-fast) or parse_intent.py.
+def llm_fallback(transcript: str, model: str, fast: bool,
+                 api: bool = False) -> dict | None:
+    """Route to an intent parser.
 
-    Fast path talks to a persistent llama-server on the phone (start via
-    scripts/start_llm_server.sh) — second and later calls drop from ~25 s
-    to ~2–8 s on Gemma 3 1B Q4_0.  Slow path reloads the model per call.
-    TinyLlama Q4_0 is 4/8 correct on the test set; Gemma 3 1B Q4_0 is 7/8.
+    Three backends, chosen by (api, fast):
+      api=True              -> parse_intent_api.py (DeepInfra-hosted,
+                               ~1 s/call, 8/8 on the self-test; requires
+                               laptop internet).  `model` forwards as --model
+                               (alias like 'llama31-8b' or full id).
+      api=False, fast=True  -> parse_intent_fast.py (on-phone llama-server,
+                               2-8 s warm; start via scripts/start_llm_server.sh).
+      api=False, fast=False -> parse_intent.py (on-phone llama-cli, 25-60 s
+                               cold per call).
+
+    TinyLlama Q4_0: 4/8.  Gemma 3 1B Q4_0: 7/8.  Llama-3.1-8B via API: 8/8.
     See logs/parse_intent_tests.log.
     """
-    script = "parse_intent_fast.py" if fast else "parse_intent.py"
+    if api:
+        script = "parse_intent_api.py"
+        # The API client enforces its own 10 s hard cap; give subprocess
+        # enough headroom for process spawn + 1 retry.
+        timeout = 25
+    else:
+        script = "parse_intent_fast.py" if fast else "parse_intent.py"
+        timeout = 150
     try:
         r = subprocess.run(
             [sys.executable, str(HERE / script), "--model", model, transcript],
-            capture_output=True, text=True, timeout=150,
+            capture_output=True, text=True, timeout=timeout,
         )
     except Exception:
         return None
@@ -288,7 +305,8 @@ def make_logger(path: str | None):
             fh.write(text + "\n")
     return log
 
-def one_turn(args, logger, state: dict) -> dict | None:
+def one_turn(args, logger, state: dict,
+             engine: BehaviorEngine | None = None) -> dict | None:
     if args.mode == "text":
         try:
             transcript = input("> ").strip()
@@ -306,36 +324,64 @@ def one_turn(args, logger, state: dict) -> dict | None:
 
     cmd = match_command(transcript)
     if cmd is None and args.with_llm and transcript:
-        logger(f"[matcher] no keyword hit, asking LLM ({args.llm_model}, "
-               f"{'fast' if args.llm_fast else 'reload-per-call'})")
-        cmd = llm_fallback(transcript, args.llm_model, args.llm_fast)
+        use_api = getattr(args, "llm_api", "local") == "api"
+        # When --llm-api api, the default on-device model alias ("gemma"
+        # et al) is meaningless to parse_intent_api.py — use its default
+        # unless the user passed one of the API-alias names through --llm-model.
+        api_model_aliases = {"llama31-8b", "llama33-70b", "gemma3-27b", "qwen25-72b"}
+        if use_api:
+            model_for_api = args.llm_model if args.llm_model in api_model_aliases else "llama31-8b"
+            backend = f"api:{model_for_api}"
+        else:
+            model_for_api = args.llm_model
+            backend = ("fast:" if args.llm_fast else "cli:") + args.llm_model
+        logger(f"[matcher] no keyword hit, asking LLM ({backend})")
+        cmd = llm_fallback(transcript, model_for_api, args.llm_fast, api=use_api)
         if cmd is not None:
             logger(f"[matcher] LLM proposed: {cmd}")
 
     logger(f"decision: {cmd}")
-    if cmd and not cmd.get("_exit"):
-        wire_ack, pos = send_wire(cmd, args.dry_run)
+
+    # Route through the behavior engine when vision is active. The engine may
+    # substitute a different wire command (e.g. emergency-stop during walk).
+    wire_cmd: dict | None = cmd
+    if engine is not None and cmd is not None and not cmd.get("_exit"):
+        wire_cmd = engine.on_voice_command(cmd)
+        if wire_cmd != cmd:
+            logger(f"[behav] engine rewrote wire: {cmd} -> {wire_cmd}")
+
+    if wire_cmd and not wire_cmd.get("_exit"):
+        wire_ack, pos = send_wire(wire_cmd, args.dry_run)
         logger(f"wire:   {wire_ack}   servos: {pos}")
-        # track walking state so vision events can auto-stop us
-        if cmd.get("c") == "walk":
-            state["walking"] = True
-        elif cmd.get("c") in ("stop", "pose"):
-            state["walking"] = False
+        # legacy walking flag — only meaningful when we don't have an engine
+        if engine is None:
+            if wire_cmd.get("c") == "walk":
+                state["walking"] = True
+            elif wire_cmd.get("c") in ("stop", "pose"):
+                state["walking"] = False
     speak(ack_phrase(cmd), args.tts)
     return cmd
 
 
 def drain_vision_events(event_queue: "queue.Queue[dict]", state: dict,
-                        args, logger):
-    """Called between voice turns. If vision queue has an event, greet or
-    emergency-stop depending on walking state.  Debounced to once per
-    GREETING_COOLDOWN seconds per class.
+                        args, logger,
+                        engine: BehaviorEngine | None = None):
+    """Called between voice turns. Pulls any vision events off the queue.
+
+    When an engine is supplied (--with-vision on), delegates to
+    engine.on_vision_event — the engine owns greet / auto-stop / follow-me
+    logic.  When no engine, falls back to the original simple react (kept
+    for backwards compat so --with-vision off still works unchanged).
     """
     GREETING_COOLDOWN = 10.0
     now = time.time()
     try:
         while True:
             ev = event_queue.get_nowait()
+            if engine is not None:
+                engine.on_vision_event(ev)
+                continue
+            # ---- legacy path (no engine) ----
             cls = ev.get("class", "?")
             last = state["last_greet"].get(cls, 0.0)
             if now - last < GREETING_COOLDOWN:
@@ -353,6 +399,25 @@ def drain_vision_events(event_queue: "queue.Queue[dict]", state: dict,
     except queue.Empty:
         return
 
+
+def behavior_tick_loop(engine: BehaviorEngine, args, logger,
+                       stop_evt: threading.Event, period: float = 10.0):
+    """Low-rate background thread that pokes engine.tick().  Any wire
+    command returned is sent on the wire."""
+    while not stop_evt.wait(period):
+        try:
+            out = engine.tick()
+        except Exception as e:
+            logger(f"[behav] tick error: {type(e).__name__}: {e}")
+            continue
+        if out is None:
+            continue
+        try:
+            wire_ack, pos = send_wire(out, args.dry_run)
+            logger(f"[behav] tick-wire {out} -> {wire_ack}")
+        except Exception as e:
+            logger(f"[behav] tick send_wire error: {type(e).__name__}: {e}")
+
 def main():
     p = argparse.ArgumentParser(
         description="robot_daemon.py — voice-driven robot loop",
@@ -368,13 +433,26 @@ def main():
                    help="voice mode: recording window length per turn")
     p.add_argument("--with-llm", action="store_true",
                    help="use on-phone LLM fallback when keyword matcher fails")
-    p.add_argument("--llm-model", choices=["gemma", "tinyllama"], default="gemma",
-                   help="which on-phone model to use for --with-llm "
-                        "(gemma: 7/8 accuracy; tinyllama: 4/8).  default: gemma.")
+    p.add_argument("--llm-model", choices=["gemma", "gemma4", "tinyllama"],
+                   default="gemma",
+                   help="on-phone model for --with-llm.  gemma: Gemma 3 1B "
+                        "Q4_0 (720 MB, 7/8 test accuracy, P20+Pixel 6); "
+                        "gemma4: Gemma 4 E2B Q4_K_S (3 GB, Pixel 6 only); "
+                        "tinyllama: 4/8 accuracy.  default: gemma.")
     p.add_argument("--llm-fast", action="store_true",
                    help="use parse_intent_fast.py (talks to llama-server on "
                         "phone — much faster if you've started the server via "
                         "scripts/start_llm_server.sh).  default: false.")
+    p.add_argument("--llm-api", choices=["local", "api"], default="local",
+                   help="with --with-llm, choose where the LLM runs.  "
+                        "local (default): on-phone (parse_intent.py / "
+                        "parse_intent_fast.py).  api: DeepInfra-hosted "
+                        "(parse_intent_api.py, Llama-3.1-8B by default, "
+                        "~1 s/call, 8/8 on self-test; requires internet + "
+                        "$DEEPINFRA_API_KEY).  When --llm-api api, "
+                        "--llm-model accepts llama31-8b / llama33-70b / "
+                        "gemma3-27b / qwen25-72b — anything else falls "
+                        "through to llama31-8b.")
     p.add_argument("--with-vision", metavar="CLASS", default=None,
                    help="launch demo/vision_watcher.py in the background; "
                         "emit greeting / auto-stop reactions when CLASS is "
@@ -393,7 +471,7 @@ def main():
 
     logger = make_logger(args.log)
     logger(f"robot_daemon up  mode={args.mode}  dry_run={args.dry_run}  "
-           f"with_llm={args.with_llm}/fast={args.llm_fast}  "
+           f"with_llm={args.with_llm}/fast={args.llm_fast}/api={args.llm_api}  "
            f"with_vision={args.with_vision}  tts={args.tts}")
     speak("robot online", args.tts)
 
@@ -401,6 +479,8 @@ def main():
     event_queue: "queue.Queue[dict]" = queue.Queue(maxsize=32)
     state = {"walking": False, "last_greet": {}}
     eye_thread: threading.Thread | None = None
+    engine: BehaviorEngine | None = None
+    tick_thread: threading.Thread | None = None
     if args.with_vision:
         eye_thread = threading.Thread(
             target=vision_loop,
@@ -410,11 +490,23 @@ def main():
         )
         eye_thread.start()
 
+        engine = BehaviorEngine(
+            speak_fn=lambda s: speak(s, args.tts),
+            wire_fn=lambda c: send_wire(c, args.dry_run),
+            logger=logger,
+        )
+        tick_thread = threading.Thread(
+            target=behavior_tick_loop,
+            args=(engine, args, logger, stop_evt, 10.0),
+            daemon=True,
+        )
+        tick_thread.start()
+
     try:
         while True:
             try:
-                drain_vision_events(event_queue, state, args, logger)
-                cmd = one_turn(args, logger, state)
+                drain_vision_events(event_queue, state, args, logger, engine)
+                cmd = one_turn(args, logger, state, engine)
             except KeyboardInterrupt:
                 logger("interrupted during turn; idle.")
                 continue
@@ -427,6 +519,8 @@ def main():
         stop_evt.set()
         if eye_thread is not None:
             eye_thread.join(timeout=3)
+        if tick_thread is not None:
+            tick_thread.join(timeout=3)
         speak("goodbye", args.tts)
         logger("shutdown")
 

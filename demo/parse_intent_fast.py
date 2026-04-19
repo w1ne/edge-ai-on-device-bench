@@ -39,6 +39,7 @@ ENDPOINT_HEALTH = SERVER_URL + "/health"
 MODELS = {
     "tinyllama": {"n_predict": 32},
     "gemma":     {"n_predict": 64},
+    "gemma4":    {"n_predict": 64},  # Gemma 4 E2B Q4_K_S, ~3 GB — Pixel 6 only
 }
 DEFAULT_MODEL = "tinyllama"
 

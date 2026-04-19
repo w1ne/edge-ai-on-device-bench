@@ -192,3 +192,41 @@ P20 Lite (serial 9WV4C18C11005454) -- Gemma 3 1B via llama-server:
   scripts/start_llm_server.sh         -- --phone {pixel6,p20} --model {gemma,tinyllama}
   demo/parse_intent_fast.py           -- drop-in HTTP variant of parse_intent.py
   /data/local/tmp/vulkan/llama-server -- on both phones, plus 7 .so deps
+
+---- DeepInfra API (Llama-3.1-8B) re-test ----
+date: 2026-04-19T<later>Z
+endpoint: https://api.deepinfra.com/v1/openai/chat/completions
+model: meta-llama/Meta-Llama-3.1-8B-Instruct
+client: demo/parse_intent_api.py (OpenAI-compatible, response_format=json_object,
+        temperature=0, max_tokens=64, hard timeout=10 s, 1 retry on 5xx)
+auth: $DEEPINFRA_API_KEY (falls back to baked-in project key)
+
+8-phrase re-test:
+
+  [ 1180 ms] "lean left"                         -> {"c":"pose","n":"lean_left","d":1500}                PASS
+  [  974 ms] "could you lean to the left please" -> {"c":"pose","n":"lean_left","d":1500}                PASS
+  [ 1161 ms] "bow down a little"                 -> {"c":"pose","n":"bow_front","d":1800}                PASS
+  [ 1433 ms] "walk forward now"                  -> {"c":"walk","on":true,"stride":150,"step":400}       PASS
+  [ 1454 ms] "stop what you are doing"           -> {"c":"stop"}                                         PASS
+  [ 1530 ms] "jump"                              -> {"c":"jump"}                                         PASS
+  [ 1000 ms] "tell me a joke"                    -> {"c":"noop"}                                         PASS
+  [ 1050 ms] "turn around"                       -> {"c":"noop"}                                         PASS
+
+Score: 8 / 8.  Median wall-clock: 1180 ms per call (single laptop, cold
+process per phrase — subprocess spawn + TLS handshake + 1 API round-trip
+each time).  Persistent-process calls via the module would trim ~100-200 ms
+off the TLS cost but are not exercised here.
+
+vs prior runs on same suite:
+  TinyLlama Q4_0 cli        (P20):  4/8  @  ~25 s median
+  Gemma 3 1B cli            (P20):  7/8  @  ~30 s median
+  Gemma 3 1B llama-server   (P20):  7/8  @  ~5.7 s warm median
+  Gemma 3 1B llama-server   (Px6):  7/8  @  ~2.7 s warm median
+  Llama-3.1-8B DeepInfra    (API):  8/8  @  ~1.18 s median
+
+Failure mode check: "tell me a joke" (the only phrase that Gemma 3 1B got
+wrong, mapping it to "stop") now resolves correctly to {"c":"noop"} — the
+bigger model + system prompt + response_format=json_object is enough.
+
+Verdict: usable as the default intent stage for robot_daemon.py when the
+laptop has internet.  Next call is `--llm-api api` under --with-llm.
