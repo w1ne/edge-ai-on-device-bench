@@ -1,12 +1,66 @@
-parse_intent self-test (run by integration pass)
-date: 2026-04-19T01:43:35Z
-device: P20 Lite (ANE-LX1), 8 threads, TinyLlama 1.1B Q4_0
----
-[19.73 s]  lean left  ->  {"c":"pose","n":"lean_left","d":1500}
-[24.88 s]  could you lean to the left please  ->  {"c":"pose","n":"lean_left","d":1500}
-[24.66 s]  bow down a little  ->  {"c":"pose","n":"bow_front","d":1800}
-[25.43 s]  walk forward now  ->  {"c":"walk","on":true,"stride":150,"step":400}
-[27.51 s]  stop what you are doing  ->  {"c":"pose","n":"lean_left","d":1500}
-[26.98 s]  jump  ->  {"c":"pose","n":"lean_left","d":1500}
-[27.16 s]  tell me a joke  ->  {"c":"pose","n":"lean_left","d":1500}
-[27.07 s]  turn around  ->  {"c":"pose","n":"lean_left","d":1500}
+parse_intent self-test + investigation
+date: 2026-04-19T04:00:00Z
+device: Huawei P20 Lite (ANE-LX1) via adb, 8 threads
+model: tinyllama.gguf (Q4_0) via llama-cli b1-3f7c29d, grammar-constrained JSON
+script: demo/parse_intent.py
+
+---- 8-phrase self-test, TinyLlama Q4_0 + schema grammar (--temp 0 --top-k 1) ----
+
+[19.7 s]  "lean left"                               -> {"c":"pose","n":"lean_left","d":1500}   CORRECT
+[24.9 s]  "could you lean to the left please"       -> {"c":"pose","n":"lean_left","d":1500}   CORRECT
+[24.7 s]  "bow down a little"                       -> {"c":"pose","n":"bow_front","d":1800}   CORRECT
+[25.4 s]  "walk forward now"                        -> {"c":"walk","on":true,"stride":150,"step":400}   CORRECT
+[27.5 s]  "stop what you are doing"                 -> {"c":"pose","n":"lean_left","d":1500}   WRONG  (expected stop)
+[27.0 s]  "jump"                                    -> {"c":"pose","n":"lean_left","d":1500}   WRONG  (expected jump)
+[27.2 s]  "tell me a joke"                          -> {"c":"pose","n":"lean_left","d":1500}   WRONG  (expected noop)
+[27.1 s]  "turn around"                             -> {"c":"pose","n":"lean_left","d":1500}   WRONG  (expected noop)
+
+Score: 4 / 8.  Every failure collapsed to the first schema option (pose/lean_left).
+
+---- why this fails ----
+
+TinyLlama Q4_0 + grammar-constrained decoding + --temp 0 --top-k 1 is deterministic:
+at each step the single highest-probability allowed token wins.  For weakly-signalled
+inputs (single-word commands like "jump", or out-of-vocab inputs like "tell me a
+joke") the logits on the first content token favor "pose" over "stop"/"jump"/"noop"
+because the few-shot prompt has more pose examples.  Once "pose" is emitted, the
+grammar + logits lock in the first enum value ("lean_left").  The grammar constraint
+ensures syntactic validity but cannot recover from a semantic error in the first
+token.
+
+---- follow-up: Gemma 3 1B ----
+
+Tried same prompt with gemma3.gguf on phone.  llama-cli on this build drops into
+interactive REPL mode for Gemma regardless of -st/--simple-io combinations
+(banner prints but no generation reaches stdout in the 40-token budget).  Not a
+quick drop-in; would need either a different CLI build, a non-interactive chat
+template flag, or a different invocation pattern.  Punted.
+
+---- follow-up: TinyLlama without the grammar constraint ----
+
+Ran the same prompt with --temp 0 --top-k 1 but no -jf schema.json.  TinyLlama
+stopped producing JSON at all — it responded with "To map the user robot command
+'jump' to ONE wire command JSON, follow these steps: 1. Find the 'c'..." on every
+failing case.  Classic small-model failure mode: without the grammar scaffold,
+Q4_0 drifts into meta-explanation instead of emitting the answer.
+
+---- conclusion ----
+
+parse_intent.py is usable for naturally-phrased 4+ word commands that pattern-match
+the few-shot examples.  It is NOT usable as the daemon's primary intent stage
+because single-word commands and out-of-vocab inputs collapse to pose/lean_left.
+
+The keyword matcher in demo/robot_daemon.py handles all 14 tested phrases correctly
+(including these 8) with a ~0 ms regex match.  That is the default path.
+
+parse_intent.py stays in the repo behind the robot_daemon --with-llm flag for two
+reasons:
+  (a) documents the exact failure mode so we don't repeat this experiment,
+  (b) gives us a ready-to-run scaffold for when we swap in Gemma 3 1B
+      (fix the REPL issue) or a bigger instruction-tuned model.
+
+---- integration check ----
+
+  $ python3 demo/robot_daemon.py --mode text --dry-run --no-tts
+  # all 14 test phrases, including the 4 that break TinyLlama, classify correctly
+  # in < 1 ms via the regex matcher.  log at /tmp/robot-test.log.
