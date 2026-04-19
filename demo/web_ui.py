@@ -51,10 +51,25 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LOG_DIR = REPO_ROOT / "logs"
 DEFAULT_STATE   = "/tmp/robot_state.json"
+DEFAULT_DAEMON_URL = "http://127.0.0.1:5556"
+DEFAULT_TOKEN_FILE = str(Path.home() / ".cache" / "edge-robot-token")
 EYE_PNG    = "/tmp/_robot_eye.png"
 ROBOT_NAME = os.environ.get("ROBOT_NAME", "PhoneWalker")
 VID, PID   = 0x303a, 0x1001
 LOG_GLOB   = "robot-*.log"
+
+
+def read_daemon_token(path: str | None) -> str | None:
+    """Read the bearer token the daemon wrote.  Returns None if missing
+    so requests still work on the loopback carve-out."""
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            tok = fh.read().strip()
+        return tok or None
+    except (FileNotFoundError, PermissionError, IsADirectoryError):
+        return None
 
 # Freshness windows.
 STATE_FROZEN_S   = 10.0   # show "daemon frozen" badge beyond this
@@ -295,6 +310,51 @@ def fire_stop() -> str:
         except Exception: pass
 
 
+def fire_stop_via_daemon(daemon_url: str, token: str | None,
+                         timeout: float = 2.0) -> str | None:
+    """POST /stop to the daemon's state server with bearer auth.  Returns
+    a status string on success / failure, or None if the call wasn't even
+    attempted (e.g., daemon_url is empty).  Meant as the *preferred* stop
+    path for the web UI -- the daemon then drives the ESP32, which avoids
+    fighting pyusb for the same interface.  Falls back to local pyusb if
+    this returns None or an error string."""
+    if not daemon_url:
+        return None
+    import urllib.request, urllib.error
+    req = urllib.request.Request(
+        daemon_url.rstrip("/") + "/stop",
+        method="POST",
+        data=b"",
+    )
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                return "ok (via daemon)"
+            return f"daemon http {resp.status}"
+    except urllib.error.HTTPError as e:
+        return f"daemon http {e.code}"
+    except urllib.error.URLError as e:
+        return f"daemon unreachable: {e.reason}"
+    except Exception as e:
+        return f"daemon err: {type(e).__name__}: {e}"
+
+
+def fire_stop_best(daemon_url: str, token: str | None) -> str:
+    """Prefer the daemon's /stop endpoint (clean, avoids pyusb contention
+    when the daemon already owns the interface).  If the daemon didn't
+    respond or isn't configured, fall back to local pyusb so STOP still
+    works when the daemon is hung."""
+    remote = fire_stop_via_daemon(daemon_url, token)
+    if remote == "ok (via daemon)":
+        return remote
+    local = fire_stop()
+    if remote:
+        return f"{remote}; local: {local}"
+    return local
+
+
 def shutdown_daemon() -> str:
     pid, _, _ = find_daemon()
     if pid is None: return "no daemon"
@@ -340,7 +400,9 @@ CSS = (
 
 def render_page(state: dict, daemon: tuple, flash: str | None,
                 source: str, snapshot_age: float | None,
-                refresh_ms: int) -> str:
+                refresh_ms: int,
+                daemon_url: str = DEFAULT_DAEMON_URL,
+                token: str | None = None) -> str:
     esc = html.escape
     pid, _cmd, start_epoch = daemon
     if pid is not None and start_epoch is not None:
@@ -414,10 +476,17 @@ def render_page(state: dict, daemon: tuple, flash: str | None,
     # classic meta-refresh + JS-timer so the page doesn't go stale when the
     # daemon's HTTP server is unreachable.
     meta_refresh_s = max(1, refresh_ms // 1000) if refresh_ms >= 1000 else 1
+    # EventSource can't set custom headers (fetch spec restriction), so we
+    # pass the bearer token as ?token=<tok>.  The state server only accepts
+    # the query-string token on /events -- other endpoints still require
+    # the Authorization header.  JSON-encode both so quoting is safe.
+    sse_url = f"{daemon_url.rstrip('/')}/events"
+    if token:
+        sse_url += f"?token={token}"
     sse_js = (
         "(function(){"
         "try{"
-        "var es=new EventSource('http://'+location.hostname+':5556/events');"
+        f"var es=new EventSource({json.dumps(sse_url)});"
         "var last=Date.now();"
         "es.onmessage=function(e){last=Date.now();"
         "if(!window._ssePending){window._ssePending=true;"
@@ -497,17 +566,25 @@ def build_state(logs_dir: Path, state_path: str | None) -> tuple[dict, tuple, st
     return state, find_daemon(), "log-regex", None, 1000
 
 
-def make_flask_app(logs_dir: Path, state_path: str | None) -> "Flask":
+def make_flask_app(logs_dir: Path, state_path: str | None,
+                   daemon_url: str = DEFAULT_DAEMON_URL,
+                   token_file: str | None = DEFAULT_TOKEN_FILE) -> "Flask":
     app = Flask(__name__)
     flash = {"msg": None, "ts": 0.0}
 
     def live():
         return flash["msg"] if flash["msg"] and time.time() - flash["ts"] < 4 else None
 
+    def _tok() -> str | None:
+        # Re-read the token on each request: cheap (one open+read of ~50
+        # bytes) and picks up rotation without a UI restart.
+        return read_daemon_token(token_file)
+
     @app.route("/")
     def index():
         st, dm, src, age, refresh_ms = build_state(logs_dir, state_path)
-        return Response(render_page(st, dm, live(), src, age, refresh_ms),
+        return Response(render_page(st, dm, live(), src, age, refresh_ms,
+                                    daemon_url=daemon_url, token=_tok()),
                         mimetype="text/html")
 
     @app.route("/state.json")
@@ -530,7 +607,9 @@ def make_flask_app(logs_dir: Path, state_path: str | None) -> "Flask":
 
     @app.route("/stop", methods=["POST"])
     def stop():
-        flash.update(msg=f"STOP: {fire_stop()}", ts=time.time()); return redirect("/")
+        flash.update(msg=f"STOP: {fire_stop_best(daemon_url, _tok())}",
+                     ts=time.time())
+        return redirect("/")
 
     @app.route("/shutdown", methods=["POST"])
     def shutdown():
@@ -545,12 +624,17 @@ def make_flask_app(logs_dir: Path, state_path: str | None) -> "Flask":
 class StdlibHandler(BaseHTTPRequestHandler):  # type: ignore[misc]
     logs_dir: Path = DEFAULT_LOG_DIR
     state_path: str | None = DEFAULT_STATE
+    daemon_url: str = DEFAULT_DAEMON_URL
+    token_file: str | None = DEFAULT_TOKEN_FILE
     flash: dict = {"msg": None, "ts": 0.0}
 
     def log_message(self, fmt, *a): pass
 
     def _live(self):
         return self.flash["msg"] if self.flash["msg"] and time.time() - self.flash["ts"] < 4 else None
+
+    def _tok(self):
+        return read_daemon_token(self.token_file)
 
     def do_GET(self):
         if self.path.startswith("/eye.png"):
@@ -574,22 +658,31 @@ class StdlibHandler(BaseHTTPRequestHandler):  # type: ignore[misc]
         if self.path == "/healthz":
             self.send_response(200); self.end_headers(); self.wfile.write(b"ok"); return
         st, dm, src, age, refresh_ms = build_state(self.logs_dir, self.state_path)
-        body = render_page(st, dm, self._live(), src, age, refresh_ms).encode()
+        body = render_page(st, dm, self._live(), src, age, refresh_ms,
+                           daemon_url=self.daemon_url,
+                           token=self._tok()).encode()
         self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body))); self.end_headers()
         self.wfile.write(body)
 
     def do_POST(self):
         if self.path == "/stop":
-            StdlibHandler.flash = {"msg": f"STOP: {fire_stop()}", "ts": time.time()}
+            StdlibHandler.flash = {
+                "msg": f"STOP: {fire_stop_best(self.daemon_url, self._tok())}",
+                "ts": time.time(),
+            }
         elif self.path == "/shutdown":
             StdlibHandler.flash = {"msg": f"SHUTDOWN: {shutdown_daemon()}", "ts": time.time()}
         self.send_response(303); self.send_header("Location", "/"); self.end_headers()
 
 
-def run_stdlib(host: str, port: int, logs_dir: Path, state_path: str | None):
+def run_stdlib(host: str, port: int, logs_dir: Path, state_path: str | None,
+               daemon_url: str = DEFAULT_DAEMON_URL,
+               token_file: str | None = DEFAULT_TOKEN_FILE):
     StdlibHandler.logs_dir = logs_dir
     StdlibHandler.state_path = state_path
+    StdlibHandler.daemon_url = daemon_url
+    StdlibHandler.token_file = token_file
     print(f"[web_ui] stdlib http.server on http://{host}:{port}/")
     HTTPServer((host, port), StdlibHandler).serve_forever()
 
@@ -602,17 +695,32 @@ def main():
     ap.add_argument("--state-file", default=DEFAULT_STATE,
                     help="atomic JSON snapshot published by robot_daemon.  "
                          f"default: {DEFAULT_STATE}.  Pass '' to disable.")
+    ap.add_argument("--daemon-url", default=DEFAULT_DAEMON_URL,
+                    help="base URL of the daemon's state server.  "
+                         f"default: {DEFAULT_DAEMON_URL}.  Supersedes the "
+                         "old hardcoded location.hostname:5556 in the SSE "
+                         "client; set this when the UI and daemon run on "
+                         "different boxes.")
+    ap.add_argument("--daemon-token-file", default=DEFAULT_TOKEN_FILE,
+                    help="path to the daemon's bearer-token file "
+                         f"(default: {DEFAULT_TOKEN_FILE}).  Read on each "
+                         "request so rotation doesn't need a UI restart.  "
+                         "Pass '' to disable and rely on loopback carve-out.")
     a = ap.parse_args()
     logs_dir = Path(a.logs_dir).resolve()
     logs_dir.mkdir(parents=True, exist_ok=True)
     state_path = a.state_file if a.state_file else None
+    token_file = a.daemon_token_file if a.daemon_token_file else None
     print(f"[web_ui] robot={ROBOT_NAME}  logs_dir={logs_dir}  "
-          f"state_file={state_path or '(disabled)'}  flask={USE_FLASK}")
+          f"state_file={state_path or '(disabled)'}  "
+          f"daemon_url={a.daemon_url}  "
+          f"token_file={token_file or '(disabled)'}  flask={USE_FLASK}")
     if USE_FLASK:
-        make_flask_app(logs_dir, state_path).run(host=a.host, port=a.port,
-                                                 debug=False, use_reloader=False)
+        make_flask_app(logs_dir, state_path, a.daemon_url, token_file).run(
+            host=a.host, port=a.port, debug=False, use_reloader=False)
     else:
-        run_stdlib(a.host, a.port, logs_dir, state_path)
+        run_stdlib(a.host, a.port, logs_dir, state_path,
+                   daemon_url=a.daemon_url, token_file=token_file)
 
 
 if __name__ == "__main__":
