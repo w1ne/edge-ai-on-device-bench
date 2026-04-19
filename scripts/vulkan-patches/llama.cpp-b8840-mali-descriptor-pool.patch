@@ -1,0 +1,25 @@
+# Mali-G78 / Pixel 6 hotfix for llama.cpp ggml-vulkan backend.
+#
+# Stock llama.cpp b8840 aborts with
+#   ggml-vulkan.cpp:6613: GGML_ASSERT(ctx->descriptor_set_idx < ctx->descriptor_sets.size()) failed
+# on Mali-G78 when executing Q4_0 1B-class models, because the pipeline graph
+# dispatches more kernel invocations than the descriptor pool was pre-sized for.
+#
+# This patch grows the pool on demand instead of aborting.  Apply against
+# ggml/src/ggml-vulkan/ggml-vulkan.cpp at llama.cpp tag b8840.
+
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -6610,6 +6610,12 @@ static void ggml_vk_dispatch_pipeline(ggml_backend_vk_context* ctx, vk_context&
+     GGML_ASSERT(wg0 <= ctx->device->properties.limits.maxComputeWorkGroupCount[0] &&
+                 wg1 <= ctx->device->properties.limits.maxComputeWorkGroupCount[1] &&
+                 wg2 <= ctx->device->properties.limits.maxComputeWorkGroupCount[2]);
++    // Mali-G78 / Pixel 6 hotfix: grow the descriptor pool on demand instead
++    // of aborting when the pre-allocated pool is exhausted.
++    if (ctx->descriptor_set_idx >= ctx->descriptor_sets.size()) {
++        ctx->pipeline_descriptor_set_requirements = ctx->descriptor_set_idx + 1;
++        ggml_pipeline_allocate_descriptor_sets(ctx);
++    }
+     GGML_ASSERT(ctx->descriptor_set_idx < ctx->descriptor_sets.size());
+     GGML_ASSERT(descriptor_buffer_infos.size() <= MAX_PARAMETER_COUNT);
+     GGML_ASSERT(pipeline->parameter_count == descriptor_buffer_infos.size());

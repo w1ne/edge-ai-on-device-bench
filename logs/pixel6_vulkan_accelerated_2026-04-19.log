@@ -1,0 +1,85 @@
+=== Pixel 6 Vulkan acceleration bench (2026-04-19T10:43:36Z) ===
+device: Pixel 6 (oriole) serial=1B291FDF600260  chip=Tensor G1  gpu=Mali-G78 MP20
+build: llama.cpp b8840 + local patch (descriptor pool grows on demand for Mali)
+       NDK r26d, -DGGML_VULKAN=ON, Vulkan-Headers master, SPIRV-Headers master
+vulkan_device_info: uma=1 fp16=1 bf16=0 warp_size=16 shared_mem=32KiB matrix_cores=none
+
+---- CPU baseline (stock binary, 4 threads) ----
+### tinyllama.gguf  CPU
+| model                          |       size |     params | backend    | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | --------------: | -------------------: |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | CPU        |       4 |            pp32 |         35.31 ± 0.79 |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | CPU        |       4 |            tg64 |         24.90 ± 1.36 |
+
+build: 3f7c29d (1)
+
+### gemma3.gguf  CPU
+| model                          |       size |     params | backend    | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | --------------: | -------------------: |
+| gemma3 1B Q4_0                 | 680.82 MiB |   999.89 M | CPU        |       4 |            pp32 |         40.59 ± 4.41 |
+| gemma3 1B Q4_0                 | 680.82 MiB |   999.89 M | CPU        |       4 |            tg64 |         22.78 ± 0.56 |
+
+build: 3f7c29d (1)
+
+---- Vulkan offload on Mali-G78 (patched binary) ----
+### tinyllama.gguf  Vulkan -ngl 99
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = Mali-G78 (Mali-G78) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 16 | shared memory: 32768 | int dot: 0 | matrix cores: none
+| model                          |       size |     params | backend    | ngl | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | --------------: | -------------------: |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | Vulkan     |  99 |       4 |            pp32 |          3.59 ± 0.00 |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | Vulkan     |  99 |       4 |            tg64 |         10.38 ± 0.00 |
+
+build: 9e5647a (1)
+
+### tinyllama.gguf  Vulkan -ngl 10
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = Mali-G78 (Mali-G78) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 16 | shared memory: 32768 | int dot: 0 | matrix cores: none
+| model                          |       size |     params | backend    | ngl | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | --------------: | -------------------: |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | Vulkan     |  10 |       4 |            pp32 |          2.65 ± 0.00 |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | Vulkan     |  10 |       4 |            tg64 |          8.04 ± 0.00 |
+
+build: 9e5647a (1)
+
+### gemma3.gguf  Vulkan -ngl 99
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = Mali-G78 (Mali-G78) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 16 | shared memory: 32768 | int dot: 0 | matrix cores: none
+| model                          |       size |     params | backend    | ngl | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | --------------: | -------------------: |
+| gemma3 1B Q4_0                 | 680.82 MiB |   999.89 M | Vulkan     |  99 |       4 |            pp32 |          3.37 ± 0.00 |
+| gemma3 1B Q4_0                 | 680.82 MiB |   999.89 M | Vulkan     |  99 |       4 |            tg64 |          9.63 ± 0.00 |
+
+build: 9e5647a (1)
+
+### gemma3.gguf  Vulkan -ngl 10
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = Mali-G78 (Mali-G78) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 16 | shared memory: 32768 | int dot: 0 | matrix cores: none
+| model                          |       size |     params | backend    | ngl | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | --------------: | -------------------: |
+| gemma3 1B Q4_0                 | 680.82 MiB |   999.89 M | Vulkan     |  10 |       4 |            pp32 |          2.71 ± 0.00 |
+| gemma3 1B Q4_0                 | 680.82 MiB |   999.89 M | Vulkan     |  10 |       4 |            tg64 |          7.78 ± 0.00 |
+
+build: 9e5647a (1)
+
+---- Verdict ----
+Vulkan end-to-end runs on Mali-G78 after patching ggml-vulkan.cpp:6613 to grow the
+descriptor-set pool on demand instead of aborting (the stock assertion fires on
+the graph pattern llama.cpp produces for Q4_0 1B-class models on this GPU).
+
+Numerically, Mali-G78 is SLOWER than 4-thread CPU for LLM inference on this chip,
+by a large margin on prompt processing and a moderate margin on token generation.
+This is consistent with Mali having no matrix cores, only 32KiB shared memory,
+and warp size 16 — hardware that is not tuned for Q4_0 mat-vec, which is memory
+bandwidth-bound and benefits little from the GPU's parallelism vs the CPU's NEON.
+
+Real Pixel 6 LLM acceleration would require Edge TPU / NNAPI (Tensor G1 has an
+Edge TPU), which neither llama.cpp nor the Q4_0 quant format target.  Moonshine,
+Whisper, or TFLite .tflite models through the NNAPI delegate are the path there.
+
+source/build artifacts:
+  /tmp/llama.cpp (patched in ggml/src/ggml-vulkan/ggml-vulkan.cpp)
+  /tmp/llama.cpp/build-android/bin/ (llama-bench, llama-cli, libs)
+on-phone layout:
+  /data/local/tmp/llama-bench       <- stock CPU build (pre-existing)
+  /data/local/tmp/vulkan/           <- patched Vulkan build
