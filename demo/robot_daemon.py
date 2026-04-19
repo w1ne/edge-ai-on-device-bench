@@ -1736,6 +1736,19 @@ def main():
                    help="enable LLM tool-calling planner as a fallback for "
                         "long utterances that regex + parse_intent_api both "
                         "return noop for. requires DEEPINFRA_API_KEY.")
+    p.add_argument("--fallback-on-api-fail", dest="fallback_on_api_fail",
+                   action="store_true", default=None,
+                   help="when the planner's DeepInfra call fails after the "
+                        "retry budget, divert the goal through the zero-LLM "
+                        "rule-based FallbackPlanner (demo/planner_fallback.py). "
+                        "Covers ~18/21 eval cases deterministically in <10ms. "
+                        "default: on when --planner is set.")
+    p.add_argument("--no-fallback-on-api-fail", dest="fallback_on_api_fail",
+                   action="store_false",
+                   help="disable the rule-based fallback path (default on "
+                        "with --planner).  Useful if you want DeepInfra "
+                        "outages to surface as noop rather than a degraded "
+                        "rule-based plan.")
     p.add_argument("--persistent-goal", dest="persistent_goal",
                    action="store_true",
                    help="wrap --planner in a GoalKeeper so each voice goal "
@@ -2040,12 +2053,31 @@ def main():
                     time.sleep(max(0.0, min(5.0, float(seconds))))
                     return {"ok": True}
 
-                planner = Planner({
+                _tool_bindings = {
                     "pose": _tool_pose, "walk": _tool_walk, "stop": _tool_stop,
                     "jump": _tool_jump, "look": _tool_look,
                     "look_for": _tool_look_for, "say": _tool_say,
                     "wait": _tool_wait,
-                }, logger=logger)
+                }
+                # Resolve --fallback-on-api-fail: default ON when --planner
+                # is set; explicit --no-fallback-on-api-fail forces it off.
+                _fb_enabled = (args.fallback_on_api_fail
+                               if args.fallback_on_api_fail is not None
+                               else True)
+                _fallback_planner = None
+                if _fb_enabled:
+                    try:
+                        from planner_fallback import FallbackPlanner
+                        _fallback_planner = FallbackPlanner(
+                            _tool_bindings, logger=logger,
+                        )
+                        logger("[planner] rule-based fallback enabled "
+                               "(degraded mode when DeepInfra is unreachable)")
+                    except Exception as e:
+                        logger(f"[planner] fallback init failed "
+                               f"({type(e).__name__}: {e}); degraded path OFF")
+                planner = Planner(_tool_bindings, logger=logger,
+                                  fallback=_fallback_planner)
                 logger("[planner] enabled (tool-calling fallback for multi-step goals)")
             except Exception as e:
                 logger(f"[planner] init failed ({type(e).__name__}: {e}); disabled")

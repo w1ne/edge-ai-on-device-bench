@@ -80,6 +80,12 @@ DEFAULT_MAX_STEPS = 10
 REQUEST_TIMEOUT_S = 20.0
 NO_TOOL_CALL_LIMIT = 2  # consecutive text-only replies before we abort
 
+# Retry schedule for transient DeepInfra failures (5xx / timeout / network).
+# Pure 4xx responses (auth, bad request) are NOT retried — they won't recover.
+# Keep the total budget under ~5 s so an end-user's turn doesn't feel wedged.
+_RETRY_BACKOFFS_S = (0.5, 1.0, 2.0)
+_RETRYABLE_STATUSES = {0, 429, 500, 502, 503, 504}
+
 
 # ------------------------------------------------------------------ tool schemas
 #
@@ -373,11 +379,39 @@ class Planner:
         model: str = DEFAULT_MODEL,
         max_steps: int = DEFAULT_MAX_STEPS,
         logger: Callable[[str], None] | None = None,
+        fallback: Any | None = None,
     ) -> None:
         self._tools = dict(tools)
         self._model = model
         self._max_steps = int(max_steps)
         self._log: Callable[[str], None] = logger or _eprint
+        # Optional FallbackPlanner (duck-typed: must expose .run(goal,
+        # observation) -> PlanResult).  Invoked when DeepInfra is still
+        # unreachable after the retry budget is exhausted.
+        self._fallback = fallback
+
+    def _post_chat_with_retries(self, payload: dict, api_key: str,
+                                 ) -> tuple[int, dict | None, str]:
+        """Wrap `_post_chat` with backoff-on-5xx so transient DeepInfra
+        hiccups don't kill the agent loop.  4xx results (auth, malformed
+        request) are NOT retried.  Returns the final (status, body, raw)."""
+        last: tuple[int, dict | None, str] = (0, None, "")
+        for attempt, backoff in enumerate((0.0,) + _RETRY_BACKOFFS_S):
+            if backoff > 0.0:
+                time.sleep(backoff)
+            status, body, raw = _post_chat(payload, api_key)
+            last = (status, body, raw)
+            if status == 200 and isinstance(body, dict):
+                return last
+            if status not in _RETRYABLE_STATUSES:
+                # Auth / 400 / 404 won't recover by retrying.
+                return last
+            self._log(
+                f"[planner] DeepInfra transient failure status={status} "
+                f"attempt={attempt + 1}/{len(_RETRY_BACKOFFS_S) + 1} "
+                f"body={raw[:200]!r}"
+            )
+        return last
 
     # -------------------------------------------------------------- public
     def run(self, goal: str, observation: dict | None = None) -> dict:
@@ -431,12 +465,31 @@ class Planner:
                 "temperature": 0.0,
                 "max_tokens": 512,
             }
-            status, body, raw = _post_chat(payload, api_key)
+            status, body, raw = self._post_chat_with_retries(payload, api_key)
             if status in (401, 403):
                 self._log(f"[planner] AUTH FAILURE ({status}): {raw[:300]}")
                 sys.exit(2)
             if status != 200 or not isinstance(body, dict):
-                self._log(f"[planner] http {status}: {raw[:300]!r}")
+                self._log(
+                    f"[planner] DeepInfra failed after "
+                    f"{len(_RETRY_BACKOFFS_S) + 1} retries; "
+                    f"last status={status} body={raw[:200]!r}"
+                )
+                if self._fallback is not None and step_idx == 1:
+                    # Only divert to the fallback on the FIRST turn — if
+                    # we're already mid-plan the conversation state is
+                    # lost and restarting from scratch is safer than
+                    # partially executing twice.
+                    self._log(
+                        "[planner] falling back to rule-based planner"
+                    )
+                    try:
+                        return self._fallback.run(goal, observation)
+                    except Exception as e:
+                        self._log(
+                            f"[planner] fallback raised "
+                            f"{type(e).__name__}: {e}"
+                        )
                 return {
                     "success": False,
                     "reason": f"http_{status}",
