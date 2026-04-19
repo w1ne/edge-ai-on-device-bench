@@ -1,0 +1,20 @@
+15:54:16 robot_daemon up  mode=text  dry_run=True  with_llm=True/fast=False/api=api  with_vision=person  tts=False
+15:54:16 [vision] launching: /usr/bin/python3 /home/andrii/Projects/edge-ai-on-device-bench/demo/vision_watcher.py --source webcam --phone pixel6 --interval 0.1 --watch-for person --output jsonl
+15:54:17 [vision] EVENT person conf=0.74 streak=2
+15:54:18 heard (0 ms): 'tell me a joke'
+15:54:18 [matcher] no keyword hit, asking LLM (api:llama31-8b)
+15:54:19 [vision] alive (ticks=20, last_latency=13.0 ms)
+15:54:20 decision: None
+15:54:20 [behav] greet person (new=True)
+15:54:20 heard (0 ms): 'walk'
+15:54:20 decision: {'c': 'walk', 'on': True, 'stride': 150, 'step': 400}
+15:54:20 [behav] -> walking (voice)
+15:54:20 wire:   dry-run   servos: None
+15:54:20 heard (0 ms): 'stop'
+15:54:20 decision: {'c': 'stop'}
+15:54:20 [behav] walking->idle (voice stop)
+15:54:20 wire:   dry-run   servos: None
+15:54:20 heard (0 ms): 'shut down'
+15:54:20 decision: {'_exit': True}
+15:54:20 [vision] watcher stopped
+15:54:20 shutdown

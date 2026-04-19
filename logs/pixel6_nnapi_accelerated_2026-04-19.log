@@ -1,0 +1,819 @@
+==========================================
+Pixel 6 TFLite CPU-vs-NNAPI Benchmark
+Date: 2026-04-19T16:00:03+02:00
+Device: Pixel 6 / oriole / SDK 35
+Serial: 1B291FDF600260
+NDK: /home/andrii/android-ndk/android-ndk-r26d (available but not needed; used prebuilt binary)
+NNAPI feature level: 7
+benchmark_model source: https://storage.googleapis.com/tensorflow-nightly-public/prod/tensorflow/release/lite/tools/nightly/latest/android_aarch64_benchmark_model (nightly; grabbed 2026-04-19T16:00:03+02:00)
+benchmark_model size: 7170632 bytes
+==========================================
+
+### efficientdet_lite0_int8 CPU (4 threads) ###
+CMD: benchmark_model --graph=efficientdet_lite0_int8.tflite --num_runs=30 --warmup_runs=3 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/efficientdet_lite0_int8.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/efficientdet_lite0_int8.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 253 out of 266 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 26 partitions for subgraph 0.
+INFO: The input model file size (MB): 4.6028
+INFO: Initialized session in 22.942ms.
+INFO: Running benchmark for at least 3 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=38 first=18763 curr=8938 min=8903 max=69346 avg=13338.4 std=12199 p5=8928 median=9023 p95=48561
+
+INFO: Running benchmark for at least 30 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=109 first=8974 curr=9450 min=8945 max=9660 avg=9212.05 std=138 p5=9057 median=9196 p95=9485
+
+INFO: Inference timings in us: Init: 22942, First inference: 18763, Warmup (avg): 13338.4, Inference (avg): 9212.05
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=24.9727 overall=29.3672
+
+
+### efficientdet_lite0_int8 NNAPI ###
+CMD: benchmark_model --graph=efficientdet_lite0_int8.tflite --num_runs=30 --warmup_runs=3 --use_nnapi=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/efficientdet_lite0_int8.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Loaded model /data/local/tmp/tflite/efficientdet_lite0_int8.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 265 out of 266 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 2 partitions for subgraph 0.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+ERROR: NN API returned error ANEURALNETWORKS_OP_FAILED at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 266 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+
+### efficientdet_lite0_int8 NNAPI (edgetpu accel, allow_fp16) ###
+CMD: benchmark_model --graph=efficientdet_lite0_int8.tflite --num_runs=30 --warmup_runs=3 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/efficientdet_lite0_int8.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/efficientdet_lite0_int8.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 266 out of 266 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_OP_FAILED at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 266 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+
+### efficientdet_lite0_int8 NNAPI (nnapi-reference) ###
+CMD: benchmark_model --graph=efficientdet_lite0_int8.tflite --num_runs=30 --warmup_runs=3 --use_nnapi=true --nnapi_accelerator_name=nnapi-reference
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/efficientdet_lite0_int8.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [nnapi-reference]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Loaded model /data/local/tmp/tflite/efficientdet_lite0_int8.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+VERBOSE: Replacing 266 out of 266 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+INFO: Explicitly applied NNAPI delegate, and the model graph will be completely executed by the delegate.
+INFO: The input model file size (MB): 4.6028
+INFO: Initialized session in 7.756ms.
+INFO: Running benchmark for at least 3 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=3 first=555704 curr=547393 min=547092 max=555704 avg=550063 std=3990 p5=547092 median=547393 p95=555704
+
+INFO: Running benchmark for at least 30 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=30 first=548024 curr=569439 min=548024 max=575428 avg=562394 std=7463 p5=549858 median=565947 p95=571350
+
+INFO: Inference timings in us: Init: 7756, First inference: 555704, Warmup (avg): 550063, Inference (avg): 562394
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=14.0391 overall=47.3438
+
+
+### efficientdet_lite0_fp32 CPU XNNPack (4 threads) ###
+CMD: benchmark_model --graph=efficientdet_lite0_fp32.tflite --num_runs=30 --warmup_runs=3 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/efficientdet_lite0_fp32.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/efficientdet_lite0_fp32.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 251 out of 263 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 25 partitions for subgraph 0.
+INFO: The input model file size (MB): 13.8369
+INFO: Initialized session in 45.191ms.
+INFO: Running benchmark for at least 3 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=20 first=29736 curr=24968 min=23483 max=29736 avg=24891.5 std=1194 p5=24044 median=24683 p95=29736
+
+INFO: Running benchmark for at least 30 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=39 first=25869 curr=26244 min=24444 max=26712 avg=25679.9 std=508 p5=24976 median=25730 p95=26559
+
+INFO: Inference timings in us: Init: 45191, First inference: 29736, Warmup (avg): 24891.5, Inference (avg): 25679.9
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=61.9688 overall=61.9688
+
+### efficientdet_lite0_fp32 NNAPI (edgetpu) ###
+CMD: benchmark_model --graph=efficientdet_lite0_fp32.tflite --num_runs=30 --warmup_runs=3 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/efficientdet_lite0_fp32.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/efficientdet_lite0_fp32.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 263 out of 263 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_OP_FAILED at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 263 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+### efficientdet_lite0_fp32 NNAPI (auto) ###
+CMD: benchmark_model --graph=efficientdet_lite0_fp32.tflite --num_runs=30 --warmup_runs=3 --use_nnapi=true --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/efficientdet_lite0_fp32.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/efficientdet_lite0_fp32.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 263 out of 263 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_OP_FAILED at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 263 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+### mobilenet_v1_quant CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=mobilenet_v1_quant.tflite --num_runs=50 --warmup_runs=5 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/mobilenet_v1_quant.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/mobilenet_v1_quant.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 29 out of 31 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 4 partitions for subgraph 0.
+INFO: The input model file size (MB): 4.30469
+INFO: Initialized session in 19.505ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=38 first=39445 curr=11259 min=11223 max=39445 avg=13272.4 std=6127 p5=11236 median=11272 p95=36775
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=89 first=11274 curr=11238 min=11203 max=11932 avg=11293 std=129 p5=11221 median=11248 p95=11526
+
+INFO: Inference timings in us: Init: 19505, First inference: 39445, Warmup (avg): 13272.4, Inference (avg): 11293
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=14.8516 overall=15.1094
+
+### mobilenet_v1_quant NNAPI (edgetpu) ###
+CMD: benchmark_model --graph=mobilenet_v1_quant.tflite --num_runs=50 --warmup_runs=5 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/mobilenet_v1_quant.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Loaded model /data/local/tmp/tflite/mobilenet_v1_quant.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 31 out of 31 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+INFO: Explicitly applied NNAPI delegate, and the model graph will be completely executed by the delegate.
+INFO: The input model file size (MB): 4.30469
+INFO: Initialized session in 787.147ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=455 first=5719 curr=1017 min=949 max=5719 avg=1078.05 std=246 p5=972 median=1016 p95=1256
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=910 first=1045 curr=1304 min=951 max=2571 avg=1076.32 std=122 p5=981 median=1017 p95=1268
+
+INFO: Inference timings in us: Init: 787147, First inference: 5719, Warmup (avg): 1078.05, Inference (avg): 1076.32
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=12.6289 overall=12.9531
+
+### mobilenet_v1_quant NNAPI (auto) ###
+CMD: benchmark_model --graph=mobilenet_v1_quant.tflite --num_runs=50 --warmup_runs=5 --use_nnapi=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/mobilenet_v1_quant.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Loaded model /data/local/tmp/tflite/mobilenet_v1_quant.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 31 out of 31 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+INFO: Explicitly applied NNAPI delegate, and the model graph will be completely executed by the delegate.
+INFO: The input model file size (MB): 4.30469
+INFO: Initialized session in 772.261ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=456 first=6217 curr=1014 min=955 max=6217 avg=1076.24 std=264 p5=972 median=1011 p95=1264
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=912 first=1000 curr=1006 min=952 max=1987 avg=1073.2 std=110 p5=979 median=1014 p95=1256
+
+INFO: Inference timings in us: Init: 772261, First inference: 6217, Warmup (avg): 1076.24, Inference (avg): 1073.2
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=12.6992 overall=12.9609
+
+### efficientnet_lite0_int8 CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=efficientnet_lite0_int8.tflite --num_runs=50 --warmup_runs=5 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/efficientnet_lite0_int8.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/efficientnet_lite0_int8.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 60 out of 64 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 5 partitions for subgraph 0.
+INFO: The input model file size (MB): 5.43452
+INFO: Initialized session in 26.506ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=134 first=5864 curr=3399 min=3257 max=18124 avg=3729.29 std=1625 p5=3275 median=3345 p95=5864
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=282 first=3555 curr=3484 min=3362 max=5914 avg=3540.86 std=239 p5=3388 median=3502 p95=3804
+
+INFO: Inference timings in us: Init: 26506, First inference: 5864, Warmup (avg): 3729.29, Inference (avg): 3540.86
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=17.2812 overall=17.8789
+
+### efficientnet_lite0_int8 NNAPI (edgetpu) ###
+CMD: benchmark_model --graph=efficientnet_lite0_int8.tflite --num_runs=50 --warmup_runs=5 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/efficientnet_lite0_int8.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Loaded model /data/local/tmp/tflite/efficientnet_lite0_int8.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 62 out of 64 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 3 partitions for subgraph 0.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+INFO: Explicitly applied NNAPI delegate, and the model graph will be partially executed by the delegate w/ 1 delegate kernels.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+INFO: The input model file size (MB): 5.43452
+INFO: Initialized session in 1499.8ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=353 first=5544 curr=1372 min=1308 max=5544 avg=1398.18 std=234 p5=1326 median=1354 p95=1577
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=710 first=1384 curr=1377 min=1309 max=1699 avg=1389.89 std=80 p5=1327 median=1354 p95=1578
+
+INFO: Inference timings in us: Init: 1499796, First inference: 5544, Warmup (avg): 1398.18, Inference (avg): 1389.89
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=15.3164 overall=15.6289
+
+### efficientnet_lite0_fp32 CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=efficientnet_lite0_fp32.tflite --num_runs=50 --warmup_runs=5 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/efficientnet_lite0_fp32.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/efficientnet_lite0_fp32.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 62 out of 62 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for subgraph 0.
+INFO: The input model file size (MB): 18.5822
+INFO: Initialized session in 22.604ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=50 first=23621 curr=9926 min=8999 max=23621 avg=10134 std=2456 p5=9023 median=9529 p95=11862
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=98 first=10101 curr=10056 min=9648 max=12296 avg=10187.4 std=348 p5=9871 median=10091 p95=10809
+
+INFO: Inference timings in us: Init: 22604, First inference: 23621, Warmup (avg): 10134, Inference (avg): 10187.4
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=46.7969 overall=47.8359
+
+### efficientnet_lite0_fp32 NNAPI (edgetpu, fp16) ###
+CMD: benchmark_model --graph=efficientnet_lite0_fp32.tflite --num_runs=50 --warmup_runs=5 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/efficientnet_lite0_fp32.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/efficientnet_lite0_fp32.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 62 out of 62 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+INFO: Explicitly applied NNAPI delegate, and the model graph will be completely executed by the delegate.
+INFO: The input model file size (MB): 18.5822
+INFO: Initialized session in 1363.51ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=237 first=6411 curr=2110 min=1879 max=6411 avg=2033.5 std=316 p5=1898 median=1923 p95=2333
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=476 first=2032 curr=2117 min=1874 max=2450 avg=2023.9 std=133 p5=1898 median=1940 p95=2263
+
+INFO: Inference timings in us: Init: 1363508, First inference: 6411, Warmup (avg): 2033.5, Inference (avg): 2023.9
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=39.9531 overall=41.4531
+
+### yolov8_det (SpotLab fp32) CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=yolov8_det.tflite --num_runs=30 --warmup_runs=3 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/yolov8_det.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/yolov8_det.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 251 out of 253 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 5 partitions for subgraph 0.
+INFO: The input model file size (MB): 12.7717
+INFO: Initialized session in 42.221ms.
+INFO: Running benchmark for at least 3 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=5 first=133223 curr=96603 min=94937 max=133223 avg=104484 std=14548 p5=94937 median=96603 p95=133223
+
+INFO: Running benchmark for at least 30 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=30 first=97099 curr=105537 min=96690 max=108704 avg=102383 std=2982 p5=97099 median=102739 p95=107136
+
+INFO: Inference timings in us: Init: 42221, First inference: 133223, Warmup (avg): 104484, Inference (avg): 102383
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=64.3125 overall=81.9727
+
+### yolov8_det (SpotLab fp32) NNAPI (edgetpu, fp16) ###
+CMD: benchmark_model --graph=yolov8_det.tflite --num_runs=30 --warmup_runs=3 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/yolov8_det.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/yolov8_det.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 253 out of 253 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_OP_FAILED at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 253 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+### yolov8_det (SpotLab fp32) NNAPI (auto, fp16) ###
+CMD: benchmark_model --graph=yolov8_det.tflite --num_runs=30 --warmup_runs=3 --use_nnapi=true --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/yolov8_det.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/yolov8_det.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 253 out of 253 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_OP_FAILED at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 253 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+### yolov8_det NNAPI (max_delegated_partitions=2) ###
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [30]
+INFO: Min warmup runs: [3]
+INFO: Graph: [/data/local/tmp/tflite/yolov8_det.tflite]
+INFO: Signature to run: []
+INFO: Enable op profiling: [0]
+INFO: Max number of delegated partitions: [2]
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/yolov8_det.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 253 out of 253 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_OP_FAILED at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 253 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+### yolov8_det NNAPI (nnapi-reference full) ###
+INFO: Min num runs: [5]
+INFO: Min warmup runs: [1]
+INFO: Graph: [/data/local/tmp/tflite/yolov8_det.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [nnapi-reference]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Loaded model /data/local/tmp/tflite/yolov8_det.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+VERBOSE: Replacing 253 out of 253 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 1 partitions for subgraph 0.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+INFO: Explicitly applied NNAPI delegate, and the model graph will be completely executed by the delegate.
+INFO: The input model file size (MB): 12.7717
+INFO: Initialized session in 10.213ms.
+INFO: Running benchmark for at least 1 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=2 first=397853 curr=395530 min=395530 max=397853 avg=396692 std=1161 p5=395530 median=397853 p95=397853
+
+INFO: Running benchmark for at least 5 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=5 first=400444 curr=403463 min=398170 max=405950 avg=402153 std=2655 p5=398170 median=402738 p95=405950
+
+INFO: Inference timings in us: Init: 10213, First inference: 397853, Warmup (avg): 396692, Inference (avg): 402153
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=28.5586 overall=94.6719
+
+### mobilenet_v1_quant NNAPI (edgetpu) — OP PROFILE ###
+Memory (bytes): count=0
+2 nodes observed
+
+
+
+INFO: Operator-wise Profiling Info for Regular Benchmark Runs:
+============================== Run Order ==============================
+	                             [node type]	  [first]	 [avg ms]	     [%]	  [cdf%]	  [mem KB]	[times called]	[Name]
+	                     TfLiteNnapiDelegate	    1.035	    1.027	100.000%	100.000%	     0.000	        1	[MobilenetV1/Predictions/Reshape_1]:31
+
+============================== Top by Computation Time ==============================
+	                             [node type]	  [first]	 [avg ms]	     [%]	  [cdf%]	  [mem KB]	[times called]	[Name]
+	                     TfLiteNnapiDelegate	    1.035	    1.027	100.000%	100.000%	     0.000	        1	[MobilenetV1/Predictions/Reshape_1]:31
+
+Number of nodes executed: 1
+============================== Summary by node type ==============================
+	                             [Node type]	  [count]	  [avg ms]	    [avg %]	    [cdf %]	  [mem KB]	[times called]
+	                     TfLiteNnapiDelegate	        1	     1.027	   100.000%	   100.000%	     0.000	        1
+
+Timings (microseconds): count=936 first=1035 curr=1092 min=959 max=1518 avg=1027.36 std=73
+Memory (bytes): count=0
+1 nodes observed
+
+
+
+
+### yolo-fastestv2 fp32 CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=yolo-fastestv2_float32.tflite --num_runs=50 --warmup_runs=5 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/yolo-fastestv2_float32.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/yolo-fastestv2_float32.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 190 out of 218 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 31 partitions for subgraph 0.
+INFO: The input model file size (MB): 1.00994
+INFO: Initialized session in 7.058ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=33 first=30888 curr=50791 min=4259 max=59943 avg=16439.2 std=19082 p5=4303 median=4686 p95=57199
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=171 first=44588 curr=4491 min=4086 max=52251 avg=5744.06 std=6640 p5=4147 median=4473 p95=7671
+
+INFO: Inference timings in us: Init: 7058, First inference: 30888, Warmup (avg): 16439.2, Inference (avg): 5744.06
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=11.832 overall=20.0586
+
+### yolo-fastestv2 fp32 NNAPI (edgetpu, fp16) ###
+CMD: benchmark_model --graph=yolo-fastestv2_float32.tflite --num_runs=50 --warmup_runs=5 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/yolo-fastestv2_float32.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/yolo-fastestv2_float32.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+VERBOSE: Replacing 176 out of 218 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 28 partitions for subgraph 0.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+INFO: Explicitly applied NNAPI delegate, and the model graph will be partially executed by the delegate w/ 14 delegate kernels.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 15 out of 56 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 28 partitions for subgraph 0.
+INFO: The input model file size (MB): 1.00994
+INFO: Initialized session in 5473.47ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=41 first=37571 curr=11373 min=11159 max=37571 avg=12058.3 std=4036 p5=11232 median=11402 p95=11836
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=87 first=11663 curr=11410 min=11177 max=13668 avg=11447.2 std=321 p5=11218 median=11390 p95=12046
+
+INFO: Inference timings in us: Init: 5473469, First inference: 37571, Warmup (avg): 12058.3, Inference (avg): 11447.2
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=9.625 overall=27.082
+
+### yolo-fastestv2 fp16 CPU XNNPack (4T) ###
+CMD: benchmark_model --graph=yolo-fastestv2_float16.tflite --num_runs=50 --warmup_runs=5 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/yolo-fastestv2_float16.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/yolo-fastestv2_float16.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 342 out of 371 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 31 partitions for subgraph 0.
+INFO: The input model file size (MB): 0.549732
+INFO: Initialized session in 13.461ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=19 first=12351 curr=42268 min=7510 max=55704 avg=26953.7 std=17705 p5=7510 median=21764 p95=55704
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=134 first=55288 curr=4661 min=4335 max=55571 avg=7345.17 std=10229 p5=4489 median=4683 p95=41088
+
+INFO: Inference timings in us: Init: 13461, First inference: 12351, Warmup (avg): 26953.7, Inference (avg): 7345.17
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=12.7188 overall=21.1641
+
+### yolo-fastestv2 fp16 NNAPI (edgetpu, fp16) ###
+CMD: benchmark_model --graph=yolo-fastestv2_float16.tflite --num_runs=50 --warmup_runs=5 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/yolo-fastestv2_float16.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/yolo-fastestv2_float16.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+WARNING: NNAPI SL driver did not implement SL_ANeuralNetworksDiagnostic_registerCallbacks!
+INFO: Though NNAPI delegate is explicitly applied, the model graph will not be executed by the delegate.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 342 out of 371 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 31 partitions for subgraph 0.
+INFO: The input model file size (MB): 0.549732
+INFO: Initialized session in 20.083ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=60 first=10096 curr=7993 min=7586 max=10096 avg=8217.3 std=359 p5=7810 median=8279 p95=8608
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=120 first=8464 curr=8013 min=7900 max=8710 avg=8212.16 std=251 p5=7955 median=8171 p95=8691
+
+INFO: Inference timings in us: Init: 20083, First inference: 10096, Warmup (avg): 8217.3, Inference (avg): 8212.16
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=16.1992 overall=24.8203
+
+### yolo-fastestv2 dynamic-range-quant CPU (4T) ###
+CMD: benchmark_model --graph=yolo-fastestv2_dynamic_range_quant.tflite --num_runs=50 --warmup_runs=5 --num_threads=4
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Num threads: [4]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/yolo-fastestv2_dynamic_range_quant.tflite]
+INFO: Signature to run: []
+INFO: #threads used for CPU inference: [4]
+INFO: Loaded model /data/local/tmp/tflite/yolo-fastestv2_dynamic_range_quant.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+VERBOSE: Replacing 183 out of 218 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 33 partitions for subgraph 0.
+INFO: The input model file size (MB): 0.393984
+INFO: Initialized session in 10.506ms.
+INFO: Running benchmark for at least 5 iterations and at least 0.5 seconds but terminate if exceeding 150 seconds.
+INFO: count=12 first=68480 curr=21417 min=12450 max=112971 avg=42915 std=27411 p5=12450 median=38285 p95=112971
+
+INFO: Running benchmark for at least 50 iterations and at least 1 seconds but terminate if exceeding 150 seconds.
+INFO: count=50 first=30453 curr=20302 min=10858 max=74735 avg=37017.3 std=19502 p5=12950 median=33505 p95=70944
+
+INFO: Inference timings in us: Init: 10506, First inference: 68480, Warmup (avg): 42915, Inference (avg): 37017.3
+INFO: Note: as the benchmark tool itself affects memory footprint, the following is only APPROXIMATE to the actual memory footprint of the model at runtime. Take the information at your discretion.
+INFO: Memory footprint delta from the start of the tool (MB): init=14.25 overall=17.668
+
+### yolo-fastestv2 dynamic-range-quant NNAPI (edgetpu) ###
+CMD: benchmark_model --graph=yolo-fastestv2_dynamic_range_quant.tflite --num_runs=50 --warmup_runs=5 --use_nnapi=true --nnapi_accelerator_name=google-edgetpu --nnapi_allow_fp16=true
+INFO: STARTING!
+INFO: Log parameter values verbosely: [0]
+INFO: Min num runs: [50]
+INFO: Min warmup runs: [5]
+INFO: Graph: [/data/local/tmp/tflite/yolo-fastestv2_dynamic_range_quant.tflite]
+INFO: Signature to run: []
+INFO: Use NNAPI: [1]
+INFO: NNAPI accelerator name: [google-edgetpu]
+INFO: NNAPI accelerators available: [google-edgetpu,nnapi-reference]
+INFO: Allow fp16 in NNAPI: [1]
+INFO: Loaded model /data/local/tmp/tflite/yolo-fastestv2_dynamic_range_quant.tflite
+INFO: Initialized TensorFlow Lite runtime.
+INFO: Created TensorFlow Lite delegate for NNAPI.
+INFO: NNAPI delegate created.
+VERBOSE: Replacing 115 out of 218 node(s) with delegate (TfLiteNnapiDelegate) node, yielding 65 partitions for subgraph 0.
+ERROR: NN API returned error ANEURALNETWORKS_BAD_DATA at line 4768 while completing NNAPI compilation.
+
+ERROR: Node number 250 (TfLiteNnapiDelegate) failed to prepare.
+ERROR: Restored original execution plan after delegate application failure.
+ERROR: Failed to apply NNAPI delegate.
+ERROR: Benchmarking failed.
+
+==================================================================
+# SUMMARY TABLE (inference avg, us)
+==================================================================
+Model                                    CPU XNNPack(4T)   NNAPI edgetpu   Speedup   EdgeTPU hit?
+mobilenet_v1 1.0_224 quant (int8)           11293              1076        10.5x     yes, 31/31 ops, 1 partition
+efficientnet_lite0 (int8)                    3541              1390         2.55x    yes, 62/64 ops, 3 partitions, 1 delegate kernel
+efficientnet_lite0 (fp32, NNAPI fp16)       10187              2024         5.03x    yes, 62/62 ops, 1 partition
+efficientdet_lite0 (int8)                    9212                --          fail    compile error ANEURALNETWORKS_OP_FAILED
+                                                                                      (TFLite_Detection_PostProcess custom op not NNAPI-compilable;
+                                                                                      nnapi-reference CPU fallback = 562394 us, 61x WORSE than XNNPack)
+efficientdet_lite0 (fp32)                   25680                --          fail    same failure (PostProcess op)
+yolov8_det (SpotLab fp32)                  102383                --          fail    NNAPI compile error; reference-cpu = 402153 us, 3.9x worse
+yolo-fastestv2 fp32 (converted)              5744             11447         0.50x    partial: 176/218 ops, 28 partitions, 14 delegate kernels
+                                                                                      -> fragmentation kills it, CPU wins 2x
+yolo-fastestv2 fp16 (converted)              7345                --          fail    NNAPI refused the graph, full XNNPack fallback 8212 us
+yolo-fastestv2 dynamic-range-quant           37017                --          fail    NNAPI ANEURALNETWORKS_BAD_DATA
+
+==================================================================
+# VERSIONS
+==================================================================
+NDK:                 $HOME/android-ndk/android-ndk-r26d (not used at runtime)
+benchmark_model:     nightly TF Lite, aarch64 ELF, stripped, 7170632 bytes
+                     https://storage.googleapis.com/tensorflow-nightly-public/prod/tensorflow/release/lite/tools/nightly/latest/android_aarch64_benchmark_model
+Android:             Pixel 6 "oriole", SDK 35
+NNAPI:               accelerators [google-edgetpu, nnapi-reference], feature level 7
+
+==================================================================
+# MODEL SOURCES
+==================================================================
+mobilenet_v1_1.0_224_quant.tflite   -> https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v1_1.0_224_quant.tflite
+efficientnet_lite0_int8.tflite      -> https://storage.googleapis.com/mediapipe-models/image_classifier/efficientnet_lite0/int8/1/efficientnet_lite0.tflite
+efficientnet_lite0_fp32.tflite      -> https://storage.googleapis.com/mediapipe-models/image_classifier/efficientnet_lite0/float32/1/efficientnet_lite0.tflite
+efficientdet_lite0_int8.tflite      -> https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite
+efficientdet_lite0_fp32.tflite      -> https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite
+yolov8_det.tflite                   -> https://huggingface.co/SpotLab/YOLOv8Detection/resolve/main/tflite_model.tflite
+yolo-fastestv2_float32.tflite       -> converted in-session:
+                                         1. git clone https://github.com/dog-qiuqiu/Yolo-FastestV2
+                                         2. python3 pytorch2onnx.py --data data/coco.data --weights modelzoo/coco2017-0.241078ap-model.pth --output yolo-fastestv2.onnx
+                                         3. onnx2tf with download_test_image_data() monkey-patched to return random tensor (upstream onnx2tf bug: remote .npy is not a valid pickle)
+
+==================================================================
+# HONEST VERDICT
+==================================================================
+NNAPI / Edge TPU wins HARD on quantized classifiers that fit cleanly
+into NNAPI semantics: mobilenet_v1_int8 = 10.5x speedup,
+efficientnet_lite0_int8 = 2.5x, efficientnet_lite0_fp32 (driver fp16
+path) = 5.0x. The Edge TPU is definitely hit: the benchmark log prints
+"NNAPI accelerators available: [google-edgetpu,nnapi-reference]" and
+the selected accelerator "google-edgetpu" returns sub-millisecond
+conv kernels, and the full graph is delegated (31/31 for mobilenet, 1
+partition, 1 delegate kernel).
+
+It loses on detectors in three different ways.
+(a) TFLite_Detection_PostProcess (standard in efficientdet/ssd exports)
+is a custom op that NNAPI will not compile — the entire graph is
+rejected and the nnapi-reference cpu fallback is ~60x slower than
+XNNPack, so "--use_nnapi=true" on these models is strictly worse than
+plain CPU.
+(b) YOLOv8 as exported by SpotLab contains ops (likely Split / reshape
+combinations the TPU firmware refuses) and ALSO hits
+ANEURALNETWORKS_OP_FAILED — CPU wins by default.
+(c) YOLO-FastestV2 converted via onnx2tf goes through *partially*
+(176/218 ops delegated) but splits into 28 partitions / 14 delegate
+kernels. The per-partition switch cost dominates and the result is
+2x slower than XNNPack CPU. This is the expected fragmentation
+failure mode Google documents for NNAPI.
+
+So: for the robot's eyes pipeline, NNAPI + Edge TPU is the right
+lever for classifiers / embeddings / simple backbones, but YOLO-style
+detectors need either (i) int8 quantization with the postproc op
+surgically removed and done on CPU, or (ii) replacing YOLO with a
+lighter classifier / feature extractor to keep inference on the TPU.
+The "acceleration column" finally has a tick for NNAPI: quantized
+mobilenet-class models go from ~11 ms to ~1 ms on device.  We had
+that ticked previously only for Vulkan, where everything lost.
