@@ -90,6 +90,88 @@ VISION_MAX_FAILURES    = 5     # give up after N consecutive quick crashes
 # Log rotation: rotate existing log at open time if it's this large or bigger.
 LOG_ROTATE_BYTES       = 10 * 1024 * 1024   # 10 MB
 
+# ------------------------------------------------------------------ structured state
+
+class RobotState:
+    """Thread-safe snapshot the daemon mutates on every interesting event
+    and writes atomically to a single JSON file.  The web UI (web_ui.py)
+    reads this instead of regex-greping the log, so daemon log lines can
+    change format without silently breaking the dashboard.
+
+    ``path`` may be None to disable publishing (zero cost — update() still
+    merges into the in-memory dict but performs no I/O).  Writes use
+    os.replace() on a sibling ``.tmp`` file so readers never observe a
+    partially written JSON document.
+    """
+
+    _FIELDS = (
+        "ts", "transcript", "cmd", "wire_ack", "servos", "voltage_v",
+        "temp_c", "uptime_ms", "imu", "walking", "mode", "vision_fps",
+        "vision_recent", "planner_last", "behavior_state", "error_last",
+    )
+
+    def __init__(self, path: str | None = "/tmp/robot_state.json"):
+        self._path = path
+        self._lock = threading.Lock()
+        self._data: dict = {
+            "ts": time.time(),
+            "transcript": None,
+            "cmd": None,
+            "wire_ack": None,
+            "servos": None,
+            "voltage_v": None,
+            "temp_c": None,
+            "uptime_ms": None,
+            "imu": None,
+            "walking": False,
+            "mode": None,
+            "vision_fps": None,
+            "vision_recent": [],     # list of {"class": str, "ts": float}
+            "planner_last": None,
+            "behavior_state": None,
+            "error_last": None,
+        }
+
+    @property
+    def path(self) -> str | None:
+        return self._path
+
+    def update(self, **kwargs) -> None:
+        with self._lock:
+            # "_vision_seen" is append-only-with-cap; everything else is a
+            # merge into the flat dict.
+            vr_append = kwargs.pop("_vision_seen", None)
+            for k, v in kwargs.items():
+                if k in self._data or k in self._FIELDS:
+                    self._data[k] = v
+            if vr_append is not None:
+                lst = list(self._data.get("vision_recent") or [])
+                lst.append({"class": str(vr_append),
+                            "ts": float(kwargs.get("ts", time.time()))})
+                self._data["vision_recent"] = lst[-10:]
+            self._data["ts"] = float(kwargs.get("ts", time.time()))
+            if self._path is None:
+                return
+            try:
+                tmp = self._path + ".tmp"
+                with open(tmp, "w") as fh:
+                    json.dump(self._data, fh)
+                os.replace(tmp, self._path)
+            except Exception:
+                # Never crash the daemon because the UI snapshot failed.
+                pass
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return dict(self._data)
+
+
+# Module-level placeholder so helpers (send_wire telemetry hook, logger,
+# drain_vision_events, etc.) can reach the state without threading it
+# through every call.  main() replaces this with a live instance.
+_ROBOT_STATE: "RobotState | None" = None
+
+
 # ------------------------------------------------------------------ matcher
 
 # richer vocabulary: regex patterns ordered by specificity.
@@ -681,7 +763,8 @@ llm_fallback.last_error = None  # type: ignore[attr-defined]
 # ------------------------------------------------------------------ eyes (async)
 
 def _vision_run_once(cmd: list[str], logger, stop_evt: threading.Event,
-                     event_queue: "queue.Queue[dict]") -> tuple[bool, float]:
+                     event_queue: "queue.Queue[dict]",
+                     state_obj: "RobotState | None" = None) -> tuple[bool, float]:
     """Run one vision_watcher subprocess to completion.
 
     Returns (clean_exit, lifetime_seconds).  clean_exit is True when stop_evt
@@ -736,6 +819,14 @@ def _vision_run_once(cmd: list[str], logger, stop_evt: threading.Event,
                 if tick_count % 20 == 0:
                     logger(f"[vision] alive (ticks={tick_count}, "
                            f"last_latency={msg.get('latency_ms')} ms)")
+                if state_obj is not None:
+                    lat = msg.get("latency_ms")
+                    try:
+                        fps = 1000.0 / float(lat) if lat else None
+                    except (TypeError, ValueError):
+                        fps = None
+                    if fps is not None:
+                        state_obj.update(vision_fps=round(fps, 2))
             elif t == "event":
                 # I1 fix: conf may be None or missing if the watcher schema
                 # drifts or a partial JSON line slips through — don't let a
@@ -745,6 +836,10 @@ def _vision_run_once(cmd: list[str], logger, stop_evt: threading.Event,
                 conf_s = f"{conf:.2f}" if isinstance(conf, (int, float)) else "?"
                 logger(f"[vision] EVENT {msg.get('class')} "
                        f"conf={conf_s} streak={msg.get('streak')}")
+                if state_obj is not None:
+                    try:
+                        state_obj.update(_vision_seen=msg.get("class", "?"))
+                    except Exception: pass
                 try: event_queue.put_nowait(msg)
                 except queue.Full: pass
     finally:
@@ -771,7 +866,8 @@ def _vision_run_once(cmd: list[str], logger, stop_evt: threading.Event,
 
 def vision_loop(source: str, phone: str, watch_for: str, interval: float,
                 logger, dry_run: bool, stop_evt: threading.Event,
-                event_queue: "queue.Queue[dict]"):
+                event_queue: "queue.Queue[dict]",
+                state_obj: "RobotState | None" = None):
     """Supervisor: keeps vision_watcher.py alive across crashes.
 
     Item 1 — exponential backoff (1s, 2s, 4s, ..., 30s cap), give up after
@@ -797,7 +893,8 @@ def vision_loop(source: str, phone: str, watch_for: str, interval: float,
     consecutive_failures = 0
     restart_no = 0
     while not stop_evt.is_set():
-        clean, lifetime = _vision_run_once(cmd, logger, stop_evt, event_queue)
+        clean, lifetime = _vision_run_once(cmd, logger, stop_evt, event_queue,
+                                           state_obj=state_obj)
         if clean or stop_evt.is_set():
             break
         # The subprocess died unexpectedly.
@@ -858,6 +955,10 @@ def make_logger(path: str | None):
     Previously we only rotated at open time, so a multi-hour daemon session
     would silently exceed LOG_ROTATE_BYTES.  Now we track bytes written and
     rotate in place when we cross the threshold.
+
+    Also mirrors any line starting with "ERROR" into the RobotState snapshot
+    (as error_last) so the web UI can surface the last fault without having
+    to tail the log.
     """
     if path:
         _maybe_rotate_log(path)
@@ -868,6 +969,12 @@ def make_logger(path: str | None):
         stamp = datetime.datetime.now().strftime("%H:%M:%S")
         text = f"{stamp} {line}"
         print(text)
+        # Mirror ERROR lines into the structured state.  Cheap no-op when
+        # _ROBOT_STATE is None (e.g. before main() constructs it or when
+        # --no-state-file is set).
+        if _ROBOT_STATE is not None and line.lstrip().startswith("ERROR"):
+            try: _ROBOT_STATE.update(error_last=f"{stamp} {line}")
+            except Exception: pass
         fh = fh_box["fh"]
         if fh is None:
             return
@@ -936,7 +1043,8 @@ def _push_history(state: dict, cmd: dict, limit: int = 8) -> None:
 def one_turn(args, logger, state: dict,
              engine: BehaviorEngine | None = None,
              mute_evt: "threading.Event | None" = None,
-             planner=None) -> dict | None:
+             planner=None,
+             state_obj: "RobotState | None" = None) -> dict | None:
     # When VoiceLoop is running (--voice pipecat), transcripts arrive on the
     # shared queue from its on_utterance callback.  Block until one shows up.
     if _VOICE_UTT_Q is not None:
@@ -981,6 +1089,8 @@ def one_turn(args, logger, state: dict,
         transcript, dt = phone_transcribe(CAP_WAV, args.dry_run, args.stt_phone,
                                           backend=args.stt_backend)
     logger(f"heard ({dt*1000:.0f} ms): {transcript!r}")
+    if state_obj is not None:
+        state_obj.update(transcript=transcript, mode=args.mode)
 
     # Conversational memory — resolve anaphora ("do it again", "repeat that",
     # "undo") against the recent-command ring buffer BEFORE normal matching.
@@ -1026,11 +1136,27 @@ def one_turn(args, logger, state: dict,
             ok = result.get("success")
             logger(f"[planner] {'success' if ok else 'fail'}: "
                    f"{result.get('reason')} ({steps} steps)")
+            if state_obj is not None:
+                state_obj.update(planner_last={
+                    "goal": transcript, "steps": int(steps),
+                    "success": bool(ok),
+                    "reason": str(result.get("reason") or ""),
+                })
             return {"c": "planner_done", "_planner": result}
         except Exception as e:
             logger(f"[planner] error: {type(e).__name__}: {e}")
+            if state_obj is not None:
+                state_obj.update(planner_last={
+                    "goal": transcript, "steps": 0, "success": False,
+                    "reason": f"{type(e).__name__}: {e}",
+                })
 
     logger(f"decision: {cmd}")
+    if state_obj is not None:
+        # Drop private "_exit"-style keys to keep the snapshot JSON-clean.
+        pub = None if cmd is None else {k: v for k, v in cmd.items()
+                                        if not k.startswith("_")}
+        state_obj.update(cmd=pub)
 
     # Route through the behavior engine when vision is active. The engine may
     # substitute a different wire command (e.g. emergency-stop during walk).
@@ -1057,13 +1183,20 @@ def one_turn(args, logger, state: dict,
                 state["walking"] = True
             elif wire_cmd.get("c") in ("stop", "pose"):
                 state["walking"] = False
+        if state_obj is not None:
+            state_obj.update(
+                wire_ack=ack_str, servos=pos,
+                walking=state.get("walking", False),
+                behavior_state=(engine.get_state() if engine is not None else None),
+            )
     speak(ack_phrase(cmd), args.tts, mute_evt=mute_evt)
     return cmd
 
 
 def drain_vision_events(event_queue: "queue.Queue[dict]", state: dict,
                         args, logger,
-                        engine: BehaviorEngine | None = None):
+                        engine: BehaviorEngine | None = None,
+                        state_obj: "RobotState | None" = None):
     """Called between voice turns. Pulls any vision events off the queue.
 
     When an engine is supplied (--with-vision on), delegates to
@@ -1078,6 +1211,9 @@ def drain_vision_events(event_queue: "queue.Queue[dict]", state: dict,
             ev = event_queue.get_nowait()
             if engine is not None:
                 engine.on_vision_event(ev)
+                if state_obj is not None:
+                    try: state_obj.update(behavior_state=engine.get_state())
+                    except Exception: pass
                 continue
             # ---- legacy path (no engine) ----
             cls = ev.get("class", "?")
@@ -1099,7 +1235,8 @@ def drain_vision_events(event_queue: "queue.Queue[dict]", state: dict,
 
 
 def behavior_tick_loop(engine: BehaviorEngine, args, logger,
-                       stop_evt: threading.Event, period: float = 10.0):
+                       stop_evt: threading.Event, period: float = 10.0,
+                       state_obj: "RobotState | None" = None):
     """Low-rate background thread that pokes engine.tick().  Any wire
     command returned is sent on the wire."""
     while not stop_evt.wait(period):
@@ -1108,20 +1245,29 @@ def behavior_tick_loop(engine: BehaviorEngine, args, logger,
         except Exception as e:
             logger(f"[behav] tick error: {type(e).__name__}: {e}")
             continue
+        if state_obj is not None:
+            try: state_obj.update(behavior_state=engine.get_state())
+            except Exception: pass
         if out is None:
             continue
         try:
             wire_ack, pos = send_wire(out, args.dry_run)
             logger(f"[behav] tick-wire {out} -> {wire_ack}")
+            if state_obj is not None:
+                state_obj.update(wire_ack=str(wire_ack), servos=pos,
+                                 behavior_state=engine.get_state())
         except Exception as e:
             logger(f"[behav] tick send_wire error: {type(e).__name__}: {e}")
 
 # ------------------------------------------------------------------ battery
 
 _VOLT_RE = re.compile(r'"v"\s*:\s*(\d+)')
+_TEMP_RE = re.compile(r'"(?:temp|t_c)"\s*:\s*([\-\d.]+)')
+_MS_RE   = re.compile(r'"ms"\s*:\s*(\d+)')
+_IMU_RE  = re.compile(r'"imu"\s*:\s*\[([^\]]+)\]')
 
 
-def make_battery_watcher(logger, speak_fn):
+def make_battery_watcher(logger, speak_fn, state_obj: "RobotState | None" = None):
     """Item 3: scan ESP32 telemetry text for ``"v":<int>`` (volts*10).
 
     When voltage stays below BATTERY_LOW_V for BATTERY_LOW_STREAK consecutive
@@ -1135,6 +1281,31 @@ def make_battery_watcher(logger, speak_fn):
     state = {"low_streak": 0, "armed": True, "last_v": None}
 
     def watch(raw_text: str) -> None:
+        # Publish a richer ESP32 telemetry snapshot (voltage/temp/imu/uptime)
+        # regardless of threshold logic — the web UI needs these live.
+        if state_obj is not None:
+            try:
+                payload: dict = {}
+                vs = _VOLT_RE.findall(raw_text)
+                if vs: payload["voltage_v"] = int(vs[-1]) / 10.0
+                ts_m = _TEMP_RE.findall(raw_text)
+                if ts_m:
+                    try: payload["temp_c"] = float(ts_m[-1])
+                    except ValueError: pass
+                ms_m = _MS_RE.findall(raw_text)
+                if ms_m:
+                    try: payload["uptime_ms"] = int(ms_m[-1])
+                    except ValueError: pass
+                im = _IMU_RE.findall(raw_text)
+                if im:
+                    try:
+                        payload["imu"] = [float(x) for x in im[-1].split(",")]
+                    except ValueError: pass
+                if payload:
+                    state_obj.update(**payload)
+            except Exception:
+                pass
+
         readings = [int(m.group(1)) / 10.0
                     for m in _VOLT_RE.finditer(raw_text)]
         if not readings:
@@ -1340,9 +1511,22 @@ def main():
                    help="voice I/O backend. default: existing arecord + "
                         "whisper-cli + piper/espeak path. pipecat: use "
                         "VoiceLoop (barge-in, streaming VAD).")
+    p.add_argument("--state-file", default="/tmp/robot_state.json",
+                   help="atomic JSON snapshot path for web_ui.py.  Web UI "
+                        "reads this as its primary source so daemon log "
+                        "format changes don't break the dashboard.  "
+                        "default: /tmp/robot_state.json")
+    p.add_argument("--no-state-file", dest="no_state_file", action="store_true",
+                   help="disable writing the state JSON snapshot (zero I/O "
+                        "cost when off — every update() call early-returns).")
     args = p.parse_args()
 
     logger = make_logger(args.log)
+    # Structured state snapshot for the web UI (decouples it from log regex).
+    global _ROBOT_STATE
+    state_path = None if args.no_state_file else args.state_file
+    _ROBOT_STATE = RobotState(path=state_path)
+    state_obj = _ROBOT_STATE
     # --no-tts is a shortcut for --tts off.
     if getattr(args, "no_tts", False):
         args.tts = "off"
@@ -1364,7 +1548,10 @@ def main():
            f"with_llm={args.with_llm}/fast={args.llm_fast}/api={args.llm_api}  "
            f"with_vision={args.with_vision}  tts={args.tts}  "
            f"stt_phone={args.stt_phone}(ANDROID_SERIAL={os.environ.get('ANDROID_SERIAL','')})  "
-           f"stt_backend={args.stt_backend}")
+           f"stt_backend={args.stt_backend}  "
+           f"state_file={state_path or '(disabled)'}")
+    # Seed the structured snapshot so readers don't see a half-blank file.
+    state_obj.update(mode=args.mode, walking=False)
 
     # Item 4: surface broken hardware / env BEFORE the user types anything.
     # Does not abort on failure — every probe logs present/missing/skip.
@@ -1384,6 +1571,7 @@ def main():
     _bat_watch, _bat_state = make_battery_watcher(
         logger,
         lambda s: speak(s, args.tts, mute_evt=mute_evt),
+        state_obj=state_obj,
     )
     _TELEMETRY_HOOK = _bat_watch
 
@@ -1399,6 +1587,7 @@ def main():
             args=(args.vision_source, args.vision_phone, args.with_vision,
                   args.vision_interval, logger, args.dry_run, stop_evt,
                   event_queue),
+            kwargs={"state_obj": state_obj},
             daemon=True,
         )
         eye_thread.start()
@@ -1408,9 +1597,11 @@ def main():
             wire_fn=lambda c: send_wire(c, args.dry_run),
             logger=logger,
         )
+        state_obj.update(behavior_state=engine.get_state())
         tick_thread = threading.Thread(
             target=behavior_tick_loop,
             args=(engine, args, logger, stop_evt, 10.0),
+            kwargs={"state_obj": state_obj},
             daemon=True,
         )
         tick_thread.start()
@@ -1518,9 +1709,10 @@ def main():
     try:
         while True:
             try:
-                drain_vision_events(event_queue, state, args, logger, engine)
+                drain_vision_events(event_queue, state, args, logger, engine,
+                                    state_obj=state_obj)
                 cmd = one_turn(args, logger, state, engine, mute_evt=mute_evt,
-                               planner=planner)
+                               planner=planner, state_obj=state_obj)
             except KeyboardInterrupt:
                 logger("interrupted during turn; idle.")
                 continue

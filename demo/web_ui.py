@@ -6,18 +6,32 @@ Launch alongside the daemon:
 
     # terminal 1
     scripts/run_robot.sh --mode text
-    # (writes logs/robot-YYYYMMDD-HHMMSS.log, paints /tmp/_robot_eye.png)
+    # (writes logs/robot-YYYYMMDD-HHMMSS.log, paints /tmp/_robot_eye.png,
+    #  publishes /tmp/robot_state.json atomically on every event)
 
     # terminal 2
     python3 demo/web_ui.py           # defaults: port 5555, logs-dir = repo/logs
+                                     # and state-file = /tmp/robot_state.json
 
-Open http://localhost:5555/ -- the page refreshes every second.  The STOP
-button bypasses the daemon and drives the ESP32 directly over pyusb (same
-VID/PID and endpoints as send_wire() in robot_daemon.py), so it still works
-if the daemon is wedged.  SHUTDOWN sends SIGTERM to the daemon PID (looked
-up via `ps`).  Reads only: newest logs/robot-*.log, /tmp/_robot_eye.png, ps.
-Writes only: one {"c":"stop"} packet on demand.  Deps: stdlib + flask (auto
-falls back to http.server) + pyusb.
+Open http://localhost:5555/ -- the page auto-refreshes every 500 ms when the
+state JSON is live, 1 s when we've fallen back to log regex.  The STOP button
+bypasses the daemon and drives the ESP32 directly over pyusb (same VID/PID
+and endpoints as send_wire() in robot_daemon.py), so it still works if the
+daemon is wedged.  SHUTDOWN sends SIGTERM to the daemon PID (looked up via
+`ps`).
+
+Source precedence:
+  1. /tmp/robot_state.json (published atomically by robot_daemon.RobotState).
+     Primary.  A header badge shows "source: state-json".
+  2. Log regex over logs/robot-*.log.  Only used if the state file is missing
+     or its `ts` is stale (>60 s old).  Header badge shows "source: log-regex".
+
+A separate "frozen" indicator trips if the state snapshot is >10 s old — so a
+hung daemon is visible at a glance without waiting for the 60 s fallback.
+
+Reads only: /tmp/robot_state.json, newest logs/robot-*.log, /tmp/_robot_eye.png, ps.
+Writes only: one {"c":"stop"} USB packet on demand.  Deps: stdlib + flask
+(auto falls back to http.server) + pyusb.
 """
 from __future__ import annotations
 
@@ -36,10 +50,32 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LOG_DIR = REPO_ROOT / "logs"
+DEFAULT_STATE   = "/tmp/robot_state.json"
 EYE_PNG    = "/tmp/_robot_eye.png"
 ROBOT_NAME = os.environ.get("ROBOT_NAME", "PhoneWalker")
 VID, PID   = 0x303a, 0x1001
 LOG_GLOB   = "robot-*.log"
+
+# Freshness windows.
+STATE_FROZEN_S   = 10.0   # show "daemon frozen" badge beyond this
+STATE_FALLBACK_S = 60.0   # beyond this, fall back to log-regex entirely
+
+# ---------------------------------------------------------------- state JSON
+
+def read_state_file(path: str) -> dict | None:
+    """Load the daemon's atomic state snapshot.  Returns None if the file is
+    missing, unreadable, or obviously truncated."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+        if not data:
+            return None
+        return json.loads(data.decode("utf-8", "replace"))
+    except (FileNotFoundError, IsADirectoryError):
+        return None
+    except (OSError, json.JSONDecodeError):
+        return None
+
 
 # ---------------------------------------------------------------- log scrape
 
@@ -60,6 +96,8 @@ def read_tail(path: Path, n: int = 400) -> list[str]:
 
 
 # Regexes pulled from the daemon's logger format ("HH:MM:SS  <line>").
+# Kept intact for the fallback path — when the state JSON is absent/stale,
+# we still want a populated dashboard.
 RE_STAMP      = re.compile(r"^(\d{2}:\d{2}:\d{2})\s+(.*)$")
 RE_HEARD      = re.compile(r"heard \(\d+ ms\):\s*(.+)$")
 RE_DECISION   = re.compile(r"decision:\s*(.+)$")
@@ -112,6 +150,96 @@ def scrape(lines: list[str]) -> dict:
         s["vision_ticks_window"] = None
         s["vision_latency_avg"]  = None
     return s
+
+
+# ---------------------------------------------------------------- state -> UI
+
+def _fmt_clock(unix_ts: float | None) -> str:
+    if not unix_ts:
+        return "--:--:--"
+    try:
+        return time.strftime("%H:%M:%S", time.localtime(float(unix_ts)))
+    except Exception:
+        return "--:--:--"
+
+
+def state_to_ui(sj: dict, tail_lines: list[str]) -> dict:
+    """Project the daemon's atomic snapshot into the same shape the HTML
+    renderer expects from scrape().  We reuse the existing UI layout so
+    nothing regresses — only the source of each field changes.
+    """
+    now = time.time()
+    ts  = float(sj.get("ts") or 0.0)
+
+    transcript = sj.get("transcript")
+    last_heard = (_fmt_clock(ts), transcript) if transcript else None
+
+    cmd = sj.get("cmd")
+    last_decision = (_fmt_clock(ts), json.dumps(cmd)) if cmd else None
+
+    vision_recent = sj.get("vision_recent") or []
+    vision_last_event = None
+    if vision_recent:
+        last = vision_recent[-1]
+        vision_last_event = {
+            "class": last.get("class", "?"),
+            "conf": 1.0,            # state snapshot doesn't carry conf today
+            "streak": len(vision_recent),
+            "when": _fmt_clock(last.get("ts") or ts),
+        }
+
+    vision_fps = sj.get("vision_fps")
+    vision_running = isinstance(vision_fps, (int, float)) and (now - ts) < 30.0
+    vision_latency = (1000.0 / float(vision_fps)) if vision_fps else None
+
+    telemetry: dict = {}
+    if sj.get("voltage_v") is not None:
+        # log regex shows volts*10 as "v"; keep the same convention so the UI
+        # row labeled "v" stays consistent.
+        telemetry["v"] = f'{int(round(float(sj["voltage_v"]) * 10))}'
+    if sj.get("temp_c")    is not None: telemetry["temp"] = f'{sj["temp_c"]}'
+    if sj.get("uptime_ms") is not None: telemetry["ms"]   = f'{sj["uptime_ms"]}'
+    if sj.get("imu"):
+        try: telemetry["imu"] = "[" + ",".join(f"{x:.2f}" for x in sj["imu"]) + "]"
+        except Exception: pass
+
+    wire_ack_raw = sj.get("wire_ack")
+    wire_last_ack = (_fmt_clock(ts), str(wire_ack_raw)) if wire_ack_raw else None
+
+    planner = sj.get("planner_last")
+    if planner:
+        plan_msg = (f"{'ok' if planner.get('success') else 'fail'}: "
+                    f"{planner.get('reason','?')} ({planner.get('steps',0)} steps)")
+        llm_last_ask = (_fmt_clock(ts), f"planner goal: {str(planner.get('goal',''))[:80]}")
+        llm_last_fail = ((_fmt_clock(ts), plan_msg)
+                         if not planner.get("success") else None)
+    else:
+        llm_last_ask = None
+        llm_last_fail = None
+
+    daemon_up_line = (_fmt_clock(ts),
+                      f"mode={sj.get('mode') or '?'}  walking={sj.get('walking')}")
+
+    if sj.get("error_last"):
+        llm_last_fail = (_fmt_clock(ts), str(sj["error_last"])[:200])
+
+    return {
+        "last_heard": last_heard,
+        "last_decision": last_decision,
+        "behav_state": sj.get("behavior_state") or "idle",
+        "vision_last_event": vision_last_event,
+        "vision_recent_ticks": [],
+        "wire_last_ack": wire_last_ack,
+        "servos": sj.get("servos"),
+        "telemetry": telemetry,
+        "daemon_up_line": daemon_up_line,
+        "llm_last_ask": llm_last_ask,
+        "llm_last_fail": llm_last_fail,
+        "tail": tail_lines[-10:],
+        "vision_running": vision_running,
+        "vision_ticks_window": None,
+        "vision_latency_avg":  vision_latency,
+    }
 
 
 # ------------------------------------------------------------ daemon process
@@ -190,6 +318,10 @@ CSS = (
   ".hdr{display:flex;align-items:center;gap:16px;flex-wrap:wrap;"
   "background:#13202b;border:1px solid #245;border-radius:6px;padding:10px}"
   ".tag{background:#0a2a3a;padding:2px 8px;border-radius:4px;font-size:12px}"
+  ".src-json{background:#0a3a22;color:#8fd}"
+  ".src-log{background:#3a2a0a;color:#fc8}"
+  ".frozen{background:#4a0e0e;color:#fcc;animation:blink 1s steps(2,start) infinite}"
+  "@keyframes blink{to{visibility:hidden}}"
   ".ok{color:#7f8}.warn{color:#fc6}.bad{color:#f77}.big{font-size:15px}"
   "pre{background:#06090d;border:1px solid #1a2530;padding:8px;border-radius:4px;"
   "white-space:pre-wrap;word-break:break-word;margin:0;font-size:12px;"
@@ -206,7 +338,9 @@ CSS = (
 )
 
 
-def render_page(state: dict, daemon: tuple, flash: str | None) -> str:
+def render_page(state: dict, daemon: tuple, flash: str | None,
+                source: str, snapshot_age: float | None,
+                refresh_ms: int) -> str:
     esc = html.escape
     pid, _cmd, start_epoch = daemon
     if pid is not None and start_epoch is not None:
@@ -215,7 +349,7 @@ def render_page(state: dict, daemon: tuple, flash: str | None) -> str:
         pid_html = '<span class="bad">daemon not running</span>'
 
     def _when(pair):
-        return (f'<div class="big">{esc(pair[1])}</div><div class="small">@ {pair[0]}</div>'
+        return (f'<div class="big">{esc(str(pair[1]))}</div><div class="small">@ {pair[0]}</div>'
                 if pair else '<div class="small">(nothing yet)</div>')
     heard_html, dec_html = _when(state["last_heard"]), _when(state["last_decision"])
 
@@ -232,41 +366,59 @@ def render_page(state: dict, daemon: tuple, flash: str | None) -> str:
     except FileNotFoundError:
         eye_img = '<div class="small">(no /tmp/_robot_eye.png yet)</div>'
 
-    bstate = state["behav_state"]
+    bstate = state["behav_state"] or "idle"
     b_cls  = {"walking": "ok", "following": "ok", "paused": "warn", "idle": ""}.get(bstate, "")
     tel    = state["telemetry"]
-    tel_rows = "".join(f'<b>{k}</b><span>{esc(tel[k])}</span>'
+    tel_rows = "".join(f'<b>{k}</b><span>{esc(str(tel[k]))}</span>'
                        for k in ("v", "ms", "temp", "t_c", "imu", "yaw", "pitch", "roll")
-                       if k in tel) or '<b>--</b><span class="small">no telemetry in log yet</span>'
+                       if k in tel) or '<b>--</b><span class="small">no telemetry yet</span>'
     if state["servos"]:
         tel_rows += f'<b>servos</b><span>{state["servos"]}</span>'
     wire_html = ""
     if state["wire_last_ack"]:
         ts, ack = state["wire_last_ack"]
-        wire_html = f'<div class="small">last wire ack @ {ts}: {esc(ack)}</div>'
+        wire_html = f'<div class="small">last wire ack @ {ts}: {esc(str(ack))}</div>'
 
     api_set = bool(os.environ.get("DEEPINFRA_API_KEY"))
     llm_rows = (f'<b>DEEPINFRA_API_KEY</b><span class="{"ok" if api_set else "bad"}">'
                 f'{"set" if api_set else "UNSET"}</span>')
     if (a := state["llm_last_ask"]):
-        llm_rows += f'<b>last ask</b><span>{esc(a[1])} @ {a[0]}</span>'
+        llm_rows += f'<b>last ask</b><span>{esc(str(a[1]))} @ {a[0]}</span>'
     if (f := state["llm_last_fail"]):
-        llm_rows += f'<b>last failure</b><span class="bad">{esc(f[1])} @ {f[0]}</span>'
+        llm_rows += f'<b>last failure</b><span class="bad">{esc(str(f[1]))} @ {f[0]}</span>'
 
     up = state["daemon_up_line"]
-    up_html = f'<div class="small">{esc(up[1])}</div>' if up else ""
+    up_html = f'<div class="small">{esc(str(up[1]))}</div>' if up else ""
     tail_html = esc("\n".join(state["tail"])) or "(log empty)"
     flash_html = f'<div class="tag warn">{esc(flash)}</div>' if flash else ""
 
     ticks = state["vision_ticks_window"]; lat = state["vision_latency_avg"]
     lat_str = f'{lat:.1f} ms' if lat is not None else '--'
 
+    # Source + freshness badges.
+    src_cls = "src-json" if source == "state-json" else "src-log"
+    src_badge = f'<span class="tag {src_cls}">source: {source}</span>'
+    if source == "state-json" and snapshot_age is not None:
+        age_html = f'<span class="tag">state age: {snapshot_age:.1f}s</span>'
+    else:
+        age_html = ""
+    frozen_html = ""
+    if source == "state-json" and snapshot_age is not None and snapshot_age > STATE_FROZEN_S:
+        frozen_html = (f'<span class="tag frozen">daemon frozen '
+                       f'({snapshot_age:.0f}s since last update)</span>')
+
+    # meta http-equiv refresh only accepts integer seconds, so for the 500 ms
+    # state-json refresh we additionally issue a JS timer (cheap, stdlib-safe).
+    meta_refresh_s = max(1, refresh_ms // 1000) if refresh_ms >= 1000 else 1
     return (
         '<!doctype html><html><head><meta charset="utf-8">'
-        '<meta http-equiv="refresh" content="1">'
-        f'<title>{esc(ROBOT_NAME)} dashboard</title><style>{CSS}</style></head><body>'
+        f'<meta http-equiv="refresh" content="{meta_refresh_s}">'
+        f'<title>{esc(ROBOT_NAME)} dashboard</title><style>{CSS}</style>'
+        f'<script>setTimeout(function(){{location.reload();}}, {refresh_ms});</script>'
+        '</head><body>'
         f'<div class="hdr"><h1>{esc(ROBOT_NAME)}</h1>'
         f'<span class="tag">{pid_html}</span>'
+        f'{src_badge}{age_html}{frozen_html}'
         f'<span class="tag">behavior: <span class="{b_cls}">{bstate}</span></span>'
         f'<span class="tag">vision: <span class="{vcls}">{vstate}</span></span>'
         '<form method="POST" action="/stop"><button class="stop">STOP</button></form>'
@@ -284,22 +436,45 @@ def render_page(state: dict, daemon: tuple, flash: str | None) -> str:
         f'<div class="row" style="margin-top:10px">{eye_img}</div>'
         f'<h2>behavior</h2><div class="big"><span class="{b_cls}">{bstate}</span></div>'
         f'<h2>ESP32 telemetry</h2><div class="kv">{tel_rows}</div>{wire_html}'
-        f'<h2>LLM</h2><div class="kv">{llm_rows}</div></div></div>'
-        f'<div class="small" style="margin-top:12px">refresh 1s &middot; '
-        f'log: {esc(str(state.get("_log","")))}</div></body></html>'
+        f'<h2>LLM / planner</h2><div class="kv">{llm_rows}</div></div></div>'
+        f'<div class="small" style="margin-top:12px">refresh {refresh_ms} ms &middot; '
+        f'source: {esc(source)} &middot; log: {esc(str(state.get("_log","")))}</div>'
+        '</body></html>'
     )
 
 
 # ------------------------------------------------------------ plumbing
 
-def build_state(logs_dir: Path) -> tuple[dict, tuple]:
+def build_state(logs_dir: Path, state_path: str | None) -> tuple[dict, tuple, str, float | None, int]:
+    """Assemble the UI state dict, preferring /tmp/robot_state.json.
+
+    Returns (state, daemon_tuple, source, snapshot_age, refresh_ms).
+    source is "state-json" when we used the daemon's atomic snapshot,
+    "log-regex" when we fell back to tailing the newest robot-*.log.
+    """
     log = latest_log(logs_dir)
-    state = scrape(read_tail(log) if log else [])
+    tail = read_tail(log) if log else []
+
+    sj = read_state_file(state_path) if state_path else None
+    age: float | None = None
+    if sj is not None:
+        ts = float(sj.get("ts") or 0.0)
+        age = max(0.0, time.time() - ts) if ts else None
+
+    if sj is not None and (age is None or age <= STATE_FALLBACK_S):
+        state = state_to_ui(sj, tail)
+        state["_log"] = str(log) if log else "(none)"
+        # state-json mode is cheap — refresh twice as fast.
+        return state, find_daemon(), "state-json", age, 500
+
+    # Fallback: legacy regex path.  Keeps the UI alive if --no-state-file was
+    # passed to the daemon or the snapshot file was removed.
+    state = scrape(tail)
     state["_log"] = str(log) if log else "(none)"
-    return state, find_daemon()
+    return state, find_daemon(), "log-regex", None, 1000
 
 
-def make_flask_app(logs_dir: Path) -> "Flask":
+def make_flask_app(logs_dir: Path, state_path: str | None) -> "Flask":
     app = Flask(__name__)
     flash = {"msg": None, "ts": 0.0}
 
@@ -308,8 +483,20 @@ def make_flask_app(logs_dir: Path) -> "Flask":
 
     @app.route("/")
     def index():
-        st, dm = build_state(logs_dir)
-        return Response(render_page(st, dm, live()), mimetype="text/html")
+        st, dm, src, age, refresh_ms = build_state(logs_dir, state_path)
+        return Response(render_page(st, dm, live(), src, age, refresh_ms),
+                        mimetype="text/html")
+
+    @app.route("/state.json")
+    def raw_state():
+        # Convenience debug endpoint: serves whatever the daemon wrote.
+        if state_path and os.path.exists(state_path):
+            try:
+                with open(state_path, "rb") as fh:
+                    return Response(fh.read(), mimetype="application/json")
+            except OSError:
+                pass
+        return Response(b"{}", status=404, mimetype="application/json")
 
     @app.route("/eye.png")
     def eye():
@@ -334,6 +521,7 @@ def make_flask_app(logs_dir: Path) -> "Flask":
 
 class StdlibHandler(BaseHTTPRequestHandler):  # type: ignore[misc]
     logs_dir: Path = DEFAULT_LOG_DIR
+    state_path: str | None = DEFAULT_STATE
     flash: dict = {"msg": None, "ts": 0.0}
 
     def log_message(self, fmt, *a): pass
@@ -350,10 +538,20 @@ class StdlibHandler(BaseHTTPRequestHandler):  # type: ignore[misc]
             except FileNotFoundError:
                 self.send_response(404); self.end_headers()
             return
+        if self.path == "/state.json":
+            if self.state_path and os.path.exists(self.state_path):
+                try:
+                    data = open(self.state_path, "rb").read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers(); self.wfile.write(data); return
+                except OSError:
+                    pass
+            self.send_response(404); self.end_headers(); return
         if self.path == "/healthz":
             self.send_response(200); self.end_headers(); self.wfile.write(b"ok"); return
-        st, dm = build_state(self.logs_dir)
-        body = render_page(st, dm, self._live()).encode()
+        st, dm, src, age, refresh_ms = build_state(self.logs_dir, self.state_path)
+        body = render_page(st, dm, self._live(), src, age, refresh_ms).encode()
         self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body))); self.end_headers()
         self.wfile.write(body)
@@ -366,8 +564,9 @@ class StdlibHandler(BaseHTTPRequestHandler):  # type: ignore[misc]
         self.send_response(303); self.send_header("Location", "/"); self.end_headers()
 
 
-def run_stdlib(host: str, port: int, logs_dir: Path):
+def run_stdlib(host: str, port: int, logs_dir: Path, state_path: str | None):
     StdlibHandler.logs_dir = logs_dir
+    StdlibHandler.state_path = state_path
     print(f"[web_ui] stdlib http.server on http://{host}:{port}/")
     HTTPServer((host, port), StdlibHandler).serve_forever()
 
@@ -377,14 +576,20 @@ def main():
     ap.add_argument("--port", type=int, default=5555)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--logs-dir", default=str(DEFAULT_LOG_DIR))
+    ap.add_argument("--state-file", default=DEFAULT_STATE,
+                    help="atomic JSON snapshot published by robot_daemon.  "
+                         f"default: {DEFAULT_STATE}.  Pass '' to disable.")
     a = ap.parse_args()
     logs_dir = Path(a.logs_dir).resolve()
     logs_dir.mkdir(parents=True, exist_ok=True)
-    print(f"[web_ui] robot={ROBOT_NAME}  logs_dir={logs_dir}  flask={USE_FLASK}")
+    state_path = a.state_file if a.state_file else None
+    print(f"[web_ui] robot={ROBOT_NAME}  logs_dir={logs_dir}  "
+          f"state_file={state_path or '(disabled)'}  flask={USE_FLASK}")
     if USE_FLASK:
-        make_flask_app(logs_dir).run(host=a.host, port=a.port, debug=False, use_reloader=False)
+        make_flask_app(logs_dir, state_path).run(host=a.host, port=a.port,
+                                                 debug=False, use_reloader=False)
     else:
-        run_stdlib(a.host, a.port, logs_dir)
+        run_stdlib(a.host, a.port, logs_dir, state_path)
 
 
 if __name__ == "__main__":
