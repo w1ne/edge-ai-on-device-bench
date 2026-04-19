@@ -483,17 +483,43 @@ def render_page(state: dict, daemon: tuple, flash: str | None,
     sse_url = f"{daemon_url.rstrip('/')}/events"
     if token:
         sse_url += f"?token={token}"
+    # Reconnect UX: show a "reconnecting..." badge if EventSource stays in
+    # CONNECTING state for >3 s (catches the case where the daemon died
+    # and the browser is retrying on its 1 s cadence from the server's
+    # ``: retry 1000`` hint).  Track reconnect attempts on es.onerror and
+    # reset on successful message -- visible in the footer so users can
+    # tell the difference between "daemon flaky" and "daemon hung".
     sse_js = (
         "(function(){"
         "try{"
         f"var es=new EventSource({json.dumps(sse_url)});"
         "var last=Date.now();"
+        "window._reconn=window._reconn||0;"
+        "function _updBadge(){"
+        "var b=document.getElementById('_rcnbadge');"
+        "if(!b)return;"
+        "if(es.readyState===EventSource.CONNECTING){"
+        "b.style.display='inline-block';b.textContent='reconnecting...';"
+        "}else{b.style.display='none';}"
+        "}"
+        "function _updFooter(){"
+        "var f=document.getElementById('_rcnfoot');"
+        "if(f)f.textContent='reconnect attempts: '+window._reconn;"
+        "}"
         "es.onmessage=function(e){last=Date.now();"
+        "window._reconn=0;_updFooter();_updBadge();"
         "if(!window._ssePending){window._ssePending=true;"
         "setTimeout(function(){location.reload();},150);}};"
-        "es.onerror=function(){setTimeout(function(){"
+        "es.onerror=function(){"
+        "window._reconn=(window._reconn||0)+1;_updFooter();"
+        # If still CONNECTING after 3 s, flip the badge on.
+        "setTimeout(_updBadge,3000);"
+        "setTimeout(function(){"
         "if(Date.now()-last>5000){location.reload();}},1000);};"
         "window._sse=es;"
+        # Poll readyState every second so the badge reacts even if
+        # onerror is sparse (happens during TCP-level black-hole).
+        "setInterval(_updBadge,1000);"
         "}catch(e){}"
         "})();"
     )
@@ -510,6 +536,9 @@ def render_page(state: dict, daemon: tuple, flash: str | None,
         '</head><body>'
         f'<div class="hdr"><h1>{esc(ROBOT_NAME)}</h1>'
         f'<span class="tag">{pid_html}</span>'
+        # Populated by sse_js when EventSource stays CONNECTING >3 s.
+        '<span class="tag warn" id="_rcnbadge" style="display:none">'
+        'reconnecting...</span>'
         f'{src_badge}{age_html}{frozen_html}'
         f'<span class="tag">behavior: <span class="{b_cls}">{bstate}</span></span>'
         f'<span class="tag">vision: <span class="{vcls}">{vstate}</span></span>'
@@ -530,7 +559,11 @@ def render_page(state: dict, daemon: tuple, flash: str | None,
         f'<h2>ESP32 telemetry</h2><div class="kv">{tel_rows}</div>{wire_html}'
         f'<h2>LLM / planner</h2><div class="kv">{llm_rows}</div></div></div>'
         f'<div class="small" style="margin-top:12px">refresh {refresh_ms} ms &middot; '
-        f'source: {esc(source)} &middot; log: {esc(str(state.get("_log","")))}</div>'
+        f'source: {esc(source)} &middot; log: {esc(str(state.get("_log","")))}'
+        # Updated live by sse_js -- counts es.onerror events since the
+        # last successful message.
+        ' &middot; <span id="_rcnfoot">reconnect attempts: 0</span>'
+        '</div>'
         '</body></html>'
     )
 

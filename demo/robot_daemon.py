@@ -115,6 +115,18 @@ class RobotState:
         self._path = path
         self._lock = threading.Lock()
         self._subs: list[queue.Queue] = []      # SSE subscriber queues
+        # Monotonic event sequence number.  Starts at 0; increments on every
+        # update(), and each SSE event is labeled ``id: <seq>\n`` so a
+        # reconnecting client can send Last-Event-ID and let the server
+        # notice the gap.  The initial snapshot delivered on subscribe() also
+        # carries the current seq so the very first reconnect-after-disconnect
+        # has something to compare against.
+        self._seq: int = 0
+        # Optional logger (set by the daemon at wiring time).  When a fan-out
+        # enqueue raises queue.Full we call this to emit a visible line --
+        # silent drops were the original reliability bug.  ``print`` is a
+        # safe default so standalone use still surfaces drops on stderr-ish.
+        self._drop_log = print
         self._data: dict = {
             "ts": time.time(),
             "transcript": None,
@@ -141,17 +153,32 @@ class RobotState:
 
     def subscribe(self) -> queue.Queue:
         """Register a new SSE subscriber.  Returns a queue the server thread
-        reads from; each enqueued item is a full snapshot dict."""
+        reads from; each enqueued item is a (seq, snapshot) tuple."""
         q: queue.Queue = queue.Queue(maxsize=16)
         with self._lock:
             self._subs.append(q)
             # Send the current snapshot immediately so clients don't wait
-            # for the next event to render initial state.
+            # for the next event to render initial state.  Tag it with the
+            # current seq so the server's SSE layer can emit ``id: N``.
             try:
-                q.put_nowait(dict(self._data))
+                q.put_nowait((self._seq, dict(self._data)))
             except queue.Full:
                 pass
         return q
+
+    def current_seq(self) -> int:
+        """Expose the current sequence number (for Last-Event-ID catch-up).
+
+        Grabbed under the lock so a concurrent update() can't tear the read.
+        """
+        with self._lock:
+            return self._seq
+
+    def snapshot_with_seq(self) -> tuple[int, dict]:
+        """Atomic (seq, snapshot) read -- avoids the race where snapshot()
+        and current_seq() interleave with an update()."""
+        with self._lock:
+            return self._seq, dict(self._data)
 
     def unsubscribe(self, q: queue.Queue) -> None:
         with self._lock:
@@ -174,30 +201,48 @@ class RobotState:
                             "ts": float(kwargs.get("ts", time.time()))})
                 self._data["vision_recent"] = lst[-10:]
             self._data["ts"] = float(kwargs.get("ts", time.time()))
+            # Bump the sequence number BEFORE snapshotting so the fan-out
+            # item carries the matching id.  seq=1 is the first real update
+            # (subscribers joined pre-update see seq=0 on their initial push).
+            self._seq += 1
+            seq = self._seq
             snap = dict(self._data)
-            # Fan out to SSE subscribers — non-blocking; drop on full so a
+            # Fan out to SSE subscribers -- non-blocking; drop on full so a
             # stuck client can't stall the daemon.
             dead = []
             for q in self._subs:
                 try:
-                    q.put_nowait(snap)
+                    q.put_nowait((seq, snap))
                 except queue.Full:
                     dead.append(q)
             for q in dead:
                 try: self._subs.remove(q)
                 except ValueError: pass
-            # Optional legacy file publish (kept so existing web_ui fallback
-            # still works without the HTTP server).
-            if self._path is None:
-                return
-            try:
-                tmp = self._path + ".tmp"
-                with open(tmp, "w") as fh:
-                    json.dump(snap, fh)
-                os.replace(tmp, self._path)
-            except Exception:
-                # Never crash the daemon because the UI snapshot failed.
-                pass
+            drop_log = self._drop_log
+        # Log drops outside the lock so a slow logger can't stall other
+        # threads touching state.  Silent drops were the original bug.
+        if dead and drop_log is not None:
+            for _ in dead:
+                try:
+                    drop_log("[state] dropped subscriber (queue full, "
+                             "events arriving faster than client can consume)")
+                except Exception:
+                    # Never crash the daemon because logging failed.
+                    pass
+        # Optional legacy file publish (kept so existing web_ui fallback
+        # still works without the HTTP server).  Done outside the lock so
+        # slow disk I/O doesn't block other threads; ``snap`` is already
+        # our immutable copy.
+        if self._path is None:
+            return
+        try:
+            tmp = self._path + ".tmp"
+            with open(tmp, "w") as fh:
+                json.dump(snap, fh)
+            os.replace(tmp, self._path)
+        except Exception:
+            # Never crash the daemon because the UI snapshot failed.
+            pass
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -1807,6 +1852,10 @@ def main():
     global _ROBOT_STATE
     state_path = None if args.no_state_file else args.state_file
     _ROBOT_STATE = RobotState(path=state_path)
+    # Route subscriber-drop lines through the daemon logger so they land in
+    # the main robot-*.log alongside every other event.  Silent drops were
+    # the original reliability bug the roast called out.
+    _ROBOT_STATE._drop_log = logger
     state_obj = _ROBOT_STATE
     # --no-tts is a shortcut for --tts off.
     if getattr(args, "no_tts", False):

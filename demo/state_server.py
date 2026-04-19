@@ -280,15 +280,82 @@ def make_server(state: "RobotState",
             for k, v in self._cors_headers():
                 self.send_header(k, v)
             self.end_headers()
+
+            # Tell the browser to retry after 1 s on disconnect (HTML5
+            # default is 3 s; faster is friendlier for a live robot UI).
+            # Also flush a Last-Event-ID catch-up frame before entering the
+            # queue wait loop -- when the client reconnects it includes the
+            # last id it saw in the ``Last-Event-ID`` header, and we push the
+            # current snapshot immediately so the dashboard doesn't stall
+            # waiting for the next state change.
+            try:
+                self.wfile.write(b": retry 1000\n\n")
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                return
+
+            last_event_id = self.headers.get("Last-Event-ID") or ""
+            # Snapshot + seq captured atomically so we know exactly which id
+            # to stamp onto the catch-up frame.  If the StubState used in
+            # tests doesn't expose snapshot_with_seq(), degrade gracefully.
+            snap_with_seq = getattr(state, "snapshot_with_seq", None)
+            if callable(snap_with_seq):
+                cur_seq, cur_snap = snap_with_seq()
+            else:
+                cur_seq, cur_snap = 0, state.snapshot()
+
+            emitted_catchup = False
+            if last_event_id.strip():
+                try:
+                    client_seq = int(last_event_id.strip())
+                except ValueError:
+                    client_seq = -1
+                if client_seq >= 0 and cur_seq > client_seq:
+                    gap = cur_seq - client_seq
+                    # ``: gap of N events`` comment is informational only --
+                    # browsers ignore it but it shows up in curl and aids
+                    # offline debugging.  Then push the current state with
+                    # the current id so the client's Last-Event-ID tracker
+                    # advances in lock-step.
+                    comment = b""
+                    if gap > 1:
+                        comment = f": gap of {gap} events\n".encode()
+                    frame = (comment
+                             + f"id: {cur_seq}\n".encode()
+                             + f"data: {json.dumps(cur_snap)}\n\n".encode())
+                    try:
+                        self.wfile.write(frame)
+                        self.wfile.flush()
+                    except (BrokenPipeError, ConnectionResetError):
+                        return
+                    emitted_catchup = True
+
             q = state.subscribe()
+            # subscribe() primes the queue with the current (seq, snapshot).
+            # If we already flushed the same data as a catch-up frame, drop
+            # the duplicate so the client doesn't see the same id twice.
+            if emitted_catchup:
+                try:
+                    q.get_nowait()
+                except queue.Empty:
+                    pass
             try:
                 # 25 s heartbeat keeps middleboxes from dropping the
                 # connection and gives us a clean error path if the client
                 # has silently disappeared.
                 while True:
                     try:
-                        snap = q.get(timeout=25.0)
-                        line = f"data: {json.dumps(snap)}\n\n"
+                        item = q.get(timeout=25.0)
+                        # Subscribers now carry (seq, snapshot) so we can
+                        # emit ``id: N`` on every event.  Tolerate the
+                        # older plain-snapshot shape for stub-state tests
+                        # that pre-date this change.
+                        if isinstance(item, tuple) and len(item) == 2:
+                            seq, snap = item
+                            line = (f"id: {seq}\n"
+                                    f"data: {json.dumps(snap)}\n\n")
+                        else:
+                            line = f"data: {json.dumps(item)}\n\n"
                     except queue.Empty:
                         line = ": heartbeat\n\n"
                     try:
