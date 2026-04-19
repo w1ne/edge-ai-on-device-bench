@@ -10,32 +10,52 @@ A single persistent process.  Two modes:
 Pipeline (voice mode):
 
     laptop mic (arecord, 16 kHz mono)
-      -> adb push to P20 Lite
+      -> adb push to --stt-phone (default: pixel6)
       -> whisper-cli on phone  (ggml-base.en.bin, 8 threads, -t 8)
-      -> keyword matcher       (first-hit, rich synonyms)
-      -> USB CDC JSON to ESP32 (VID 0x303a / PID 0x1001)
+      -> regex keyword matcher (first-hit, rich synonyms — primary path)
+      -> optional LLM fallback (DeepInfra API if --with-llm and
+         $DEEPINFRA_API_KEY is set, else on-phone Gemma)
+      -> BehaviorEngine (if --with-vision) — state machine handles
+         greet-new-class + walk-until-obstacle + emergency-stop
+      -> USB CDC JSON to ESP32 (VID 0x303a / PID 0x1001, persistent handle)
       -> servos move
       -> espeak-ng acks on laptop speakers
 
 Optional:
 
-    --with-llm              try TinyLlama intent parser (demo/parse_intent.py)
-                            as a fallback when keyword matcher returns noop.
-                            Slow on P20 (~25 s/call) and hallucinates on
-                            ambiguous inputs.  Off by default.
-    --with-eyes N           every N seconds, grab a frame via adb screencap,
-                            run YOLO on laptop (demo/eyes.py), and log the
-                            top detection.  Non-blocking background thread.
-    --dry-run               skip adb + USB.  Use for testing the matcher.
-    --no-tts                skip espeak-ng.  Use on silent machines.
+    --with-llm              fallback to an LLM when keyword matcher misses.
+                            Backend auto-picked: api (DeepInfra Llama-3.1-8B,
+                            ~1 s/call, 8/8 accuracy) if DEEPINFRA_API_KEY is
+                            set, else local on-phone (slower, lower accuracy).
+    --llm-api {local,api}   override the auto-pick.
+    --llm-model MODEL       which backend model (gemma/gemma4/tinyllama for
+                            local; llama31-8b/llama33-70b/gemma3-27b/qwen25
+                            for api).
+    --llm-fast              use persistent llama-server via
+                            scripts/start_llm_server.sh — shaves seconds off
+                            local fallback calls.
+    --with-vision CLASS     launch vision_watcher as a background thread,
+                            drive BehaviorEngine reactions (greet, auto-stop
+                            on close obstacle, follow-me on person drift).
+    --vision-source SRC     webcam (default, ~20 FPS via cv2) or phone
+                            (~2 FPS via adb screencap).
+    --vision-phone PHONE    if source=phone, which phone to pull frames from.
+    --stt-phone PHONE       which phone runs Whisper (default: pixel6).
+    --dry-run               skip USB wire writes and on-phone Whisper.
+                            Vision still runs.  Great for matcher testing.
+    --no-tts                skip espeak-ng.
     --log PATH              append transcripts + decisions to a logfile.
 
 Examples:
 
-    python3 demo/robot_daemon.py
+    # typical usage — laptop webcam, API LLM, real ESP32, Pixel 6 STT
+    scripts/run_robot.sh
+
+    # same, no hardware — typed commands, no USB, no on-phone Whisper
     python3 demo/robot_daemon.py --mode text --dry-run
-    python3 demo/robot_daemon.py --with-eyes 5 --log logs/robot-today.log
-    python3 demo/robot_daemon.py --with-llm
+
+    # offline-only — on-phone Gemma 3 as LLM fallback
+    python3 demo/robot_daemon.py --with-llm --llm-api local --llm-model gemma
 
 Ctrl-C quits.  Saying 'shut down' / 'power off' / 'good bye' also quits.
 
