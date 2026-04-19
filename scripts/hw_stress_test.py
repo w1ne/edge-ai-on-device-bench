@@ -67,6 +67,26 @@ NO_PACKET_TIMEOUT  = 2.0      # s without any state packet -> FAIL
 IMU_ZERO_TIMEOUT   = 5.0      # s with all-zero IMU / |az| < 0.5 -> brownout
 SERVO_STUCK_TIMEOUT = 2.0     # s after a pose cmd without any servo delta
 
+# Pre-flight battery budget — empirical:
+#   The first live 30-second run on the current 2S Li-ion pack showed a
+#   resting voltage of 6.90 V, only 0.40 V above the 6.5 V brownout
+#   threshold.  Under servo load, voltage sags another 0.3–0.5 V
+#   instantly and continues drifting down as the pack drains.  Rough
+#   estimate: a 2S pack that starts at 6.9 V has ~10 minutes of useful
+#   stress capacity before it either (a) browns out the ESP32's MPU-6050
+#   init or (b) trips the daemon's low-voltage alert.
+#
+#   Rule we enforce below:
+#     * start_v < 6.8 V  -> refuse to run.  Charge the pack first.
+#     * start_v < 7.2 V  -> cap --duration at 600 s (10 min).
+#     * start_v >= 7.2 V -> full --duration allowed (up to 30 min).
+#
+#   This is empirical and conservative.  Measure a longer run on a fresh
+#   pack to refine.  Override with --ignore-battery-budget at your own risk.
+VOLT_SAFE_FULL_V   = 7.2
+VOLT_MIN_START_V   = 6.8
+CAPPED_DURATION_S  = 600.0
+
 # Jump cadence — probability chosen so one jump fires every ~2 min.
 JUMP_BUDGET_S = 120.0
 
@@ -496,7 +516,8 @@ def send(cmd: dict, dry_run: bool, fake: "FakeState | None",
 
 # ------------------------------------------------------------------ main loop
 
-def run(duration: float, dry_run: bool, csv_path: Path, md_path: Path) -> int:
+def run(duration: float, dry_run: bool, csv_path: Path, md_path: Path,
+        ignore_battery: bool = False) -> int:
     started_wall = time.time()
     ts_started = _dt.datetime.fromtimestamp(started_wall).isoformat(timespec="seconds")
 
@@ -510,6 +531,41 @@ def run(duration: float, dry_run: bool, csv_path: Path, md_path: Path) -> int:
 
     logger(f"hw_stress_test start duration={duration}s dry_run={dry_run}")
     logger(f"csv={csv_path}")
+
+    # Pre-flight battery check (live only).  One ping, read ~1.5s of telemetry,
+    # inspect voltage.  Refuses on undercharged pack; caps duration on marginal.
+    if not dry_run and not ignore_battery:
+        try:
+            import demo.robot_daemon as _rd  # noqa: WPS433
+            _rd.send_wire({"c": "ping"}, dry_run=False)
+        except Exception as e:
+            logger(f"preflight ping failed ({type(e).__name__}: {e}); aborting")
+            return 2
+        probe_tel = Telemetry()
+        probe_stop = threading.Event()
+        probe_thr = threading.Thread(
+            target=reader_loop, args=(probe_stop, probe_tel, False, None),
+            name="hw-preflight", daemon=True)
+        probe_thr.start()
+        time.sleep(1.5)
+        probe_stop.set()
+        probe_thr.join(timeout=1.0)
+        last = probe_tel.last
+        if last is None:
+            logger("preflight: no telemetry received in 1.5 s; aborting. "
+                   "Is the ESP32 powered and USB connected?")
+            return 2
+        v0 = last.voltage
+        logger(f"preflight: voltage={v0:.2f} V, temp={last.temp:.1f} C")
+        if v0 < VOLT_MIN_START_V:
+            logger(f"preflight: voltage {v0:.2f} V < {VOLT_MIN_START_V} V "
+                   "(undercharged); charge the pack before running. "
+                   "Override with --ignore-battery-budget.")
+            return 3
+        if v0 < VOLT_SAFE_FULL_V and duration > CAPPED_DURATION_S:
+            logger(f"preflight: voltage {v0:.2f} V < {VOLT_SAFE_FULL_V} V "
+                   f"(marginal); capping duration at {CAPPED_DURATION_S:.0f} s.")
+            duration = CAPPED_DURATION_S
 
     tel = Telemetry()
     fails = FailureLog(logger)
@@ -743,6 +799,9 @@ def main() -> int:
                     help="simulate USB + telemetry; no real commands")
     ap.add_argument("--out", type=str, default=None,
                     help="override CSV path")
+    ap.add_argument("--ignore-battery-budget", action="store_true",
+                    help="skip the voltage pre-flight gate.  Use only for "
+                         "diagnostic runs on a pack you've already validated.")
     args = ap.parse_args()
 
     ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -753,7 +812,8 @@ def main() -> int:
     md_path = LOGS_DIR / f"hw_stress_{ts}.md"
     csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    return run(args.duration, args.dry_run, csv_path, md_path)
+    return run(args.duration, args.dry_run, csv_path, md_path,
+               ignore_battery=args.ignore_battery_budget)
 
 
 if __name__ == "__main__":
