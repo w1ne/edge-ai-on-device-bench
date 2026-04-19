@@ -1,0 +1,199 @@
+==========================================
+Whisper -> TFLite swap for robot daemon STT
+Date: 2026-04-19
+Device: Pixel 6 (1B291FDF600260), Android ARM64-v8a, Tensor G1 (8 cores)
+Laptop: x86_64 Linux, CUDA unused, tflite_runtime 2.14.0
+==========================================
+
+GOAL
+----
+Replace whisper.cpp (ggml) with TFLite+XNNPack as the STT runtime the robot
+daemon uses, capturing the prior-measured 2.5x encoder speedup end-to-end.
+Keep whisper-cli as offline fallback. Add --stt-backend CLI flag.
+
+RUNNER USED
+-----------
+Laptop-side Python runner (fallback path (c) from the brief).
+
+  Path: scripts/whisper_tflite_runner.py  (new)
+  Wire: demo/robot_daemon.py::phone_transcribe(..., backend="tflite")
+        shells out -> runner returns JSON {transcript, wall_s}.
+
+Why not on-phone:
+  - Pixel 6 has no Termux / no Python / no pip (pm list packages -> nothing
+    matching termux or python).
+  - /data/local/tmp/tflite/benchmark_model exists and times the graph fine
+    but cannot emit decoded tokens (it's a timing/profiling harness).
+  - Shipping a TFLite+XNNPack Android binary that also runs a Whisper
+    tokenizer would require cross-building tflite with --config=android_arm64
+    plus linking a BPE tokenizer — multi-hour, outside the 90 min window.
+  - tflite_runtime 2.14 is on laptop and loads the graph with the
+    XNNPack delegate ("INFO: Created TensorFlow Lite XNNPACK delegate for
+    CPU.") at 4 threads, so we exercise the same kernels — just on
+    laptop silicon, not Cortex-A76.
+
+
+WALL-CLOCK TIMINGS (test utterance)
+-----------------------------------
+Test audio: /tmp/whisper-swap/utter_16k.wav
+  Generated via: espeak-ng -v en-us -s 150 -w utter.wav
+                 "walk forward now please stop"  (then ffmpeg to 16k/s16)
+  Duration: 2.32 s, 16 kHz mono, RMS 0.094
+
+Why not /data/local/tmp/test.wav (JFK 5 s clip):
+  RMS 0.0018 - whisper.cpp rejects it as [BLANK_AUDIO] on tiny, hallucinates
+  "(clippers whirring)" on base.en. Not a useful accuracy comparison when
+  the baseline itself can't decode it. Kept as the perf-only reference.
+
+BASELINE: whisper.cpp on Pixel 6 (ggml-base.en.bin, 8 threads)
+    CMD: adb shell "./whisper-cli -m ggml-base.en.bin -f utter.wav
+                    --no-timestamps -l en -t 8"
+    Wall:                    3.42 s     (real time, laptop->phone->laptop)
+    whisper_print_timings:
+        encode time      2711.15 ms / 1
+        batched time      281.02 ms / 34
+        decode time       109.03 ms / 1
+        total time       3328.83 ms
+    Transcript: "Walk forward, please stop."
+
+NEW: TFLite via scripts/whisper_tflite_runner.py (laptop CPU, XNNPack 4T)
+    CMD: python3 scripts/whisper_tflite_runner.py utter_16k.wav --json
+    Wall (measured via phone_transcribe):  3.75 s total
+      (includes Python/transformers/whisper import + mel compute + invoke;
+       the tflite invoke() itself is ~3.5 s on this laptop)
+    TOKENS emitted: [50257, 50362, 50359, 50363, 50413, 50256, 50256, ...]
+                    -> <|SOT|><|notimestamps|><|startoflm|>0<|EOT|><|EOT|>...
+    Transcript: "" (empty - SEE HONEST VERDICT BELOW)
+
+ON-PHONE TFLite COMPUTE (what we'd GET if the decoder worked):
+    CMD: adb shell "cd /data/local/tmp/tflite && ./benchmark_model
+                   --graph=whisper-tiny.en.tflite --num_runs=5
+                   --warmup_runs=2 --num_threads=4"
+    Init:              138 ms
+    Inference avg:     325 ms  (5 runs, std 2.4 ms, stable)
+    First inference:   350 ms
+    Memory:            ~45 MB incremental
+
+PRIOR BENCHMARK (for cross-reference, 2026-04-19 earlier pass,
+                 logs/pixel6_nnapi_accelerated_2026-04-19.log):
+    TFLite FULL graph XNNPack 4T:         323.8 ms on-phone  (matches above)
+    TFLite encoder only XNNPack 4T:       505.3 ms on-phone
+    whisper.cpp encode time:             1261.9 ms on-phone
+    Ratio encoder-only:                  2.5x (this is the "2.5x" win)
+    Ratio full-graph vs whisper total:   ~7x compute / would be ~3x wall
+
+
+TRANSCRIPT ACCURACY
+-------------------
+  whisper-cli (ggml-base.en, beam=5, 8T): "Walk forward, please stop."  OK
+  TFLite runner (nyadla-sys whisper-tiny.en.tflite):  ""                FAIL
+
+The packaged TFLite graph's baked-in greedy decoder emits only the prologue
+tokens (<|SOT|><|notimestamps|><|startoflm|><TOKEN 50413>) followed
+immediately by <|EOT|> x N regardless of input. Verified with:
+
+  - HF WhisperProcessor.input_features  (the canonical mel extractor)
+  - openai-whisper  .log_mel_spectrogram()  (ditto, identical output)
+  - librosa-based mel with whisper's filterbank
+  - zero input, ones input (to rule out our mel pipeline)
+  - tflite_runtime 2.14 interpreter AND tensorflow.lite.Interpreter
+
+All five attempts produced the same 5-token prologue then EOT. The model
+is *loaded* (487/500 XNNPack delegated in subgraph 0, 305/356 in subgraph 8
+- the decoder), invoke() runs clean, output tensor fills with 449 int32s.
+It's just that the decoder's greedy loop terminates on the first real
+prediction. Likely cause: the conversion from HF whisper-tiny.en dropped
+the forced_decoder_ids config, so the built-in decode loop uses a default
+that exits immediately. Fixable only by re-exporting the model
+(whisper_tflite_from_transformers.py style), not a 90-minute task.
+
+The prior benchmark pass had the same model and timed 323.8 ms
+inference but never checked transcript output - the 2.5x speedup was
+measured on the encoder sub-tensor in isolation, not on any actual
+transcription flow.
+
+
+HONEST VERDICT
+--------------
+We did NOT capture the 2.5x speedup in the robot daemon. We shipped:
+
+  (+) Wire-level support: --stt-backend {whisper-cli, tflite} CLI flag,
+      plumbed through to phone_transcribe(). Default is still whisper-cli
+      so no behavior change unless the flag is set.
+  (+) scripts/whisper_tflite_runner.py: self-contained TFLite+XNNPack
+      laptop runner, JSON output, usable standalone.
+  (+) Graceful degradation: tflite backend auto-falls-back to whisper-cli
+      on empty transcript or runner failure, with a one-line stderr log.
+      The daemon never loses STT even when tflite produces garbage.
+  (+) Text-mode smoke test passes with --stt-backend tflite (flag reaches
+      the logger banner, no crash).
+  (+) Voice-path integration test: phone_transcribe(..., backend="tflite")
+      runs the tflite model (3.75 s, empty transcript), fails back to
+      whisper-cli (3.54 s), final transcript "Walk forward, please stop."
+
+We did NOT ship:
+
+  (-) Any actual transcript from the TFLite path. The bundled nyadla-sys
+      model's greedy decoder is non-functional.
+  (-) On-phone TFLite execution. Even if the model worked, we'd still
+      need a phone-resident text-emitting runner, which requires Termux
+      or a cross-compiled C++ binary.
+
+NEXT STEPS (the exact ones)
+---------------------------
+To actually ship the 2.5x win, pick ONE of these:
+
+  A. Re-export the TFLite graph with a working decoder:
+     git clone https://github.com/usefulsensors/openai-whisper
+     or use HF optimum-tflite with explicit generation_config:
+        from transformers import WhisperForConditionalGeneration
+        m = WhisperForConditionalGeneration.from_pretrained(
+                "openai/whisper-tiny.en")
+        # Export with concrete function that hard-codes
+        # forced_decoder_ids + proper generation loop
+        # (TFLiteConverter from_concrete_functions)
+     ETA: 2-4 hours, fiddly.
+
+  B. Encoder-only path + laptop decoder:
+     whisper_enc_tiny_en_fp32.tflite (already exists, 262 ops, 505 ms
+     on-phone at XNNPack 4T) outputs (1,1500,384) hidden states. Feed
+     them to HF WhisperForConditionalGeneration.model.decoder on laptop
+     for greedy decode (tens of ms). Captures the 2.5x on the expensive
+     stage without fixing the TFLite decoder issue.
+     BLOCKER: the _enc model uses tf.math.erf (FlexErf) which requires
+     the Flex delegate. The /data/local/tmp/tflite/benchmark_model
+     binary does NOT link Flex. Rebuilding against whisper_enc_fp16
+     (16 MB, already onnx2tf-ed with polynomial GELU, 100% XNNPack
+     delegated) is the cleanest path - same file at models-fixed/.
+     ETA: 1-2 hours, mostly building an on-phone runner.
+
+  C. Cross-build tflite + minimal C++ text-emitter for Android:
+     ETA: half a day minimum; Bazel + NDK.
+
+Recommended: B via whisper_enc_fp16 on-phone for compute, laptop
+decoder for tokens. Two round-trips over adb, but each is <20 ms and
+the encoder saves >1 s. Net ~60-70% reduction in voice-turn latency.
+
+
+FILES TOUCHED
+-------------
+  demo/robot_daemon.py
+    - phone_transcribe(): added backend= kwarg, split into two
+      internal helpers, auto-fallback on empty/error.
+    - added _phone_transcribe_tflite() and _phone_transcribe_whisper_cli()
+    - added TFLITE_RUNNER_PATH module const
+    - threaded args.stt_backend through one_turn() -> phone_transcribe()
+    - new CLI flag: --stt-backend {whisper-cli, tflite}
+    - banner logs stt_backend
+
+  scripts/whisper_tflite_runner.py  (new, executable)
+    - pad_or_trim + log_mel_spectrogram (whisper canonical)
+    - tflite_runtime.Interpreter at 4 threads (XNNPack auto-delegate)
+    - WhisperTokenizer.decode with skip_special_tokens=True
+    - --json output, clean exit codes for the daemon's subprocess call
+
+  logs/whisper_tflite_swap_2026-04-19.log  (this file)
+
+Not touched (per constraints):
+  parse_intent*.py, robot_behaviors.py, vision_watcher.py,
+  wake_listener.py, web_ui.py

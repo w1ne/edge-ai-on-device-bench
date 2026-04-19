@@ -311,11 +311,13 @@ def speak(text: str, enabled: bool,
 
 PHONE_SERIALS = {"pixel6": "1B291FDF600260", "p20": "9WV4C18C11005454"}
 
+# Path to the laptop-side TFLite runner (see scripts/whisper_tflite_runner.py
+# for why it runs on the laptop rather than the phone).
+TFLITE_RUNNER_PATH = str(HERE.parent / "scripts" / "whisper_tflite_runner.py")
 
-def phone_transcribe(wav: str, dry_run: bool,
-                     phone: str = "pixel6") -> tuple[str, float]:
-    if dry_run:
-        return "", 0.0
+
+def _phone_transcribe_whisper_cli(wav: str, phone: str) -> tuple[str, float]:
+    """Original adb -> whisper-cli path. 'phone' is an alias or raw serial."""
     serial = PHONE_SERIALS.get(phone, phone)  # allow raw serial pass-through
     subprocess.run(["adb", "-s", serial, "push", wav, "/data/local/tmp/cmd.wav"],
                    capture_output=True, check=True)
@@ -333,6 +335,76 @@ def phone_transcribe(wav: str, dry_run: bool,
             continue
         return s, dt
     return "", dt
+
+
+def _phone_transcribe_tflite(wav: str) -> tuple[str, float] | None:
+    """TFLite path via scripts/whisper_tflite_runner.py.
+
+    Returns (transcript, wall_s) on clean run (transcript may be empty),
+    or None if the runner script is missing / crashed / returned no JSON.
+    Caller handles None by falling back to the whisper-cli path.
+    """
+    if not os.path.exists(TFLITE_RUNNER_PATH):
+        return None
+    t0 = time.time()
+    try:
+        r = subprocess.run(
+            [sys.executable, TFLITE_RUNNER_PATH, wav, "--json", "--threads", "4"],
+            capture_output=True, text=True, timeout=60,
+        )
+    except Exception:
+        return None
+    dt = time.time() - t0
+    if r.returncode != 0:
+        return None
+    # The runner may print TF/XNNPack banners before the JSON line.
+    # Parse the LAST json-looking line on stdout.
+    for line in reversed(r.stdout.splitlines()):
+        s = line.strip()
+        if s.startswith("{") and s.endswith("}"):
+            try:
+                obj = json.loads(s)
+                # Prefer the runner's measured wall_s (excludes subprocess
+                # spawn overhead), falling back to our own wall clock.
+                return obj.get("transcript", "") or "", float(obj.get("wall_s", dt))
+            except Exception:
+                continue
+    return None
+
+
+def phone_transcribe(wav: str, dry_run: bool,
+                     phone: str = "pixel6",
+                     backend: str = "whisper-cli") -> tuple[str, float]:
+    """STT entry point. Returns (transcript, wall_time_s).
+
+    backend:
+      whisper-cli  (default, unchanged) -- adb push to phone, whisper.cpp
+                   with ggml-base.en.bin on 8 threads. Produces accurate
+                   transcripts; roughly 2-4 s wall on Pixel 6 for a 3 s clip.
+      tflite       -- laptop-side TFLite runner (see
+                   scripts/whisper_tflite_runner.py). The nyadla-sys
+                   whisper-tiny.en graph runs with XNNPack fp32 at 4 threads.
+                   On tflite-runner failure or empty transcript, falls back
+                   to whisper-cli for that call so we never lose STT.
+    """
+    if dry_run:
+        return "", 0.0
+    if backend == "tflite":
+        res = _phone_transcribe_tflite(wav)
+        if res is not None:
+            text, dt = res
+            if text:
+                return text, dt
+            # Empty text from the TFLite decoder (known issue with this
+            # packaged model — the greedy decoder emits only prologue
+            # tokens). Fall through to whisper-cli so the daemon still
+            # hears the user.
+            print("[stt] tflite produced empty transcript, "
+                  "falling back to whisper-cli", file=sys.stderr)
+        else:
+            print("[stt] tflite runner unavailable/failed, "
+                  "falling back to whisper-cli", file=sys.stderr)
+    return _phone_transcribe_whisper_cli(wav, phone)
 
 
 # ------------------------------------------------------------------ ESP32 wire
@@ -720,14 +792,16 @@ def one_turn(args, logger, state: dict,
         if wav is None:
             return {"_exit": True}
         logger(f"[wake] heard, recording {args.seconds} s...")
-        transcript, dt = phone_transcribe(CAP_WAV, args.dry_run, args.stt_phone)
+        transcript, dt = phone_transcribe(CAP_WAV, args.dry_run, args.stt_phone,
+                                          backend=args.stt_backend)
     else:
         try:
             input("press Enter to speak > ")
         except (EOFError, KeyboardInterrupt):
             return {"_exit": True}
         record_window(args.seconds, CAP_WAV)
-        transcript, dt = phone_transcribe(CAP_WAV, args.dry_run, args.stt_phone)
+        transcript, dt = phone_transcribe(CAP_WAV, args.dry_run, args.stt_phone,
+                                          backend=args.stt_backend)
     logger(f"heard ({dt*1000:.0f} ms): {transcript!r}")
 
     cmd = match_command(transcript)
@@ -1013,6 +1087,15 @@ def main():
     p.add_argument("--stt-phone", choices=["pixel6", "p20"], default="pixel6",
                    help="phone that runs Whisper on-device (default: pixel6). "
                         "only used in voice mode.")
+    p.add_argument("--stt-backend", choices=["whisper-cli", "tflite"],
+                   default="whisper-cli",
+                   help="STT runtime. whisper-cli (default): on-phone "
+                        "whisper.cpp with ggml-base.en.bin, 8 threads, most "
+                        "accurate. tflite: laptop-side tflite_runtime with "
+                        "XNNPack 4T on nyadla-sys/whisper-tiny.en.tflite; "
+                        "fast compute but the packaged greedy decoder is "
+                        "known to emit empty transcripts — on empty/failure "
+                        "the daemon falls back to whisper-cli automatically.")
     p.add_argument("--vision-source", choices=["phone", "webcam"], default="webcam",
                    help="frame source for vision_watcher.  webcam: laptop "
                         "/dev/video0 via OpenCV (~20 FPS, default); phone: "
@@ -1060,7 +1143,8 @@ def main():
     logger(f"robot_daemon up  mode={args.mode}  dry_run={args.dry_run}  "
            f"with_llm={args.with_llm}/fast={args.llm_fast}/api={args.llm_api}  "
            f"with_vision={args.with_vision}  tts={args.tts}  "
-           f"stt_phone={args.stt_phone}(ANDROID_SERIAL={os.environ.get('ANDROID_SERIAL','')})")
+           f"stt_phone={args.stt_phone}(ANDROID_SERIAL={os.environ.get('ANDROID_SERIAL','')})  "
+           f"stt_backend={args.stt_backend}")
 
     # Item 4: surface broken hardware / env BEFORE the user types anything.
     # Does not abort on failure — every probe logs present/missing/skip.

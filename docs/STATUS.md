@@ -63,7 +63,7 @@ Headline: **Edge TPU is a real win for classifier-class backbones (10× measured
 
 **Blocked:** Firmware IMU stays pinned at zero. Audit (`docs/FIRMWARE_IMU_AUDIT.md`) shows `w1ne/PhoneWalker` is **not** the running firmware — its `main.cpp` is a char pass-through CLI with zero IMU code, yet the live ESP32 emits JSON packets with an `imu` field. The actual firmware source is elsewhere; once located we can drop in a standard MPU-6050 driver with retry. Until then, the robot walks dead-reckoned.
 
-**Next good investment (half a day):** Whisper TFLite on-phone swap for the measured 2.5× encoder speedup.
+**Correction on the "2.5× Whisper TFLite" number:** the earlier measurement was a tensor-op microbench, not a real end-to-end transcribe. When we actually wired it, the community TFLite port (`nyadla-sys/whisper-tiny.en.tflite`) has a broken greedy decoder — it exits on the first real token and produces empty transcripts. The `--stt-backend tflite` flag exists and falls back to whisper-cli on empty output; the runner is at `scripts/whisper_tflite_runner.py`. Unblock: re-export Whisper from HF with working `forced_decoder_ids`, or use the encoder-only TFLite + a laptop-side decoder. Neither is a quick fix.
 
 **Nice-to-haves:**
 - Conversational memory (short history so "repeat that" works)
