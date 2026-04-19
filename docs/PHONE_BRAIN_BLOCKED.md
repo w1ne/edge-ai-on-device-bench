@@ -1,7 +1,12 @@
 # PHONE_BRAIN_BLOCKED
 
-Status as of 2026-04-19: phone-as-brain port is blocked on **one package
-install**.
+> **SUPERSEDED 2026-04-19 evening.** Termux + Termux:API are now installed
+> on the Pixel 6, the Python stack is ported, and the wire layer talks to
+> a mock TCP server. See `docs/PHONE_BRAIN_SETUP.md` for the current
+> instructions and Phase-1 file layout. This file kept for history.
+
+Status as of 2026-04-19 (morning): phone-as-brain port was blocked on **one
+package install**.
 
 ## Probe result
 
