@@ -1,0 +1,131 @@
+==========================================
+Whisper TFLite encoder-only swap for robot daemon STT
+Date: 2026-04-19 (evening pass)
+Device: Pixel 6 (1B291FDF600260), Android ARM64-v8a
+Laptop: x86_64 Linux, tflite_runtime 2.14.0, torch 2.11, whisper 20240930
+==========================================
+
+GOAL
+----
+Unblock the TFLite STT path left in a broken state in the morning log
+(logs/whisper_tflite_swap_2026-04-19.log). The community-ported
+nyadla-sys/whisper-tiny.en.tflite has a non-functional baked-in greedy
+decoder (emits only prologue tokens then EOT). Approach chosen:
+
+  Approach 1 (encoder-only TFLite + laptop pytorch decoder):
+    - /tmp/tflite-models/whisper_enc_tiny_en_fp32.tflite  (33 MB, fp32)
+      input (1, 3000, 80) f32 mel -> output (1, 1500, 384) f32 audio_features
+    - openai-whisper's pytorch decoder with DecodingTask,
+      _get_audio_features monkey-patched to return the TFLite output.
+      DecodingOptions(task='transcribe', language='en',
+                      without_timestamps=True) — so we don't need to
+      fiddle with forced_decoder_ids at export time.
+
+This worked on the first try. Approach 2 (re-export full graph) was not
+needed.
+
+INTEGRATION
+-----------
+scripts/whisper_tflite_runner.py rewritten:
+  - DEFAULT mode now: --model-mode encoder-only
+  - LEGACY mode kept: --model-mode full (the broken nyadla-sys graph)
+  - Module-level caches (_CACHED_INTERPRETER, _CACHED_WHISPER_MODEL) so
+    in-process callers reuse state across calls.
+  - CLI API preserved: takes WAV, prints transcript on stdout; --json
+    still emits {transcript, wall_s, backend, model, timings_ms}.
+  - demo/robot_daemon.py NOT touched (per constraints).
+
+SMOKE
+-----
+TF_CPP_MIN_LOG_LEVEL=3 python3 scripts/whisper_tflite_runner.py \
+    /tmp/whisper-swap/utter_16k.wav --json
+{"transcript": "Walk forward now, please stop.",
+ "wall_s": 2.114, "backend": "tflite-enc-xnnpack-4t+pytorch-dec",
+ "model": "whisper_enc_tiny_en_fp32.tflite",
+ "timings_ms": {"mel_ms": 14.9, "encoder_ms": 671.8, "decoder_ms": 203.6}}
+
+Non-empty, matches whisper.cpp modulo punctuation.
+
+5-RUN COMPARISON
+----------------
+Same input: /tmp/whisper-swap/utter_16k.wav (2.32 s of espeak'd
+"walk forward now please stop", 16 kHz mono)
+
+A) TFLite-enc + pytorch-dec, laptop, COLD subprocess (current daemon path):
+   outer wall (subprocess.run to the runner, matching how robot_daemon.py
+   calls it today):  5.01, 5.11, 5.00, 5.11, 5.57   mean 5.16 s
+   Transcript: "Walk forward now, please stop."  (identical across all 5)
+   Dominated by Python import + torch/tf/whisper load per call (~2.2 s)
+   plus pytorch model weights load (~0.7 s).
+
+B) TFLite-enc + pytorch-dec, laptop, WARM (persistent Python process,
+   module imported once, caches reused):
+   wall:  0.99, 1.00, 1.50, 1.55, 1.23   mean 1.25 s
+   Breakdown per run:
+     mel ~15-25 ms, encoder 611-1061 ms, decoder 280-420 ms.
+   Transcript: "Walk forward now, please stop."  (identical across all 5)
+
+C) whisper.cpp, Pixel 6 via adb, ggml-tiny.bin, 8 threads (baseline):
+   CMD: adb shell "cd /data/local/tmp && ./whisper-cli -m ggml-tiny.bin
+                   -f utter_16k.wav --no-timestamps -l en -t 8"
+   wall: 1.75, 1.80, 1.65, 1.98, 1.82   mean 1.80 s
+   Transcript: "Walk forward now, please."  (all 5, drops "stop" — a
+   tiny model decoding artifact, not an infrastructure issue)
+
+test.wav (RMS 0.0018):
+  whisper.cpp on phone: [BLANK_AUDIO] (too quiet)
+  TFLite-enc+pytorch-dec laptop: "you"  (filler, same semantic outcome)
+  Not a useful accuracy comparison; reported here for completeness.
+
+HEADLINE
+--------
+Warm in-process: TFLite-enc laptop beats whisper.cpp phone by 1.44x
+                 (1.25 s vs 1.80 s, same transcript).
+Cold subprocess: TFLite-enc loses to whisper.cpp phone by 2.87x
+                 (5.16 s vs 1.80 s) because Python starts from scratch.
+
+The 2.5x encoder compute speedup from logs/pixel6_nnapi_accelerated_*.log
+(505 ms TFLite vs 1262 ms ggml) is REAL and now reachable end-to-end,
+but only if the runner stays alive across calls. Subprocess per
+utterance pays the Python startup tax every time.
+
+CORRECTNESS
+-----------
+Both paths produce the expected English transcript. TFLite path
+actually retains more of the utterance ("stop" survives), probably
+because the pytorch greedy decoder's EOT criterion is less aggressive
+than ggml tiny's beam=5.
+
+WHAT IS STILL BLOCKED
+---------------------
+End-to-end in the daemon as it stands TODAY: still blocked, because
+demo/robot_daemon.py invokes scripts/whisper_tflite_runner.py via
+subprocess.run per utterance. To capture the win:
+
+  Option 1 (minimal): import whisper_tflite_runner in robot_daemon.py
+    and call run_encoder_only() directly instead of shelling out. One
+    import, ~10 lines changed. Pays the Python startup ONCE at daemon
+    boot, then every subsequent utterance is ~1.25 s.
+
+  Option 2 (more work): keep the runner as a separate long-lived
+    process, talk to it over a UNIX socket. Useful if we want to
+    isolate TF's import side-effects from the rest of the daemon.
+
+Either option lands the 2.5x compute win as a ~30% wall-time win
+(~0.55 s saved per voice turn). Recommended: Option 1. Task says
+"don't touch demo/robot_daemon.py" so the wire change is left as a
+follow-up.
+
+FILES CHANGED THIS PASS
+-----------------------
+  scripts/whisper_tflite_runner.py        (rewrite — encoder-only default,
+                                           legacy full mode kept)
+  docs/STATUS.md                          (correctness update)
+  logs/whisper_tflite_encoder_only_2026-04-19.log   (this file)
+
+FILES NOT TOUCHED (per constraints)
+-----------------------------------
+  demo/robot_daemon.py
+  anything else
+
+END

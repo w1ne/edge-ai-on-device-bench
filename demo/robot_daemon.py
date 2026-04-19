@@ -266,6 +266,13 @@ def _espeak_speak(text: str) -> None:
         pass
 
 
+# C3 fix: serialize ALL speak() calls.  Piper + aplay + espeak all share
+# host audio resources; two threads into speak() produces interleaved PCM
+# frames and flaky ALSA contention.  Humans don't want overlapping
+# utterances anyway, so a single mutex is both cheapest and correct.
+_SPEAK_LOCK = threading.Lock()
+
+
 def speak(text: str, enabled: bool,
           mute_evt: "threading.Event | None" = None):
     """Speak via Piper (natural-sounding neural TTS), falling back to
@@ -274,6 +281,8 @@ def speak(text: str, enabled: bool,
     the wake-word detector drops its own TTS audio.  We arm the flag before
     synthesis starts and schedule clearing on a timer so the mute window
     reliably covers laptop speaker output even if TTS returns early.
+
+    Thread-safe: all synthesis + playback is serialized under _SPEAK_LOCK.
 
     `enabled` accepts legacy bool (True/False) or the string mode
     ("piper" | "espeak" | "off").  False or "off" is a no-op."""
@@ -291,14 +300,15 @@ def speak(text: str, enabled: bool,
     if mute_evt is not None:
         mute_evt.set()
 
-    spoke = False
-    if mode == "piper":
-        if _piper_probe():
-            spoke = _piper_synth_and_play(text)
-        # else: fall through to espeak silently
+    with _SPEAK_LOCK:
+        spoke = False
+        if mode == "piper":
+            if _piper_probe():
+                spoke = _piper_synth_and_play(text)
+            # else: fall through to espeak silently
 
-    if not spoke:
-        _espeak_speak(text)
+        if not spoke:
+            _espeak_speak(text)
 
     if mute_evt is not None:
         # keep muted for the full envelope (TTS return + tail reverb)
@@ -319,8 +329,10 @@ TFLITE_RUNNER_PATH = str(HERE.parent / "scripts" / "whisper_tflite_runner.py")
 def _phone_transcribe_whisper_cli(wav: str, phone: str) -> tuple[str, float]:
     """Original adb -> whisper-cli path. 'phone' is an alias or raw serial."""
     serial = PHONE_SERIALS.get(phone, phone)  # allow raw serial pass-through
+    # C5 fix: timeout so a hung adb link (phone screen-off / USB flake)
+    # doesn't block the daemon indefinitely.
     subprocess.run(["adb", "-s", serial, "push", wav, "/data/local/tmp/cmd.wav"],
-                   capture_output=True, check=True)
+                   capture_output=True, check=True, timeout=15)
     t0 = time.time()
     r = subprocess.run(
         ["adb", "-s", serial, "shell",
@@ -460,10 +472,25 @@ def send_wire(cmd: dict, dry_run: bool):
             if _USB_DEV is None:
                 return "no-device", None
         dev = _USB_DEV
-        # drain any stale telemetry first
-        try:
-            while True: dev.read(0x81, 4096, timeout=60)
-        except Exception: pass
+        # C2 fix: time-capped drain of stale telemetry (was `while True:` which
+        # could livelock on a chatty ESP32 because every read returned data and
+        # never raised).  Also C4: if a drain error looks like ENODEV / EIO,
+        # reopen the handle before writing.
+        drain_end = time.time() + 0.2
+        while time.time() < drain_end:
+            try:
+                dev.read(0x81, 4096, timeout=30)
+            except Exception as e:
+                # usb.core.USBError exposes errno — 19 = ENODEV, 5 = EIO.
+                # Avoid importing usb.core at module scope (lazy-imported).
+                errno = getattr(e, "errno", None)
+                if errno in (19, 5):
+                    _drop_usb()
+                    _USB_DEV = _open_usb()
+                    if _USB_DEV is None:
+                        return "no-device", None
+                    dev = _USB_DEV
+                break
         payload = (json.dumps({k: v for k, v in cmd.items()
                                if not k.startswith("_")}) + "\n").encode()
         try:
@@ -480,7 +507,7 @@ def send_wire(cmd: dict, dry_run: bool):
             except Exception:
                 # Retry also failed — leave _USB_DEV = None so the NEXT call
                 # rediscovers a freshly plugged cable without sticking on a
-                # dead handle.  This is item (5) in the reliability pass.
+                # dead handle.
                 _drop_usb()
                 return "no-device", None
 
@@ -494,16 +521,21 @@ def send_wire(cmd: dict, dry_run: bool):
             if '"ack"' in line or '"err"' in line: ack = line.strip()
             m = re.search(r'"p":\[([\-\d,]+)\]', line)
             if m: pos = [int(x) for x in m.group(1).split(',')]
-        # Let the battery watcher scan whatever telemetry came back.  This is
-        # piggy-backed on the existing reader so no extra USB reader thread
-        # is needed (item 3).
+        # C1 fix: capture telemetry text and hook under the lock, but DEFER
+        # running the hook until after we release the lock — the hook speaks
+        # "battery low" which blocks on aplay for up to 15 s, and we do not
+        # want the USB lock held while that plays.  Voice "stop" and the
+        # behavior engine's emergency-stop wire writes all need _USB_LOCK.
         hook = _TELEMETRY_HOOK
-        if hook is not None:
-            try:
-                hook(text)
-            except Exception:
-                pass
-        return ack, pos
+        telemetry_text = text
+    # Lock released here.  Run the hook outside so slow TTS side-effects
+    # can never starve emergency stop.
+    if hook is not None:
+        try:
+            hook(telemetry_text)
+        except Exception:
+            pass
+    return ack, pos
 
 
 # ------------------------------------------------------------------ LLM fallback
@@ -644,8 +676,14 @@ def _vision_run_once(cmd: list[str], logger, stop_evt: threading.Event,
                     logger(f"[vision] alive (ticks={tick_count}, "
                            f"last_latency={msg.get('latency_ms')} ms)")
             elif t == "event":
+                # I1 fix: conf may be None or missing if the watcher schema
+                # drifts or a partial JSON line slips through — don't let a
+                # format-spec TypeError kill this thread and trigger a silent
+                # vision-restart loop.
+                conf = msg.get("conf")
+                conf_s = f"{conf:.2f}" if isinstance(conf, (int, float)) else "?"
                 logger(f"[vision] EVENT {msg.get('class')} "
-                       f"conf={msg.get('conf'):.2f} streak={msg.get('streak')}")
+                       f"conf={conf_s} streak={msg.get('streak')}")
                 try: event_queue.put_nowait(msg)
                 except queue.Full: pass
     finally:

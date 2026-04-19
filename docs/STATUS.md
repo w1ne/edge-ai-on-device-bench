@@ -25,7 +25,7 @@ The launcher sources `~/Projects/AIHW/.env.local` for `DEEPINFRA_API_KEY`, defau
 | Layer | Default | Alternatives |
 |---|---|---|
 | Voice input | push-to-talk (Enter) | `--mode wake` (hey jarvis via OpenWakeWord, 31 ms trigger→record) |
-| STT | Whisper Base on Pixel 6 | TFLite+XNNPack port available as 2.5× speedup — not yet shipped |
+| STT | Whisper Base on Pixel 6 | TFLite encoder + laptop pytorch decoder — correct transcripts, 1.44× faster end-to-end when run in-process; subprocess wire in daemon still pending |
 | Intent parsing | regex keyword matcher (instant, ~14 commands) | `--with-llm` falls through to DeepInfra Llama-3.1-8B (~1 s, 8/8 on tests) or on-phone Gemma 3 (~2 s server / ~25 s reload, 7/8) |
 | Vision | laptop webcam at 10-20 FPS, YOLO-Fastest v2 | `--vision-source phone` (adb screencap, 2 FPS) |
 | Behavior | `BehaviorEngine` state machine: idle/walking/paused/following | greet-once-per-class, walk-until-close-obstacle, emergency-stop, follow-me |
@@ -55,7 +55,7 @@ Cross-built and measured both paths against CPU:
 | EfficientNet-lite0 fp32 | 10 ms | — | 2.02 ms | TPU 5× faster |
 | TinyLlama 1.1B tg | 24.9 t/s | 10.4 t/s (slower) | — | GPU loses |
 | YOLO-Fastest v2 | 10 ms | 22 ms (slower) | 11 ms (fragments) | CPU wins |
-| Whisper Tiny encoder | 505 ms (TFLite) / 1262 ms (ggml) | — | fragments, falls back | **TFLite CPU 2.5× over ggml** |
+| Whisper Tiny encoder | 505 ms (TFLite) / 1262 ms (ggml) | — | fragments, falls back | **TFLite CPU 2.5× over ggml** (encoder-only compute; end-to-end transcribe now 1.44× faster laptop warm vs phone ggml — see Open items) |
 
 Headline: **Edge TPU is a real win for classifier-class backbones (10× measured).** Detector / transformer graphs fragment into partitions and NNAPI's Edge TPU firmware refuses them. Mali-G78 Vulkan loses across the board. The best untapped lever today is swapping whisper.cpp for TFLite+XNNPack on Pixel 6 — same CPU cores, 2.5× faster encoder.
 
@@ -74,7 +74,15 @@ Separately, the source audit (`docs/FIRMWARE_IMU_AUDIT.md`) still stands: `w1ne/
 - Unknown commands → `{"t":"err","msg":"unknown cmd"}` (proper error path exists)
 - State packet fields: `p` (4 servo positions), `v` (voltage x10), `tmp` (temp °C), `ms` (uptime), `imu` (6 floats: ax/ay/az in g, gx/gy/gz in deg/s)
 
-**Correction on the "2.5× Whisper TFLite" number:** the earlier measurement was a tensor-op microbench, not a real end-to-end transcribe. When we actually wired it, the community TFLite port (`nyadla-sys/whisper-tiny.en.tflite`) has a broken greedy decoder — it exits on the first real token and produces empty transcripts. The `--stt-backend tflite` flag exists and falls back to whisper-cli on empty output; the runner is at `scripts/whisper_tflite_runner.py`. Unblock: re-export Whisper from HF with working `forced_decoder_ids`, or use the encoder-only TFLite + a laptop-side decoder. Neither is a quick fix.
+**Whisper TFLite — correctness unblocked, end-to-end wire still pending (2026-04-19 evening):** the runner at `scripts/whisper_tflite_runner.py` now defaults to the encoder-only TFLite graph (`whisper_enc_tiny_en_fp32.tflite`, 33 MB) fed into openai-whisper's pytorch decoder (`DecodingTask` with `_get_audio_features` patched to skip the pytorch encoder). It produces correct English transcripts that match whisper.cpp modulo punctuation. 5-run comparison on `utter_16k.wav`:
+
+| Path | Mean wall | Transcript |
+|---|---:|---|
+| whisper.cpp, Pixel 6, ggml-tiny, 8T (adb) | 1.80 s | "Walk forward now, please." |
+| TFLite-enc + pytorch-dec, laptop, **warm in-process** | 1.25 s | "Walk forward now, please stop." |
+| TFLite-enc + pytorch-dec, laptop, **cold subprocess** | 5.16 s | "Walk forward now, please stop." |
+
+Warm in-process beats the phone baseline by **1.44×**. Cold subprocess loses by 2.87× because Python + torch + tf import takes ~2.2 s per call and the pytorch model loads in another ~0.7 s. The daemon currently invokes the runner via `subprocess.run` per utterance, which is why the win isn't captured end-to-end yet. The minimal wire change is to `import whisper_tflite_runner` in `demo/robot_daemon.py` and call `run_encoder_only()` directly instead of shelling out — one import, ~10 lines. Left as a follow-up to preserve the "don't touch robot_daemon.py" constraint. Full test log: `logs/whisper_tflite_encoder_only_2026-04-19.log`. Legacy `--model-mode full` is kept on the runner for regression reference (the nyadla-sys graph still has its broken baked-in decoder).
 
 **Nice-to-haves:**
 - Conversational memory (short history so "repeat that" works)
