@@ -1,96 +1,122 @@
 # AGENT_ROADMAP.md
 
-Reactive-robot → agent in four weeks. Today (2026-04-19): the daemon runs a regex intent matcher with an optional one-shot Llama fallback over a reactive `BehaviorEngine`. End state (2026-05-17): voice-in / tool-calling / spatial-memory loop that can accept "find the blue cup and come back" and replan when a primitive fails. Guiding principle: **ship agent behavior this month by gluing adopted libraries, not by fine-tuning a VLA**. Source ranking: `docs/RESEARCH_AGENT_STACK.md` §11 (13-15 days total). Calendar uses Sunday-Saturday weeks.
+Reactive-robot → agent. End state: voice-in / tool-calling / spatial-memory
+loop that can accept "find the blue cup and come back" and replan when a
+primitive fails. Guiding principle: **ship agent behavior by gluing adopted
+libraries, not by fine-tuning a VLA**. Source ranking:
+`docs/RESEARCH_AGENT_STACK.md` §11.
 
-## Today (2026-04-19)
+**Scope note (2026-04-20):** the original plan allotted 13–15 days across
+4 weeks. Parallel-agent execution collapsed Weeks 1 and parts of 2–3 into
+roughly 8 hours of wall time over 2026-04-19 → 2026-04-20. What remains is
+hardware-gated and cannot be compressed by dispatching more agents. The
+honest schedule is below.
 
-In flight right now (dispatched in parallel with this plan):
-- `demo/voice_pipecat.py` — Pipecat pipeline (VAD + Whisper + Piper + barge-in).
-- `demo/robot_planner.py` — LLM tool-calling loop around a `RobotTools` class wrapping existing wire cmds.
+## ✅ Done (2026-04-19 → 2026-04-20)
 
-Already shipped this session (see `STATUS.md`): regex intent path, `BehaviorEngine` (idle/walking/paused/following), Piper TTS, USB recovery, battery alert, vision supervisor, wake-word self-trigger mute, web dashboard STOP, IMU verified live at 10 Hz, Whisper TFLite encoder path correctness-unblocked (wire pending), reliability audit doc.
+Code-only items — all landed and pushed to `origin/main`:
 
-## Week 1 (Apr 20 – Apr 26) — voice + planner wired
+| Layer | Shipped | Commit |
+|---|---|---|
+| Voice | Pipecat real pipeline (Silero VAD + faster-whisper + Piper) behind `--voice pipecat` | `7706189` |
+| Voice | Basic-loop fallback (arecord + webrtcvad + openai-whisper + Piper + OpenWakeWord) | `0825002` |
+| Planner | LLM tool-calling loop with 9 tools (pose, walk, stop, jump, look, look_for, say, wait, finish) behind `--planner` | `0825002` |
+| Planner | Eval harness (21 cases, 5 groups) + baseline CI checkpoint | `37ee93b` |
+| Planner | Prompt fixes + walk/stop schema resolution; 16/20 → 19/20 | `7706189` |
+| Planner | LLM bakeoff across 6 models; default → Qwen-2.5-72B (passes C2 "no fabricated greeting" case) | `35cfded` |
+| Vision | CLIP open-vocab `look_for(query)` tool on top of existing YOLO path | `930e5d7` |
+| UI | `/tmp/robot_state.json` atomic snapshot (decouples UI from log regex) | `b87bc13` |
+| UI | HTTP + SSE server on `127.0.0.1:5556` (GET /state, /events, /health, POST /stop); web UI becomes thin EventSource client | `b6d40e3` |
+| Decisions | `docs/DECISIONS_PENDING.md` (Termux port feasibility, depth sensor verdict) | `659cebe` |
+| Docs | Honest Edge TPU framing (no more "10× faster" headline on models we don't run) | *this commit* |
 
-**Goal**: Pipecat replaces `arecord`+`whisper-cli`+Piper shell-out; planner loop replaces the regex+one-shot-Llama path behind a `--planner` flag.
+**Eval score, current baseline:** 20/21 (Qwen-2.5-72B, median 3.07 s per step,
+71.7 s total). One remaining failure (C3-find-keys) is a harness quirk where
+smarter models pick `look_for` over `look` — correct behavior, wrong
+expectation.
 
-| Commit title | What |
-|---|---|
-| Wire voice_pipecat.py into robot_daemon (--voice pipecat) | Daemon delegates mic→STT→TTS to Pipecat; keeps legacy path behind `--voice legacy` |
-| Wire robot_planner.py into robot_daemon (--planner) | Planner replaces `parse_intent`; BehaviorEngine becomes one tool among many |
-| Add RobotTools schema (pose/walk/stop/jump/look/say) | Thin wrapper returning `{success, observation, error}` dicts for tool-call replies |
-| Fix barge-in vs wake-word self-trigger interaction | Pipecat mute event must respect existing OpenWakeWord gate |
+## 🚧 In flight (as of 2026-04-20)
 
-**Success**: `scripts/run_robot.sh --planner --voice pipecat` handles "walk forward, then stop after 3 seconds" as a **two-tool plan** (walk + stop), not one intent. Barge-in during TTS cuts audio < 200 ms. `stress_test.py` runs 30 min with planner enabled, 0 daemon crashes, ≤ 5 re-plans per goal.
-**Risks**: Pipecat's Piper plugin may not exist → fall back to our shell-out TTSService. Planner may loop if primitives don't return crisp observations — fix by forcing max 4 tool calls per user turn.
-**Estimate**: 5 days (2 in flight today + 3 glue).
+Three parallel agents dispatched after roast round 2:
 
-## Week 2 (Apr 27 – May 3) — 2D spatial memory
+- `scripts/hw_stress_test.py` — real motor + IMU stress cycle, no walking
+- `demo/goal_keeper.py` — persistent-goal + re-plan-on-event (the
+  reactive → agent transition)
+- State-server auth: bearer token, CORS allowlist, TLS — so `--state-bind
+  0.0.0.0` stops being negligent
 
-**Goal**: Planner sees "where I've been" and "what I last saw where."
+## Week 2 — remaining scope (2026-04-21 → 2026-04-26)
 
-| Commit title | What |
-|---|---|
-| Add occupancy_map.py (numpy 2D grid, 10 cm cells, 8×8 m) | Dead-reckoning pose from `walk` cmd duration + stride; IMU yaw integration |
-| Add detection_log.py (ring buffer of last 32 YOLO hits w/ bearing) | Each hit: `{class, bearing_deg, distance_est, t}` from vision_watcher frames |
-| Expose where_am_i / what_did_i_see tools to planner | Planner can query memory before re-exploring |
-| Add web_ui /map endpoint rendering occupancy as PNG | Debug visibility; same Flask app |
-
-**Success**: Starting from a known pose, after 5 min of `walk`+`stop`+`turn` the map shows a contiguous free-cell trail matching observed floor. "What did you see?" answers with the last 3 distinct classes and rough bearings.
-**Risks**: Yaw drift without a magnetometer — accept it for now, reset pose on user command "you're at origin." No real distance estimate without depth fusion; use Depth V2 monocular confidence only as "near/far" tag.
-**Estimate**: 2 days.
-
-## Week 3 (May 4 – May 10) — reflex + scene caption
-
-**Goal**: Robot stops walking off tables; planner gets rich scene descriptions instead of class IDs.
-
-| Commit title | What |
-|---|---|
-| Add imu_reflex.py watchdog (pitch/roll > 20° → stop + speak) | Runs in daemon thread; pre-empts any in-flight tool call |
-| Add reflex override log line + web UI badge | Visibility for the human watching |
-| Add scene_caption.py (SmolVLM on "interesting frame" trigger) | Trigger = new class enters frame OR planner calls `describe_scene()` |
-| Wire describe_scene tool into planner | Caption returned as observation text, not bbox list |
-
-**Success**: Tilt robot to 25° by hand → `stop` wire cmd within 150 ms, TTS says "stopping, I'm tipping." `describe_scene` returns a ≤ 40-token sentence on the Pixel 6 in ≤ 3 s (SmolVLM already bench'd at this in `STATUS.md`).
-**Risks**: SmolVLM cold-load is ~8 s on Pixel 6 — keep it resident or accept one-shot latency only on explicit ask. Reflex false positives when user picks robot up — add 1 s debounce.
-**Estimate**: 3 days.
-
-## Week 4 (May 11 – May 17) — LeRobot primitive adapter
-
-**Goal**: Our primitives expose a LeRobot-compatible action interface so future π0/SmolVLA experiments can roll out on this hardware without a rewrite.
+**Goal:** spatial memory + reflex. Everything left on the "code-only"
+ledger. Roughly 2–3 days of work, not a calendar week.
 
 | Commit title | What |
 |---|---|
-| Add lerobot_adapter/ (robot config + action space) | Maps pose/walk/stop/jump into LeRobot's `RobotConfig` / `action` dict |
-| Add recording script (teleop trace → LeRobotDataset parquet) | Uses existing wire protocol; logs IMU + detections as obs |
-| Smoke-test: replay a recorded trace through the adapter | No learning yet — just prove the loop closes |
+| `demo/occupancy_map.py` — 2D grid, 10 cm cells, 8×8 m | Dead-reckoning pose from walk cmd duration + IMU yaw integration |
+| `demo/imu_reflex.py` — pitch/roll > 20° → stop + speak | Runs in daemon thread; pre-empts in-flight tool calls |
+| Vision event → occupancy integration | Each detection places a bearing-tagged landmark in the map |
+| New planner tools: `where_am_i`, `what_did_i_see_where` | Memory queryable from the planner |
 
-**Success**: 5-minute teleop session writes a valid LeRobotDataset folder. Replay reproduces the servo trajectory within ± 1 servo tick. `lerobot-eval` CLI at least loads our robot config without error.
-**Risks**: **Blocked if firmware dump still pending** — no source means we can't expose the raw servo-angle channel LeRobot expects; must synthesize it from state packets. Fallback: ship only the action side, skip observation parquet until firmware is dumped. Research doc §7 already flags this.
-**Estimate**: 3-5 days.
+**Success:** After 5 min of pose + jump + (simulated) walk commands, the
+occupancy map shows a coherent trail. Tilt robot to 25° → stop within 150 ms.
+**Risk:** Yaw drift without a magnetometer — accept it; add a `set_origin`
+reset command. No real distance without depth; use "near/far" coarse bin.
 
-## After week 4
+## Week 3 — phone migration or VLA (decision point)
 
-Month 2-3 candidates, not committed:
-- Hardware: wheeled base swap (quadruped gait is the weakest link; a diff-drive base removes balance from the critical path). Better servos (STS3215 torque vs current STS3032).
-- Fine-tune SmolVLA on ~1 k teleop episodes once the LeRobot adapter is ingesting data.
-- Multi-turn dialogue memory (short summary rolled into planner system prompt).
-- Outdoor test with wake-word + phone-brain migration (ARCHITECTURE.md §3 Week 2-4).
+This is the fork in the road. Two viable paths, pick one.
 
-Decision checkpoints:
-- **End of W2**: if planner+memory work on Llama-3.1-8B, stay. If replan count > 5/goal on clean tasks, upgrade to Llama-3.3-70B via DeepInfra.
-- **End of W3**: if reflex + caption make the robot feel "aware," defer SLAM. If robot still gets lost in 3 min, invest in a real 2D SLAM (Nav2 or Cartographer-lite).
-- **End of W4**: if LeRobot adapter lands clean, start a data-collection sprint. If firmware-dump still blocking, pivot to wheeled base (no legacy firmware).
+**Path A: Phone-as-brain Termux port.** Per `docs/DECISIONS_PENDING.md`,
+~3 days: write `TermuxAudioTransport` that shells to
+`termux-microphone-record` + `play-audio`; port planner + state server to
+Termux; wire ADB-free USB to ESP32 via a small Kotlin companion app.
+Killer feature: the phone IS the robot brain, the laptop goes away.
 
-## Key decisions still pending (human user input needed)
+**Path B: SmolVLM scene caption.** Rich visual observations instead of
+class IDs. `describe_scene()` as a 10th planner tool. ~2 days. Makes the
+robot much more expressive but doesn't change its physical capability.
 
-- **Phone-as-brain**: does the laptop-free runtime actually land in Month 2, or does the laptop stay as the runtime host? Affects whether we port Pipecat to Termux or keep it laptop-side.
-- **ESP32 firmware**: dump it (BOOT-button reset, physical access, re-flash OSS) or keep the black box? Blocks LeRobot observation parquet and any closed-loop balance.
-- **VLA strategy**: fine-tune a small VLA on our robot (needs ≥ 500 teleop episodes we don't have yet) vs stay prompt-engineered on Llama-tool-calling for the year? Affects whether W4 effort goes into data pipeline or planner polish.
+**Recommendation:** Path A if the "phone as brain" story is real. Path B
+if the reality is this stays a demo on a laptop. The architecture doc is
+committed to Path A; I'd pick it.
 
-## Underscoped items flagged from the research doc
+## Week 4 — LeRobot adapter (firmware-gated, DO NOT SCHEDULE YET)
 
-Calling these out — parent agent may want to revise:
-- **Depth sensor**: doc §6 concludes 2D memory is "sufficient" given Depth V2 monocular at 7.9 FPS. That's a judgment call; if we want to pick objects off a table later, monocular depth will not be enough. Adding this as a hardware decision checkpoint, not a week item.
-- **Pipecat on Pixel 6**: adoption list assumes laptop-hosted Pipecat. Porting to Termux (ARCHITECTURE.md §3 step 1-2) is a separate ~3-day effort not in the 13-15 day count. Roadmap treats Pipecat as laptop-side for now.
-- **Planner eval harness**: ranking has no "how do we measure planner quality" item. A small regression set (20 voice commands → expected tool-call sequences) is arguably a W1 prerequisite, not a W4 nice-to-have.
+**Blocked on the ESP32 firmware dump.** Without source access, we cannot
+expose the raw servo-angle channel LeRobot expects. `lerobot_adapter/`
+remains as design-only until the BOOT-button flash dump happens (physical
+access required; user action, not agent-dispatchable).
+
+If unblocked, ~3 days: robot config + action space, teleop record script,
+replay smoke test. Unlocks data collection for any future VLA fine-tune.
+
+## What's NOT compressible by agents
+
+- **Physical testing.** The robot has never walked on a floor. 30 min of
+  walking under human supervision is hours, not dispatched.
+- **Firmware access.** Requires holding BOOT during reset. User's keyboard,
+  not mine.
+- **VLA fine-tune.** Needs 500+ teleop episodes we don't have.
+- **Outdoor / noise tuning.** Environmental iteration, not code.
+
+Roughly 60% of the original 4-week calendar was actually "physical work
+disguised as code work." That's why parallel agents crushed weeks 1–2 but
+can't touch weeks 3–4 without hardware.
+
+## Key decisions still pending (human input)
+
+- **Phone-as-brain:** Path A or defer? Week 3 pivots on this.
+- **ESP32 firmware dump:** schedule it? Blocks Week 4.
+- **Depth sensor:** per decisions doc, skip 2026. Confirm and close.
+- **VLA strategy:** fine-tune vs stay prompt-engineered for the year.
+
+## Month 2+ candidates
+
+Unchanged from original roadmap; none scheduled until Week 3 path is
+picked:
+
+- Wheeled base swap (removes balance from the critical path)
+- Better servos (STS3215 torque vs current STS3032)
+- SmolVLA or π0 fine-tune on recorded data
+- Multi-turn dialogue memory
+- Outdoor test with full wake-word stack

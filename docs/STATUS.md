@@ -57,7 +57,7 @@ Cross-built and measured both paths against CPU:
 | YOLO-Fastest v2 | 10 ms | 22 ms (slower) | 11 ms (fragments) | CPU wins |
 | Whisper Tiny encoder | 505 ms (TFLite) / 1262 ms (ggml) | — | fragments, falls back | **TFLite CPU 2.5× over ggml** (encoder-only compute; end-to-end transcribe now 1.44× faster laptop warm vs phone ggml — see Open items) |
 
-Headline: **Edge TPU is a real win for classifier-class backbones (10× measured).** Detector / transformer graphs fragment into partitions and NNAPI's Edge TPU firmware refuses them. Mali-G78 Vulkan loses across the board. The best untapped lever today is swapping whisper.cpp for TFLite+XNNPack on Pixel 6 — same CPU cores, 2.5× faster encoder.
+Headline, honestly: **The Edge TPU's 10× win on MobileNet v1 int8 does not translate to any model the robot actually runs today.** YOLO-Fastest v2 fragments into partitions (TPU falls back to CPU and loses), Whisper-Tiny encoder fragments similarly, TinyLlama tg is CPU-only on NNAPI, Mali-G78 Vulkan loses every workload we measured. The TPU speedup is real for classifier backbones but is of no practical use to this robot until we port a relevant graph (SmolVLM? DINOv2 encoder?) that stays fully on-device. Until then, **our shipped acceleration story on Pixel 6 is: nothing accelerates the things we use.** The best realistic lever remains swapping whisper.cpp for TFLite+XNNPack on Pixel 6 — same CPU cores, 2.5× faster encoder.
 
 ## Open items
 
