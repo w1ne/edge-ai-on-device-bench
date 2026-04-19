@@ -179,6 +179,30 @@ def main() -> int:
               f"size={actual_w}x{actual_h}",
               file=sys.stderr, flush=True)
 
+    # Webcam reconnect helper — item 6. After 3 consecutive failed reads we
+    # release the capture, sleep 2 s, and reopen with the same index.  Never
+    # crashes the watcher on a transient USB camera disconnect.
+    WEBCAM_FAIL_THRESHOLD = 3
+    WEBCAM_RECONNECT_SLEEP = 2.0
+
+    def _reopen_webcam(idx: int, w: int, h: int):
+        c = cv2.VideoCapture(idx, cv2.CAP_V4L2)
+        if not c.isOpened():
+            c = cv2.VideoCapture(idx)
+        if not c.isOpened():
+            return None
+        c.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+        c.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+        try:
+            c.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            pass
+        for _ in range(3):
+            c.read()  # warm-up frames
+        return c
+
+    webcam_fail_count = 0
+
     # Streak tracking per class name.  Resets to 0 if class isn't in current frame.
     streaks: dict[str, int] = {}
     fired: dict[str, bool] = {}  # avoid re-firing while streak continues
@@ -198,11 +222,54 @@ def main() -> int:
         while not stopping["v"]:
             loop_t0 = time.time()
             if args.source == "webcam":
-                ok, img_bgr = cap.read()
+                ok, img_bgr = (False, None)
+                if cap is not None:
+                    ok, img_bgr = cap.read()
                 if not ok or img_bgr is None:
-                    print("WARN: webcam read failed", file=sys.stderr, flush=True)
+                    webcam_fail_count += 1
+                    print(
+                        f"WARN: webcam read failed "
+                        f"(fail_count={webcam_fail_count}/"
+                        f"{WEBCAM_FAIL_THRESHOLD})",
+                        file=sys.stderr, flush=True,
+                    )
+                    if webcam_fail_count >= WEBCAM_FAIL_THRESHOLD:
+                        print(
+                            f"WARN: reconnecting webcam index="
+                            f"{args.webcam_index} after "
+                            f"{WEBCAM_RECONNECT_SLEEP:.0f} s",
+                            file=sys.stderr, flush=True,
+                        )
+                        try:
+                            if cap is not None:
+                                cap.release()
+                        except Exception:
+                            pass
+                        cap = None
+                        time.sleep(WEBCAM_RECONNECT_SLEEP)
+                        cap = _reopen_webcam(
+                            args.webcam_index,
+                            args.webcam_width,
+                            args.webcam_height,
+                        )
+                        if cap is None:
+                            print(
+                                f"WARN: reconnect failed for /dev/video"
+                                f"{args.webcam_index}; will retry",
+                                file=sys.stderr, flush=True,
+                            )
+                        else:
+                            print(
+                                f"# webcam reconnected index="
+                                f"{args.webcam_index}",
+                                file=sys.stderr, flush=True,
+                            )
+                        # Reset counter whether we got a handle back or not;
+                        # a still-failed open retries on the next loop.
+                        webcam_fail_count = 0
                     time.sleep(args.interval)
                     continue
+                webcam_fail_count = 0
             elif args.fake_frame:
                 # Offline mode: simulate the adb-screencap latency so the
                 # tick numbers remain realistic, then load the local image.

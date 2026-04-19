@@ -1,0 +1,30 @@
+17:28:25 robot_daemon up  mode=text  dry_run=False  with_llm=True/fast=False/api=api  with_vision=person  tts=False  stt_phone=pixel6(ANDROID_SERIAL=1B291FDF600260)
+17:28:25 [vision] launching: /usr/bin/python3 /home/andrii/Projects/edge-ai-on-device-bench/demo/vision_watcher.py --source webcam --phone pixel6 --interval 0.1 --watch-for person --output jsonl
+17:28:27 [vision] alive (ticks=20, last_latency=9.9 ms)
+17:28:28 heard (0 ms): 'neutral'
+17:28:28 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+17:28:29 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2048]
+17:28:29 [vision] alive (ticks=40, last_latency=8.2 ms)
+17:28:31 heard (0 ms): 'lean left'
+17:28:31 decision: {'c': 'pose', 'n': 'lean_left', 'd': 1500}
+17:28:31 [vision] alive (ticks=60, last_latency=22.5 ms)
+17:28:32 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1701, 1700, 1695, 1695]
+17:28:33 [vision] alive (ticks=80, last_latency=11.9 ms)
+17:28:34 heard (0 ms): 'neutral'
+17:28:34 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+17:28:35 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2048, 2047]
+17:28:35 [vision] alive (ticks=100, last_latency=7.5 ms)
+17:28:37 heard (0 ms): 'do something fun'
+17:28:37 [matcher] no keyword hit, asking LLM (api:llama31-8b)
+17:28:37 [vision] alive (ticks=120, last_latency=10.4 ms)
+17:28:38 decision: None
+17:28:39 [vision] alive (ticks=140, last_latency=11.0 ms)
+17:28:41 heard (0 ms): 'neutral'
+17:28:41 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+17:28:41 [vision] alive (ticks=160, last_latency=11.4 ms)
+17:28:42 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+17:28:43 [vision] alive (ticks=180, last_latency=7.3 ms)
+17:28:44 heard (0 ms): 'shut down'
+17:28:44 decision: {'_exit': True}
+17:28:44 [vision] watcher stopped
+17:28:44 shutdown
