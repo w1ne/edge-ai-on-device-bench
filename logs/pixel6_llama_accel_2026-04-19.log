@@ -1,0 +1,329 @@
+=== Pixel 6 llama.cpp GPU acceleration evaluation ===
+Date: 2026-04-19T12:02:10+02:00
+Serial: 1B291FDF600260
+
+=== Step 1a: llama-cli --version ===
+version: 1 (3f7c29d)
+built with Clang 18.0.3 for Android aarch64
+
+=== Step 1b: llama-bench --help (full) ===
+usage: ./llama-bench [options]
+
+options:
+  -h, --help
+  --numa <distribute|isolate|numactl>         numa mode (default: disabled)
+  -r, --repetitions <n>                       number of times to repeat each test (default: 5)
+  --prio <-1|0|1|2|3>                         process/thread priority (default: 0)
+  --delay <0...N> (seconds)                   delay between each test (default: 0)
+  -o, --output <csv|json|jsonl|md|sql>        output format printed to stdout (default: md)
+  -oe, --output-err <csv|json|jsonl|md|sql>   output format printed to stderr (default: none)
+  --list-devices                              list available devices and exit
+  -v, --verbose                               verbose output
+  --progress                                  print test progress indicators
+  --no-warmup                                 skip warmup runs before benchmarking
+  -fitt, --fit-target <MiB>                   fit model to device memory with this margin per device in MiB (default: off)
+  -fitc, --fit-ctx <n>                        minimum ctx size for --fit-target (default: 4096)
+
+test parameters:
+  -m, --model <filename>                      (default: models/7B/ggml-model-q4_0.gguf)
+  -hf, -hfr, --hf-repo <user>/<model>[:quant] Hugging Face model repository; quant is optional, case-insensitive
+                                              default to Q4_K_M, or falls back to the first file in the repo if Q4_K_M doesn't exist.
+                                              example: ggml-org/GLM-4.7-Flash-GGUF:Q4_K_M
+                                              (default: unused)
+  -hff, --hf-file <file>                      Hugging Face model file. If specified, it will override the quant in --hf-repo
+                                              (default: unused)
+  -hft, --hf-token <token>                    Hugging Face access token
+                                              (default: value from HF_TOKEN environment variable)
+  -p, --n-prompt <n>                          (default: 512)
+  -n, --n-gen <n>                             (default: 128)
+  -pg <pp,tg>                                 (default: )
+  -d, --n-depth <n>                           (default: 0)
+  -b, --batch-size <n>                        (default: 2048)
+  -ub, --ubatch-size <n>                      (default: 512)
+  -ctk, --cache-type-k <t>                    (default: f16)
+  -ctv, --cache-type-v <t>                    (default: f16)
+  -t, --threads <n>                           (default: 8)
+  -C, --cpu-mask <hex,hex>                    (default: 0x0)
+  --cpu-strict <0|1>                          (default: 0)
+  --poll <0...100>                            (default: 50)
+  -ngl, --n-gpu-layers <n>                    (default: 99)
+  -ncmoe, --n-cpu-moe <n>                     (default: 0)
+  -sm, --split-mode <none|layer|row|tensor>   (default: layer)
+  -mg, --main-gpu <i>                         (default: 0)
+  -nkvo, --no-kv-offload <0|1>                (default: 0)
+  -fa, --flash-attn <0|1>                     (default: 0)
+  -dev, --device <dev0/dev1/...>              (default: auto)
+  -mmp, --mmap <0|1>                          (default: 1)
+  -dio, --direct-io <0|1>                     (default: 0)
+  -embd, --embeddings <0|1>                   (default: 0)
+  -ts, --tensor-split <ts0/ts1/..>            (default: 0)
+  -ot --override-tensor <tensor name pattern>=<buffer type>;...
+                                              (default: disabled)
+  -nopo, --no-op-offload <0|1>                (default: 0)
+  --no-host <0|1>                             (default: 0)
+
+Multiple values can be given for each parameter by separating them with ','
+or by specifying the parameter multiple times. Ranges can be given as
+'first-last' or 'first-last+step' or 'first-last*mult'.
+
+=== Step 1c: llama-bench help | accel keywords ===
+  -ngl, --n-gpu-layers <n>                    (default: 99)
+  -mg, --main-gpu <i>                         (default: 0)
+
+
+=== Step 1d: llama-cli -h | accel keywords ===
+-dev,  --device <dev1,dev2,..>          comma-separated list of devices to use for offloading (none = don't
+                                        use --list-devices to see a list of available devices
+                                        (env: LLAMA_ARG_DEVICE)
+--list-devices                          print list of available devices and exit
+-ngl,  --gpu-layers, --n-gpu-layers N   max. number of layers to store in VRAM, either an exact number,
+                                        (env: LLAMA_ARG_N_GPU_LAYERS)
+                                        how to split the model across multiple GPUs, one of:
+                                        - none: use one GPU only
+                                        - layer (default): split layers and KV across GPUs (pipelined)
+                                        - row: split weight across GPUs by rows (parallelized)
+                                        - tensor: split weights and KV across GPUs (parallelized,
+-ts,   --tensor-split N0,N1,N2,...      fraction of the model to offload to each GPU, comma-separated list of
+-mg,   --main-gpu INDEX                 the GPU to use for the model (with split-mode = none), or for
+                                        (env: LLAMA_ARG_MAIN_GPU)
+-fit,  --fit [on|off]                   whether to adjust unset arguments to fit in device memory ('on' or
+                                        target margin per device for --fit, comma-separated list of values,
+                                        single value is broadcast across all devices, default: 1024
+--op-offload, --no-op-offload           whether to offload host tensor operations to device (default: true)
+-st,   --single-turn                    run conversation for a single turn only, then exit when done
+--mmproj-offload, --no-mmproj-offload   whether to enable GPU offloading for multimodal projector (default:
+-devd, --device-draft <dev1,dev2,..>    comma-separated list of devices to use for offloading the draft model
+                                        use --list-devices to see a list of available devices
+-ngld, --gpu-layers-draft, --n-gpu-layers-draft N
+                                        (env: LLAMA_ARG_N_GPU_LAYERS_DRAFT)
+
+=== Step 1e: llama-bench list devices (quick model load to see backends) ===
+| model                          |       size |     params | backend    | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | --------------: | -------------------: |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | CPU        |       4 |             tg1 |         11.13 ± 1.30 |
+
+build: 3f7c29d (1)
+
+
+=== Step 1f: llama-cli --list-devices ===
+Available devices:
+
+=== Step 1g: llama-bench with -ngl 99 (verbose) to see what happens ===
+llama_model_loader: loaded meta data with 23 key-value pairs and 201 tensors from tinyllama.gguf (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                       general.architecture str              = llama
+llama_model_loader: - kv   1:                               general.name str              = tinyllama_tinyllama-1.1b-chat-v1.0
+llama_model_loader: - kv   2:                       llama.context_length u32              = 2048
+llama_model_loader: - kv   3:                     llama.embedding_length u32              = 2048
+llama_model_loader: - kv   4:                          llama.block_count u32              = 22
+llama_model_loader: - kv   5:                  llama.feed_forward_length u32              = 5632
+llama_model_loader: - kv   6:                 llama.rope.dimension_count u32              = 64
+llama_model_loader: - kv   7:                 llama.attention.head_count u32              = 32
+llama_model_loader: - kv   8:              llama.attention.head_count_kv u32              = 4
+llama_model_loader: - kv   9:     llama.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv  10:                       llama.rope.freq_base f32              = 10000.000000
+llama_model_loader: - kv  11:                          general.file_type u32              = 2
+llama_model_loader: - kv  12:                       tokenizer.ggml.model str              = llama
+llama_model_loader: - kv  13:                      tokenizer.ggml.tokens arr[str,32000]   = ["<unk>", "<s>", "</s>", "<0x00>", "<...
+llama_model_loader: - kv  14:                      tokenizer.ggml.scores arr[f32,32000]   = [0.000000, 0.000000, 0.000000, 0.0000...
+llama_model_loader: - kv  15:                  tokenizer.ggml.token_type arr[i32,32000]   = [2, 3, 3, 6, 6, 6, 6, 6, 6, 6, 6, 6, ...
+llama_model_loader: - kv  16:                      tokenizer.ggml.merges arr[str,61249]   = ["▁ t", "e r", "i n", "▁ a", "e n...
+llama_model_loader: - kv  17:                tokenizer.ggml.bos_token_id u32              = 1
+llama_model_loader: - kv  18:                tokenizer.ggml.eos_token_id u32              = 2
+llama_model_loader: - kv  19:            tokenizer.ggml.unknown_token_id u32              = 0
+llama_model_loader: - kv  20:            tokenizer.ggml.padding_token_id u32              = 2
+llama_model_loader: - kv  21:                    tokenizer.chat_template str              = {% for message in messages %}\n{% if m...
+llama_model_loader: - kv  22:               general.quantization_version u32              = 2
+llama_model_loader: - type  f32:   45 tensors
+llama_model_loader: - type q4_0:  155 tensors
+llama_model_loader: - type q6_K:    1 tensors
+print_info: file format = GGUF V3 (latest)
+print_info: file type   = Q4_0
+print_info: file size   = 606.53 MiB (4.63 BPW) 
+init_tokenizer: initializing tokenizer for type 1
+load: 0 unused tokens
+load: control token:      1 '<s>' is not marked as EOG
+load: printing all EOG tokens:
+load:   - 2 ('</s>')
+load: special tokens cache size = 3
+load: token to piece cache size = 0.1684 MB
+print_info: arch                  = llama
+print_info: vocab_only            = 0
+
+
+=== Step 1h: llama-bench -ngl 99 full result (should still show CPU backend) ===
+| model                          |       size |     params | backend    | threads |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | --------------: | -------------------: |
+| llama 1B Q4_0                  | 606.53 MiB |     1.10 B | CPU        |       4 |            tg16 |         19.15 ± 0.00 |
+
+build: 3f7c29d (1)
+
+
+=== Step 4: whisper-cli backend detection ===
+  -tr,       --translate            [false  ] translate from source language to english
+  -oved D,   --ov-e-device DNAME    [CPU    ] the OpenVINO device used for encode inference
+  -ng,       --no-gpu               [false  ] disable GPU
+  -dev N,    --device N             [0      ] GPU device ID (default: 0)
+
+=== whisper-cli full help head for context ===
+
+usage: ./whisper-cli [options] file0 file1 ...
+supported audio formats: flac, mp3, ogg, wav
+
+options:
+  -h,        --help                 [default] show this help message and exit
+  -t N,      --threads N            [4      ] number of threads to use during computation
+  -p N,      --processors N         [1      ] number of processors to use during computation
+  -ot N,     --offset-t N           [0      ] time offset in milliseconds
+  -on N,     --offset-n N           [0      ] segment index offset
+  -d  N,     --duration N           [0      ] duration of audio to process in milliseconds
+  -mc N,     --max-context N        [-1     ] maximum number of text context tokens to store
+  -ml N,     --max-len N            [0      ] maximum segment length in characters
+  -sow,      --split-on-word        [false  ] split on word rather than on token
+  -bo N,     --best-of N            [5      ] number of best candidates to keep
+  -bs N,     --beam-size N          [5      ] beam size for beam search
+  -ac N,     --audio-ctx N          [0      ] audio context size (0 - all)
+  -wt N,     --word-thold N         [0.01   ] word timestamp probability threshold
+  -et N,     --entropy-thold N      [2.40   ] entropy threshold for decoder fail
+  -lpt N,    --logprob-thold N      [-1.00  ] log probability threshold for decoder fail
+  -nth N,    --no-speech-thold N    [0.60   ] no speech threshold
+  -tp,       --temperature N        [0.00   ] The sampling temperature, between 0 and 1
+  -tpi,      --temperature-inc N    [0.20   ] The increment of temperature, between 0 and 1
+  -debug,    --debug-mode           [false  ] enable debug mode (eg. dump log_mel)
+  -tr,       --translate            [false  ] translate from source language to english
+  -di,       --diarize              [false  ] stereo audio diarization
+  -tdrz,     --tinydiarize          [false  ] enable tinydiarize (requires a tdrz model)
+  -nf,       --no-fallback          [false  ] do not use temperature fallback while decoding
+  -otxt,     --output-txt           [false  ] output result in a text file
+  -ovtt,     --output-vtt           [false  ] output result in a vtt file
+  -osrt,     --output-srt           [false  ] output result in a srt file
+  -olrc,     --output-lrc           [false  ] output result in a lrc file
+  -owts,     --output-words         [false  ] output script for generating karaoke video
+  -fp,       --font-path            [/System/Library/Fonts/Supplemental/Courier New Bold.ttf] path to a monospace font for karaoke video
+  -ocsv,     --output-csv           [false  ] output result in a CSV file
+  -oj,       --output-json          [false  ] output result in a JSON file
+  -ojf,      --output-json-full     [false  ] include more information in the JSON file
+  -of FNAME, --output-file FNAME    [       ] output file path (without file extension)
+  -np,       --no-prints            [false  ] do not print anything other than the results
+  -ps,       --print-special        [false  ] print special tokens
+  -pc,       --print-colors         [false  ] print colors
+             --print-confidence     [false  ] print confidence
+  -pp,       --print-progress       [false  ] print progress
+  -nt,       --no-timestamps        [false  ] do not print timestamps
+  -l LANG,   --language LANG        [en     ] spoken language ('auto' for auto-detect)
+  -dl,       --detect-language      [false  ] exit after automatically detecting language
+             --prompt PROMPT        [       ] initial prompt (max n_text_ctx/2 tokens)
+             --carry-initial-prompt [false  ] always prepend initial prompt
+  -m FNAME,  --model FNAME          [models/ggml-base.en.bin] model path
+  -f FNAME,  --file FNAME           [       ] input audio file path
+  -oved D,   --ov-e-device DNAME    [CPU    ] the OpenVINO device used for encode inference
+  -dtw MODEL --dtw MODEL            [       ] compute token-level timestamps
+  -ls,       --log-score            [false  ] log best decoder scores of tokens
+  -ng,       --no-gpu               [false  ] disable GPU
+  -dev N,    --device N             [0      ] GPU device ID (default: 0)
+  -fa,       --flash-attn           [true   ] enable flash attention
+  -nfa,      --no-flash-attn        [false  ] disable flash attention
+  -sns,      --suppress-nst         [false  ] suppress non-speech tokens
+  --suppress-regex REGEX            [       ] regular expression matching tokens to suppress
+  --grammar GRAMMAR                 [       ] GBNF grammar to guide decoding
+
+
+=== Step 4b: whisper-cli short run to dump backend init lines ===
+whisper_init_from_file_with_params_no_state: loading model from 'ggml-tiny.bin'
+whisper_init_with_params_no_state: use gpu    = 1
+whisper_init_with_params_no_state: flash attn = 1
+whisper_init_with_params_no_state: gpu_device = 0
+whisper_init_with_params_no_state: dtw        = 0
+whisper_init_with_params_no_state: devices    = 1
+whisper_init_with_params_no_state: backends   = 1
+whisper_model_load: loading model
+whisper_model_load: n_vocab       = 51865
+whisper_model_load: n_audio_ctx   = 1500
+whisper_model_load: n_audio_state = 384
+whisper_model_load: n_audio_head  = 6
+whisper_model_load: n_audio_layer = 4
+whisper_model_load: n_text_ctx    = 448
+whisper_model_load: n_text_state  = 384
+whisper_model_load: n_text_head   = 6
+whisper_model_load: n_text_layer  = 4
+whisper_model_load: n_mels        = 80
+whisper_model_load: ftype         = 1
+whisper_model_load: qntvr         = 0
+whisper_model_load: type          = 1 (tiny)
+whisper_model_load: adding 1608 extra tokens
+whisper_model_load: n_langs       = 99
+whisper_model_load:          CPU total size =    77.11 MB
+whisper_model_load: model size    =   77.11 MB
+whisper_backend_init_gpu: device 0: CPU (type: 0)
+whisper_backend_init_gpu: no GPU found
+whisper_init_state: kv self size  =    3.15 MB
+whisper_init_state: kv cross size =    9.44 MB
+whisper_init_state: kv pad  size  =    2.36 MB
+whisper_init_state: compute buffer (conv)   =   13.21 MB
+whisper_init_state: compute buffer (encode) =   17.72 MB
+whisper_init_state: compute buffer (cross)  =    3.89 MB
+whisper_init_state: compute buffer (decode) =   95.91 MB
+
+system_info: n_threads = 4 / 8 | WHISPER : COREML = 0 | OPENVINO = 0 | CPU : NEON = 1 | ARM_FMA = 1 | REPACK = 1 | 
+
+main: processing 'test.wav' (80000 samples, 5.0 sec), 4 threads, 1 processors, 5 beams + best of 5, lang = en, task = transcribe, timestamps = 1 ...
+
+
+
+
+=== Step 3: Upstream prebuilt Android-Vulkan release research ===
+
+Repository: ggml-org/llama.cpp (formerly ggerganov/llama.cpp; still resolves)
+Latest release at time of check: b8840 (2026-04-18)
+Binary on device reports: version 1 (3f7c29d), Clang 18.0.3, Android aarch64
+  (matches upstream CPU-only android tarball; 3f7c29d is the pre-release tag
+   commit shown in llama-cli --version for this build channel.)
+
+All assets for b8840 (relevant lines):
+  llama-b8840-bin-android-arm64.tar.gz            63 MB   (CPU-only)
+  llama-b8840-bin-ubuntu-vulkan-arm64.tar.gz      25 MB   (Linux glibc, NOT Android)
+  llama-b8840-bin-ubuntu-vulkan-x64.tar.gz        (x86-64 Linux)
+  llama-b8840-bin-win-opencl-adreno-arm64.zip     (Windows-ARM, Adreno-only)
+  llama-b8840-bin-win-vulkan-x64.zip              (Windows x86-64)
+  (no llama-b8840-bin-android-*-vulkan.* asset)
+  (no llama-b8840-bin-android-*-opencl.*  asset)
+
+Release workflow (.github/workflows/release.yml) android-arm64 job runs:
+  -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake
+  -DANDROID_ABI=arm64-v8a
+  -DANDROID_PLATFORM=android-28
+  (NO -DGGML_VULKAN=ON, NO -DGGML_OPENCL=ON)
+Release page explicitly labels it "Android arm64 (CPU)".
+
+CI build matrix (.github/workflows/build-android.yml) ships:
+  - arm64-cpu
+  - arm64-snapdragon (Hexagon NPU preset — Snapdragon only, N/A to Tensor G5)
+No arm64-vulkan Android target is built or published by upstream.
+
+Historical check: b8798 (2026-04-15, 3 days earlier) had NO android asset at
+all. Android prebuilts only started at b8838 (2026-04-18). No prior release
+ever shipped an Android Vulkan zip/tarball.
+
+=== Step 3 conclusion ===
+No prebuilt Android+Vulkan (or Android+OpenCL) llama.cpp binary exists
+upstream. Going GPU on Pixel 6 requires building from source with the
+Android NDK + Vulkan SDK, toolchain: android-ndk r26+, shaderc / glslc,
+-DGGML_VULKAN=ON -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28.
+This is a compile step, and per constraints we did NOT attempt it.
+
+=== Summary table ===
+Binary                        Backend(s) compiled in     GPU offload works?
+-----------------------------------------------------------------------------
+llama-cli (140 MB)            CPU only (NEON)            No
+llama-bench (66 MB)           CPU only (NEON)            No (-ngl 99 ignored; column = CPU)
+llama-mtmd-cli (123 MB)       CPU only (inherits ggml)   No
+whisper-cli (18 MB)           CPU only (NEON)            No ("no GPU found"; COREML=0 OPENVINO=0)
+
+System info line (whisper):
+  n_threads = 4/8 | WHISPER: COREML=0 | OPENVINO=0 | CPU: NEON=1 ARM_FMA=1 REPACK=1
+
+=== Go/no-go recommendation ===
+NO-GO on measuring Vulkan offload with the current Pixel 6 binaries.
+Deferred: build llama.cpp with -DGGML_VULKAN=ON against Android NDK,
+push the resulting llama-bench, then re-run the 3x sweep. No upstream
+prebuilt asset to shortcut this.

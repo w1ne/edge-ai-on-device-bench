@@ -33,11 +33,14 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+# `ncnn` is only needed for the laptop-side detection path. The --on-phone-timing
+# mode invokes benchncnn on-device via adb and does not import ncnn here.
 try:
-    import ncnn
-except ImportError:
-    print("FATAL: `ncnn` wheel not installed. Run: pip install --user ncnn", file=sys.stderr)
-    sys.exit(2)
+    import ncnn  # type: ignore
+    _NCNN_IMPORT_ERR: Exception | None = None
+except ImportError as _e:  # noqa: F841 - kept for the fail path below
+    ncnn = None  # type: ignore
+    _NCNN_IMPORT_ERR = _e
 
 
 # --- paths -----------------------------------------------------------------
@@ -48,6 +51,14 @@ BIN = MODEL_DIR / "yolo-fastestv2-opt.bin"
 
 PHONE_EYE_PATH = "/data/local/tmp/eye.png"
 OUT_PNG = Path("/tmp/eyes-out.png")
+
+# --- on-phone inference config --------------------------------------------
+# P20 Lite (Kirin 659, 8x A53). Serial is pinned to avoid any Pixel 6 crosstalk.
+PHONE_SERIAL = "9WV4C18C11005454"
+PHONE_BENCHNCNN = "/data/local/tmp/benchncnn"
+PHONE_NCNN_DIR = "/data/local/tmp/ncnn-bench"
+PHONE_PARAM = f"{PHONE_NCNN_DIR}/yolo-fastestv2-opt.param"
+PHONE_BIN = f"{PHONE_NCNN_DIR}/yolo-fastestv2-opt.bin"
 
 # --- model constants (YOLO-Fastest v2, 352 input, COCO-80) -----------------
 
@@ -127,7 +138,72 @@ def adb_push(local: Path, remote: str) -> None:
         raise RuntimeError(f"adb push failed: {r.stderr[:200]}")
 
 
-def load_net() -> ncnn.Net:
+def on_phone_timing(loops: int = 4, threads: int = 4, powersave: int = 2) -> dict:
+    """
+    Run YOLO-Fastest v2 inference on the P20 Lite via benchncnn with the real
+    .param file on-phone. Returns min/max/avg ms + raw stdout.
+
+    Caveat: benchncnn loads weights via DataReaderFromEmpty (zeros), so the
+    `.bin` isn't consulted for timing. We still push/verify the .bin because
+    any future real detector shim needs it, and we verify the .param parses
+    end-to-end through ncnn on the phone (proves the graph is loadable there).
+
+    Graph shape 352x352x3 matches the dog-qiuqiu reference. Threads=8 uses all
+    P20 Lite A53 cores; powersave=0 keeps the governor off the little cluster
+    choice so we actually get 8-wide.
+    """
+    # Verify prerequisites on-phone.
+    probe = subprocess.run(
+        ["adb", "-s", PHONE_SERIAL, "shell",
+         f"ls -la {PHONE_BENCHNCNN} {PHONE_PARAM} {PHONE_BIN} 2>&1"],
+        capture_output=True, text=True, check=False,
+    )
+    if probe.returncode != 0:
+        raise RuntimeError(f"on-phone prereq probe failed: {probe.stderr[:200]}")
+    if "No such file" in probe.stdout:
+        raise RuntimeError(f"missing phone artifact:\n{probe.stdout}")
+
+    cmd = [
+        "adb", "-s", PHONE_SERIAL, "shell",
+        f"cd {PHONE_NCNN_DIR} && {PHONE_BENCHNCNN} "
+        f"{loops} {threads} {powersave} -1 0 "
+        f"param=yolo-fastestv2-opt.param shape=[352,352,3] 2>&1",
+    ]
+    r = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if r.returncode != 0:
+        raise RuntimeError(f"on-phone benchncnn failed: {r.stdout}\n{r.stderr}")
+
+    # Parse the single "model  min = X  max = Y  avg = Z" line.
+    tmin = tmax = tavg = None
+    for line in r.stdout.splitlines():
+        if "min =" in line and "avg =" in line:
+            try:
+                tmin = float(line.split("min =")[1].split()[0])
+                tmax = float(line.split("max =")[1].split()[0])
+                tavg = float(line.split("avg =")[1].split()[0])
+            except (IndexError, ValueError):
+                pass
+            break
+
+    return {
+        "raw": r.stdout,
+        "cmd": " ".join(cmd[3:]),
+        "min_ms": tmin,
+        "max_ms": tmax,
+        "avg_ms": tavg,
+        "probe": probe.stdout,
+        "loops": loops,
+        "threads": threads,
+        "powersave": powersave,
+    }
+
+
+def load_net() -> "ncnn.Net":
+    if ncnn is None:
+        raise RuntimeError(
+            f"laptop-side detection requires the `ncnn` Python wheel "
+            f"(pip install --user ncnn); import error: {_NCNN_IMPORT_ERR}"
+        )
     if not PARAM.exists() or not BIN.exists():
         raise FileNotFoundError(
             f"Missing model files. Expected {PARAM} and {BIN}. "
@@ -313,7 +389,43 @@ def main() -> int:
                     help="skip adb push of the captured frame to the phone")
     ap.add_argument("--out", default=str(OUT_PNG), help="overlay PNG path")
     ap.add_argument("--top", type=int, default=3, help="print only top-N detections")
+    ap.add_argument("--on-phone-timing", action="store_true",
+                    help="time YOLO-Fastest v2 on P20 Lite via benchncnn (no bbox "
+                         "output; proves .param loads on-device and returns ms).")
+    ap.add_argument("--on-phone-loops", type=int, default=4,
+                    help="benchncnn loop_count when --on-phone-timing (default 4, "
+                         "matches README config)")
+    ap.add_argument("--on-phone-threads", type=int, default=4,
+                    help="benchncnn num_threads (default 4; P20 has 8xA53 but the "
+                         "README baseline and the stable min is at 4/powersave=2)")
+    ap.add_argument("--on-phone-powersave", type=int, default=2,
+                    help="0=all, 1=little, 2=big cluster (default 2)")
     args = ap.parse_args()
+
+    if args.on_phone_timing:
+        try:
+            stats = on_phone_timing(
+                loops=args.on_phone_loops,
+                threads=args.on_phone_threads,
+                powersave=args.on_phone_powersave,
+            )
+        except Exception as e:
+            print(f"FATAL: on-phone timing failed: {e}", file=sys.stderr)
+            return 6
+        print(f"# device=P20Lite serial={PHONE_SERIAL}")
+        print(f"# cmd={stats['cmd']}")
+        print(f"# artifacts:\n{stats['probe'].rstrip()}")
+        print(f"# raw_bench_output:\n{stats['raw'].rstrip()}")
+        if stats['min_ms'] is not None:
+            print(f"on_phone_min_ms={stats['min_ms']:.2f} "
+                  f"on_phone_max_ms={stats['max_ms']:.2f} "
+                  f"on_phone_avg_ms={stats['avg_ms']:.2f} "
+                  f"loops={stats['loops']} threads={stats['threads']}")
+        else:
+            print("WARN: could not parse min/max/avg from benchncnn output",
+                  file=sys.stderr)
+            return 7
+        return 0
 
     if args.image:
         img_path = Path(args.image)

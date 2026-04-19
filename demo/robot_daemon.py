@@ -192,14 +192,19 @@ def send_wire(cmd: dict, dry_run: bool):
 
 # ------------------------------------------------------------------ LLM fallback
 
-def llm_fallback(transcript: str) -> dict | None:
-    """Call demo/parse_intent.py.  Best-effort; returns None on failure."""
+def llm_fallback(transcript: str, model: str) -> dict | None:
+    """Call demo/parse_intent.py --model <model>.  Best-effort; returns None on failure.
+
+    TinyLlama Q4_0 is 4/8 correct on the test set; Gemma 3 1B Q4_0 is 7/8 but
+    ~2x slower per call on P20 Lite.  See logs/parse_intent_tests.log.
+    """
     try:
         r = subprocess.run(
-            [sys.executable, str(HERE / "parse_intent.py"), transcript],
-            capture_output=True, text=True, timeout=60,
+            [sys.executable, str(HERE / "parse_intent.py"),
+             "--model", model, transcript],
+            capture_output=True, text=True, timeout=150,
         )
-    except Exception as e:
+    except Exception:
         return None
     try:
         obj = json.loads(r.stdout.strip().splitlines()[-1])
@@ -273,8 +278,8 @@ def one_turn(args, logger) -> dict | None:
 
     cmd = match_command(transcript)
     if cmd is None and args.with_llm and transcript:
-        logger("[matcher] no keyword hit, asking LLM")
-        cmd = llm_fallback(transcript)
+        logger(f"[matcher] no keyword hit, asking LLM ({args.llm_model})")
+        cmd = llm_fallback(transcript, args.llm_model)
         if cmd is not None:
             logger(f"[matcher] LLM proposed: {cmd}")
 
@@ -299,7 +304,11 @@ def main():
     p.add_argument("--seconds", type=int, default=3,
                    help="voice mode: recording window length per turn")
     p.add_argument("--with-llm", action="store_true",
-                   help="use TinyLlama fallback when keyword matcher fails")
+                   help="use on-phone LLM fallback when keyword matcher fails")
+    p.add_argument("--llm-model", choices=["gemma", "tinyllama"], default="gemma",
+                   help="which on-phone model to use for --with-llm "
+                        "(gemma: 7/8 accuracy, ~30 s/call;  "
+                        "tinyllama: 4/8 accuracy, ~25 s/call).  default: gemma.")
     p.add_argument("--with-eyes", metavar="N", type=int, default=0,
                    help="poll YOLO on a background thread every N seconds")
     p.add_argument("--dry-run", action="store_true",

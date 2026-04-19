@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Free-form transcript -> structured robot wire-command via TinyLlama on phone.
+Free-form transcript -> structured robot wire-command via on-phone LLM.
 
 Usage:
     python3 demo/parse_intent.py "walk forward please"
+    python3 demo/parse_intent.py --model gemma "walk forward please"
+    python3 demo/parse_intent.py --model tinyllama "walk forward please"
 
 Prints a single JSON line on stdout. Everything else (llama banner, timing,
 errors) goes to stderr. Output is one of the legal wire commands below or
@@ -27,22 +29,39 @@ Pipeline:
  -> canonicalize / noop on failure
  -> print one JSON line.
 
-Assumptions: adb-connected phone with /data/local/tmp/{tinyllama.gguf,llama-cli}.
-The llama-cli build on this phone (b1-3f7c29d) does NOT honor -no-cnv, so we
-use -st (single-turn) + --simple-io. The grammar file is pushed once on the
-first call and reused (schema.json).
+Assumptions: adb-connected phone with
+/data/local/tmp/{tinyllama.gguf,gemma3.gguf,llama-cli}.
+The llama-cli build on this phone (b1-3f7c29d) does NOT honor -no-cnv for
+either model; -st (single-turn) is required to exit cleanly.  Gemma 3 1B
+scored 7/8 on the self-test suite vs TinyLlama's 4/8, so --model gemma is
+the better intent parser when the ~25-60 s per-phrase latency is tolerable.
+The grammar file is pushed once on the first call and reused (schema.json).
 """
+import argparse
 import sys
 import json
 import subprocess
 import time
 
-MODEL = "tinyllama.gguf"
 LLAMA = "./llama-cli"
 PHONE_DIR = "/data/local/tmp"
 SCHEMA_PHONE = f"{PHONE_DIR}/schema.json"
 THREADS = 8
-N_PREDICT = 32
+
+# Per-model settings. N_PREDICT is larger for Gemma because the Gemma chat
+# template wraps the prompt in role markers and the model sometimes burns a
+# couple of tokens before emitting the constrained JSON.
+MODELS = {
+    "tinyllama": {
+        "file": "tinyllama.gguf",
+        "n_predict": 32,
+    },
+    "gemma": {
+        "file": "gemma3.gguf",
+        "n_predict": 64,
+    },
+}
+DEFAULT_MODEL = "tinyllama"
 
 NOOP = {"c": "noop"}
 CANON = {
@@ -188,20 +207,27 @@ def ensure_schema_on_phone():
     return True
 
 
-def run_llama(prompt):
+def run_llama(prompt, model_key):
     """Invoke llama-cli over adb. Returns (stdout, stderr, exit_code)."""
+    cfg = MODELS[model_key]
+    model_file = cfg["file"]
+    n_predict = cfg["n_predict"]
     # Single-quote-wrap the prompt; escape embedded ' as '\''.
     quoted = "'" + prompt.replace("'", "'\\''") + "'"
+    # `-st` single-turn is the key to non-interactive exit on this build
+    # for both TinyLlama and Gemma (the Gemma chat template otherwise
+    # forces conversation mode and blocks on stdin). `< /dev/null` is
+    # defence-in-depth: kills the REPL if -st ever regresses.
     shell_cmd = (
-        f"cd {PHONE_DIR} && {LLAMA} -m {MODEL} -p {quoted} "
-        f"-n {N_PREDICT} -t {THREADS} --no-warmup -st --simple-io "
+        f"cd {PHONE_DIR} && {LLAMA} -m {model_file} -p {quoted} "
+        f"-n {n_predict} -t {THREADS} --no-warmup -st --simple-io "
         f"--log-disable --no-perf --temp 0 --top-k 1 "
-        f"-jf {SCHEMA_PHONE} 2>&1"
+        f"-jf {SCHEMA_PHONE} < /dev/null 2>&1"
     )
     try:
         r = subprocess.run(
             ["adb", "shell", shell_cmd],
-            capture_output=True, text=True, timeout=90,
+            capture_output=True, text=True, timeout=120,
         )
         return r.stdout, r.stderr, r.returncode
     except FileNotFoundError:
@@ -238,14 +264,14 @@ def slice_generation(raw, transcript):
     return raw.strip()
 
 
-def parse_intent(transcript):
+def parse_intent(transcript, model_key=DEFAULT_MODEL):
     if not ensure_schema_on_phone():
         return NOOP
     prompt = PROMPT_TEMPLATE % transcript
     t0 = time.time()
-    stdout, stderr, code = run_llama(prompt)
+    stdout, stderr, code = run_llama(prompt, model_key)
     dt = time.time() - t0
-    eprint(f"[parse_intent] adb exit={code} wall={dt:.2f}s")
+    eprint(f"[parse_intent] model={model_key} adb exit={code} wall={dt:.2f}s")
     if code != 0:
         eprint(f"[parse_intent] adb/llama failed: {stderr[:200]!r}")
         return NOOP
@@ -259,14 +285,28 @@ def parse_intent(transcript):
 
 
 def main(argv):
-    if len(argv) < 2:
-        eprint(__doc__)
-        sys.exit(1)
-    transcript = " ".join(argv[1:]).strip()
+    ap = argparse.ArgumentParser(
+        prog="parse_intent.py",
+        description="Map a free-form transcript to a robot wire command "
+                    "via llama-cli on the phone.",
+    )
+    ap.add_argument(
+        "--model",
+        choices=sorted(MODELS.keys()),
+        default=DEFAULT_MODEL,
+        help=(f"on-phone model to use (default: {DEFAULT_MODEL}). "
+              "gemma has higher accuracy on single-word and out-of-vocab "
+              "inputs but ~2x wall-clock latency."),
+    )
+    ap.add_argument("transcript", nargs=argparse.REMAINDER,
+                    help="the utterance to parse")
+    ns = ap.parse_args(argv[1:])
+    transcript = " ".join(ns.transcript).strip()
     if not transcript:
+        eprint(__doc__)
         print(json.dumps(NOOP, separators=(",", ":")))
         return
-    out = parse_intent(transcript)
+    out = parse_intent(transcript, model_key=ns.model)
     print(json.dumps(out, separators=(",", ":")))
 
 

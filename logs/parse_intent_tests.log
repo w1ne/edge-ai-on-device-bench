@@ -64,3 +64,66 @@ reasons:
   $ python3 demo/robot_daemon.py --mode text --dry-run --no-tts
   # all 14 test phrases, including the 4 that break TinyLlama, classify correctly
   # in < 1 ms via the regex matcher.  log at /tmp/robot-test.log.
+
+---- Gemma 3 1B re-test ----
+date: 2026-04-19T<later>Z
+device: Huawei P20 Lite (ANE-LX1) serial 9WV4C18C11005454
+model: /data/local/tmp/gemma3.gguf (720 MB) via llama-cli b1-3f7c29d
+flags: -st --simple-io --log-disable --no-perf --temp 0 --top-k 1 -jf schema.json < /dev/null
+
+Flag catalog (what did / did not bypass interactive mode on this build):
+
+  -no-cnv alone                 FAIL: llama-cli still prints the ">" REPL prompt and
+                                blocks on stdin.  Output is just a stream of ">" lines
+                                until -n budget exhausted, no generation.
+  -no-cnv --simple-io           FAIL: same as above.
+  -no-cnv < /dev/null           FAIL: same ">" spam.  Confirms -no-cnv is not the
+                                right switch on this build when the model ships
+                                with a chat template (Gemma does).
+  -st  (single-turn)            WORKS for Gemma: banner + prompt echo + one JSON
+                                response + "Exiting..." and clean exit.  This is
+                                the same flag that works for TinyLlama.
+  -st --simple-io --log-disable WORKS; cleaner output (no ANSI colour, no
+                                verbose timing).  Selected.
+
+Winning invocation:
+
+  ./llama-cli -m gemma3.gguf -p '<prompt>' -n 64 -t 8 --no-warmup \
+              -st --simple-io --log-disable --no-perf --temp 0 --top-k 1 \
+              -jf schema.json < /dev/null
+
+8-phrase re-test (--temp 0 --top-k 1, schema grammar, n_predict=64):
+
+  [42.32 s] "lean left"                         -> {"c":"pose","n":"lean_left","d":1500}    CORRECT
+  [62.06 s] "could you lean to the left please" -> {"c":"pose","n":"lean_left","d":1500}    CORRECT
+  [38.01 s] "bow down a little"                 -> {"c":"pose","n":"bow_front","d":500}     CORRECT*
+  [44.59 s] "walk forward now"                  -> {"c":"walk","on":true,"stride":150,"step":400}  CORRECT
+  [25.55 s] "stop what you are doing"           -> {"c":"stop"}                             CORRECT (TinyLlama: WRONG)
+  [24.13 s] "jump"                              -> {"c":"jump"}                             CORRECT (TinyLlama: WRONG)
+  [25.23 s] "tell me a joke"                    -> {"c":"stop"}                             WRONG   (TinyLlama: WRONG)
+  [25.13 s] "turn around"                       -> {"c":"noop"}                             CORRECT (TinyLlama: WRONG)
+
+  * bow_front duration is 500 instead of the canonical 1800, but canonicalize()
+    rewrites it to {"c":"pose","n":"bow_front","d":1800} which is the correct
+    wire command.
+
+Score: 7 / 8.  vs TinyLlama: 4 / 8.  Gemma correctly recovers all four single-
+word / out-of-vocab cases where TinyLlama collapsed to pose/lean_left.  The
+one miss ("tell me a joke" -> stop) is an acceptable failure mode for a robot
+daemon: "stop" is a safe no-op.
+
+Wall-clock: Gemma is slower per phrase (~25-60 s, 1-3 t/s generation) than
+TinyLlama (~20-28 s).  The banner + model load (~15-20 s) dominates; a
+persistent llama-server would amortize this but is out of scope here.
+
+---- parse_intent.py changes ----
+
+Added --model {tinyllama,gemma} flag.  TinyLlama remains the default.
+Gemma uses n_predict=64 (vs TinyLlama's 32) because the Gemma chat template
+wraps the prompt and the model occasionally burns a few tokens before the
+constrained JSON starts.  Both models use the same -st flag set.
+
+  $ ANDROID_SERIAL=9WV4C18C11005454 python3 demo/parse_intent.py --model gemma "jump"
+  {"c":"jump"}
+  $ ANDROID_SERIAL=9WV4C18C11005454 python3 demo/parse_intent.py "walk forward"
+  {"c":"walk","on":true,"stride":150,"step":400}

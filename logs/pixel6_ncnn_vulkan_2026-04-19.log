@@ -1,0 +1,46 @@
+=== Pixel 6 Mali-G78 via Vulkan — benchncnn sweep — 2026-04-19T12:45+02:00 ===
+serial: 1B291FDF600260
+binary:  /data/local/tmp/benchncnn
+params:  /data/local/tmp/ncnn-bench/*.param
+flags:   loops=3 threads=4 powersave=0 cooling_down=0
+
+Note on filenames (caller's names -> actual on-device names):
+  yolo-fastestv2-opt  -> yolo-fastestv2.param
+  depth_v2_small_256  -> depth_v2_256.param
+  nanodet_m, locomotion_policy -> unchanged
+
+CPU (gpu=-1), 4 threads, 3 loops:
+  yolo-fastestv2        min=  7.65  max=  8.18  avg=  7.83   ms   (shape=[352,352,3])
+  nanodet_m             min= 14.05  max= 17.83  avg= 16.55   ms   (shape=[320,320,3])
+  depth_v2_256          min=107.49  max=137.41  avg=118.77   ms   (shape=[256,256,3])
+  locomotion_policy     FAILED — "param is too old, please regenerate! / layer load_param 4 softmax failed / network graph not ready"
+                        (input shape=[48,1,1]; not a Vulkan issue — param format incompatibility with this benchncnn build)
+
+GPU (gpu=0, alleged Vulkan), 4 threads, 3 loops:
+  yolo-fastestv2        min=  7.38  max=  7.50  avg=  7.42   ms   (speedup vs CPU: 1.05x)
+  nanodet_m             min= 17.53  max= 18.18  avg= 17.75   ms   (speedup vs CPU: 0.93x)
+  depth_v2_256          min=107.59  max=110.83  avg=108.79   ms   (speedup vs CPU: 1.09x)
+  locomotion_policy     FAILED — same "param is too old" error as on CPU
+
+Diagnostic sanity check (mobilenet, 1 thread, 1 loop, shape=[224,224,3]):
+  CPU (gpu=-1): min=12.89 max=12.89 avg=12.89 ms
+  GPU (gpu=0):  min=12.89 max=12.89 avg=12.89 ms
+  --> bit-for-bit identical timings; no Vulkan init log ever printed; no
+      "[0 Mali-G78]" device enumeration line that a Vulkan-enabled benchncnn
+      would emit on startup. Conclusion: Vulkan is NOT compiled in; gpu=0
+      is silently falling back to the CPU path (benchncnn does not error
+      out — it just runs on CPU when the Vulkan backend is absent).
+
+Verdict:
+  Vulkan is NOT compiled into this benchncnn build. No error line is printed
+  (that's ncnn's behaviour when built without NCNN_VULKAN=ON — the gpu=0
+  argument is accepted but quietly ignored, and execution falls through to
+  the CPU backend, which is why all three successful model pairs show
+  near-identical timings with noise-level deltas (+/- <10%, within run-to-run
+  variance). The `strings` dump shows only metadata symbols
+  (support_vulkan, use_vulkan_compute) baked into the ncnn::Net class; the
+  actual Vulkan layer kernels and vkInstance bring-up are absent. To get
+  real Mali-G78 GPU numbers we must cross-build ncnn for arm64-v8a Android
+  with -DNCNN_VULKAN=ON (and ship libvulkan.so via the NDK), then re-run
+  this sweep. No model sees >=1.5x speedup because no model is actually
+  running on the GPU.
