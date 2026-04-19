@@ -161,7 +161,17 @@ python3 demo/web_ui.py
 - **Don't flash the ESP32 from this repo.** The firmware source in `w1ne/PhoneWalker` is NOT what's running on the live device — flashing would regress the demo. See `docs/FIRMWARE_IMU_AUDIT.md`.
 - **Don't commit your `DEEPINFRA_API_KEY` literal anywhere in this repo.** Use the `~/Projects/AIHW/.env.local` path. Key rotation happened once already; don't repeat it.
 
-## 12. Where things live
+## 12. Pre-commit smoke (optional but recommended)
+
+`scripts/precommit.sh` is a ~2 s sanity check: compileall + state-server auth tests + demo module imports. Run it manually, or wire it into git:
+
+```bash
+ln -sf "$(pwd)/scripts/precommit.sh" .git/hooks/pre-commit
+```
+
+Exit code 0 means you're clear to commit; non-zero points at which of the three phases failed.
+
+## 13. Where things live
 
 - `demo/robot_daemon.py` — main loop. Read this first.
 - `demo/web_ui.py` — dashboard, independent process.

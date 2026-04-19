@@ -12,6 +12,21 @@ Usage:
     python3 scripts/test_state_auth.py
 
 Exit code 0 = all PASS.
+
+PINS -- do NOT weaken these assertions to hit a number:
+  * loopback /state MUST return 200 without auth when ROBOT_FORCE_AUTH
+    is unset.  RFC 6761 carve-out is a product decision, not a bug.
+  * FORCE_AUTH + no bearer MUST be 401; FORCE_AUTH + wrong bearer MUST
+    be 403.  Distinct codes so clients can tell "forgot to auth" apart
+    from "auth'd and was rejected".
+  * /events MAY accept ?token= (EventSource compat).  /state MUST NOT.
+  * /stop MUST reject a cross-origin browser POST (403 + 'csrf' in the
+    error body) even with a valid bearer -- otherwise any webpage can
+    remote-trigger an E-stop.
+  * The source MUST contain `import secrets` and `secrets.compare_digest`
+    verbatim.  Don't refactor to `hmac.compare_digest` or `==` to save
+    a line; the static check exists because subtle regressions here
+    never show up in behavioural tests.
 """
 from __future__ import annotations
 

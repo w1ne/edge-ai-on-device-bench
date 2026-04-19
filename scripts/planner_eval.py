@@ -27,6 +27,21 @@ Exit codes:
     0  all cases passed
     1  one or more cases failed
     2  $DEEPINFRA_API_KEY missing (propagated from planner itself)
+
+PINS -- do NOT relax these to hit a number:
+  * A2/A4/B1/B2/B4/E3 pose names (bow_front, lean_left, lean_right,
+    neutral) are the canonical enum.  If you rename them in the schema,
+    update BOTH the schema and the checks -- never just the checks.
+  * C2 ("nobody is here") MUST match a negation verbal.  Changing this
+    to "any say" would let a planner greet the empty room and still
+    pass.
+  * C5 MUST require `look_for` AND forbid `look` -- it's the open-vocab
+    vs structured distinction, not a free choice.
+  * D-group (weather/math/name) MUST forbid pose/walk/jump/look.  A
+    verbal question is verbal; physical action is a regression.
+  * E-group cases are deliberately tolerant -- do NOT add tighter
+    expectations there; the whole point is terminate-cleanly, not
+    specific-tool-choice.
 """
 from __future__ import annotations
 

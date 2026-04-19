@@ -1,0 +1,160 @@
+name: CI
+
+# Kills roast point #19 ("no CI at all").  This pipeline covers only the
+# parts of the codebase that run deterministically without hardware or
+# paid API keys -- see .github/workflows/README.md for the full list of
+# DELIBERATELY-SKIPPED jobs and why.
+#
+# RULE: no secrets referenced from this workflow.  DEEPINFRA_API_KEY
+# stays on the developer's laptop (~/Projects/AIHW/.env.local); we run
+# planner evals manually before push, not in CI.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+# Kill any in-flight run on the same ref when a new push arrives.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # 1. lint -- catches syntax errors in demo/ and scripts/ across Python
+  # versions.  We DON'T run mypy / pylint / black / etc. because the
+  # codebase isn't typed end-to-end and we haven't agreed on a style
+  # policy.  compileall is the minimum useful bar: any FILE that won't
+  # parse on a target Python version fails here.
+  # Ruff is OPT-IN (only runs if the binary is already cached by the
+  # setup-python action); we don't gate merges on it yet.
+  # ------------------------------------------------------------------
+  lint:
+    name: "lint (py${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: compileall demo/ scripts/
+        run: python3 -m compileall -q demo/ scripts/
+      - name: ruff (optional, non-blocking)
+        run: |
+          if command -v ruff >/dev/null 2>&1; then
+            ruff check demo/ scripts/ || true
+          else
+            echo "ruff not installed -- skipping (non-blocking)"
+          fi
+
+  # ------------------------------------------------------------------
+  # 2. state-server-tests -- fully deterministic, no API key, no
+  # hardware.  Starts state_server in-process on a random port against a
+  # stub RobotState and hammers the auth + CORS + CSRF paths.  This is
+  # the only test in the repo that runs without any external service, so
+  # it's the load-bearing smoke check on every PR.
+  # ------------------------------------------------------------------
+  state-server-tests:
+    name: "state-server (py${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: state_server auth + CORS tests
+        run: python3 scripts/test_state_auth.py
+
+  # ------------------------------------------------------------------
+  # 3. planner-eval-offline -- CAN'T run the real evals in CI because
+  # they cost DeepInfra credits per case (~30 calls for a full run).  We
+  # DO NOT want a CI secret for the API key; it leaked once (see
+  # STATUS.md).  Instead we verify that the harnesses import cleanly
+  # (catches schema drift between the eval and demo/robot_planner.py)
+  # and that --help renders without blowing up.
+  # ------------------------------------------------------------------
+  planner-eval-offline:
+    name: "planner-eval harness check (py${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: planner_eval --help (no API call)
+        env:
+          # Satisfy the key-presence guard without a real value.  The
+          # harness exits BEFORE any network call on --help.  Value is a
+          # dummy string; never logged.
+          DEEPINFRA_API_KEY: "ci-dummy-not-a-real-key"
+        run: |
+          python3 scripts/planner_eval.py --help > /dev/null
+          python3 scripts/planner_eval_holdout.py --help > /dev/null
+          python3 scripts/agent_eval.py --help > /dev/null
+      - name: planner module imports cleanly
+        run: |
+          python3 -c "
+          import sys; sys.path.insert(0, '.')
+          from demo.robot_planner import Planner, DEFAULT_MODEL, TOOL_SCHEMAS
+          # Schema names used by both regression + holdout evals.
+          names = [t['function']['name'] for t in TOOL_SCHEMAS]
+          required = {'pose','walk','stop','jump','look','look_for','say','wait','finish'}
+          missing = required - set(names)
+          assert not missing, f'TOOL_SCHEMAS missing: {missing}'
+          print(f'OK Planner imports, {len(TOOL_SCHEMAS)} tools')
+          "
+
+  # ------------------------------------------------------------------
+  # 4. hw-stress-dry-run -- the real stress test needs a physical
+  # ESP32, pyusb, and 30 minutes.  --dry-run simulates telemetry so we
+  # can still prove the harness parses args, writes logs, and cleans up
+  # without a real device.  5 s duration keeps the CI run cheap.
+  # ------------------------------------------------------------------
+  hw-stress-dry-run:
+    name: "hw-stress --dry-run (py${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: hw_stress_test --dry-run
+        run: python3 scripts/hw_stress_test.py --duration 5 --dry-run
+
+  # ------------------------------------------------------------------
+  # Summary job -- a single gate downstream jobs (branch protection,
+  # required checks) can point at.  Passes iff all matrix jobs passed.
+  # ------------------------------------------------------------------
+  ci-passed:
+    name: "ci-passed"
+    runs-on: ubuntu-latest
+    needs: [lint, state-server-tests, planner-eval-offline, hw-stress-dry-run]
+    if: always()
+    steps:
+      - name: gate on upstream jobs
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.state-server-tests.result }}" != "success" ] || \
+             [ "${{ needs.planner-eval-offline.result }}" != "success" ] || \
+             [ "${{ needs.hw-stress-dry-run.result }}" != "success" ]; then
+            echo "one or more upstream jobs failed"
+            exit 1
+          fi
+          echo "all upstream CI jobs passed"
