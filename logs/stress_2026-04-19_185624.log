@@ -1,0 +1,1683 @@
+18:56:24 robot_daemon up  mode=text  dry_run=False  with_llm=False/fast=False/api=local  with_vision=person  tts=off  stt_phone=pixel6(ANDROID_SERIAL=1B291FDF600260)  stt_backend=whisper-cli
+18:56:24 [self-test] esp32:   PRESENT (VID 303a / PID 1001)
+18:56:24 [self-test] adb:     ok (serial=1B291FDF600260)
+18:56:24 [self-test] webcam:  present (/dev/video0)
+18:56:24 [self-test] llm-key: unset (DEEPINFRA_API_KEY)
+18:56:24 === self-test: PASS ===
+18:56:24 [vision] launching: /usr/bin/python3 /home/andrii/Projects/edge-ai-on-device-bench/demo/vision_watcher.py --source webcam --phone pixel6 --interval 0.1 --watch-for person --output jsonl
+18:56:27 [vision] alive (ticks=20, last_latency=9.9 ms)
+18:56:29 [vision] alive (ticks=40, last_latency=9.2 ms)
+18:56:29 heard (0 ms): 'ping'
+18:56:29 decision: {'c': 'ping'}
+18:56:30 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2047, 2048, 2047]
+18:56:31 [vision] alive (ticks=60, last_latency=9.1 ms)
+18:56:32 [vision] EVENT person conf=0.60 streak=2
+18:56:32 [vision] EVENT person conf=0.59 streak=2
+18:56:33 [vision] alive (ticks=80, last_latency=7.8 ms)
+18:56:34 [vision] EVENT person conf=0.66 streak=2
+18:56:35 [vision] alive (ticks=100, last_latency=12.9 ms)
+18:56:36 [vision] EVENT person conf=0.64 streak=2
+18:56:36 [vision] EVENT person conf=0.64 streak=2
+18:56:37 [vision] alive (ticks=120, last_latency=6.8 ms)
+18:56:39 [vision] alive (ticks=140, last_latency=10.0 ms)
+18:56:39 heard (0 ms): 'neutral'
+18:56:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:56:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2049, 2047]
+18:56:40 [behav] follow: lean_right (norm=+0.28)
+18:56:41 [vision] alive (ticks=160, last_latency=7.1 ms)
+18:56:42 [behav] greet person (new=True)
+18:56:42 [vision] EVENT person conf=0.65 streak=2
+18:56:43 [vision] alive (ticks=180, last_latency=10.9 ms)
+18:56:44 [vision] EVENT person conf=0.55 streak=2
+18:56:44 [vision] EVENT person conf=0.58 streak=2
+18:56:45 [vision] alive (ticks=200, last_latency=8.2 ms)
+18:56:46 [vision] EVENT person conf=0.53 streak=2
+18:56:46 [vision] EVENT person conf=0.54 streak=2
+18:56:47 [vision] alive (ticks=220, last_latency=9.8 ms)
+18:56:48 [vision] EVENT person conf=0.59 streak=2
+18:56:49 [vision] alive (ticks=240, last_latency=65.4 ms)
+18:56:49 heard (0 ms): 'lean_left'
+18:56:49 decision: None
+18:56:49 [behav] follow: lean_right (norm=+0.27)
+18:56:49 [vision] EVENT person conf=0.59 streak=2
+18:56:50 [vision] EVENT person conf=0.68 streak=2
+18:56:51 [vision] alive (ticks=260, last_latency=19.1 ms)
+18:56:53 [vision] alive (ticks=280, last_latency=14.2 ms)
+18:56:55 [vision] alive (ticks=300, last_latency=12.9 ms)
+18:56:56 [vision] EVENT person conf=0.64 streak=2
+18:56:57 [vision] alive (ticks=320, last_latency=6.7 ms)
+18:56:57 [vision] EVENT person conf=0.63 streak=2
+18:56:58 [vision] EVENT person conf=0.61 streak=2
+18:56:59 heard (0 ms): 'neutral'
+18:56:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:56:59 [behav] following -> idle (voice pose)
+18:56:59 [vision] alive (ticks=340, last_latency=8.5 ms)
+18:56:59 [vision] EVENT person conf=0.64 streak=2
+18:57:00 [vision] EVENT person conf=0.60 streak=2
+18:57:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2051, 2046, 2045, 2050]
+18:57:00 [behav] follow: lean_right (norm=+0.30)
+18:57:01 [vision] alive (ticks=360, last_latency=10.3 ms)
+18:57:01 [vision] EVENT person conf=0.57 streak=2
+18:57:02 [vision] EVENT person conf=0.56 streak=2
+18:57:02 [vision] EVENT person conf=0.63 streak=2
+18:57:03 [vision] alive (ticks=380, last_latency=11.3 ms)
+18:57:03 [vision] EVENT person conf=0.69 streak=2
+18:57:03 [vision] EVENT person conf=0.71 streak=2
+18:57:04 [vision] EVENT person conf=0.60 streak=2
+18:57:04 [vision] EVENT person conf=0.52 streak=2
+18:57:05 [vision] alive (ticks=400, last_latency=10.1 ms)
+18:57:05 [vision] EVENT person conf=0.53 streak=2
+18:57:06 [vision] EVENT person conf=0.50 streak=2
+18:57:07 [vision] alive (ticks=420, last_latency=26.0 ms)
+18:57:08 [vision] EVENT person conf=0.64 streak=2
+18:57:09 heard (0 ms): 'lean_right'
+18:57:09 decision: None
+18:57:09 [behav] follow: lean_right (norm=+0.30)
+18:57:09 [vision] alive (ticks=440, last_latency=15.3 ms)
+18:57:11 [vision] EVENT person conf=0.79 streak=2
+18:57:11 [vision] alive (ticks=460, last_latency=15.6 ms)
+18:57:11 [vision] EVENT person conf=0.76 streak=2
+18:57:13 [vision] EVENT person conf=0.71 streak=2
+18:57:13 [vision] alive (ticks=480, last_latency=9.8 ms)
+18:57:14 [vision] EVENT person conf=0.69 streak=2
+18:57:15 [vision] alive (ticks=500, last_latency=8.7 ms)
+18:57:17 [vision] alive (ticks=520, last_latency=12.7 ms)
+18:57:19 heard (0 ms): 'neutral'
+18:57:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:57:19 [behav] following -> idle (voice pose)
+18:57:19 [vision] alive (ticks=540, last_latency=12.3 ms)
+18:57:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2046]
+18:57:20 [behav] follow: lean_right (norm=+0.29)
+18:57:22 [vision] alive (ticks=560, last_latency=8.8 ms)
+18:57:22 [behav] greet person (new=False)
+18:57:24 [vision] alive (ticks=580, last_latency=10.9 ms)
+18:57:26 [vision] alive (ticks=600, last_latency=8.8 ms)
+18:57:27 [vision] EVENT person conf=0.59 streak=2
+18:57:28 [vision] alive (ticks=620, last_latency=66.0 ms)
+18:57:29 heard (0 ms): 'bow'
+18:57:29 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+18:57:29 [behav] following -> idle (voice pose)
+18:57:30 [vision] alive (ticks=640, last_latency=33.6 ms)
+18:57:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+18:57:30 [behav] follow: lean_right (norm=+0.28)
+18:57:32 [vision] alive (ticks=660, last_latency=12.2 ms)
+18:57:34 [vision] alive (ticks=680, last_latency=10.3 ms)
+18:57:36 [vision] alive (ticks=700, last_latency=15.1 ms)
+18:57:38 [vision] alive (ticks=720, last_latency=125.7 ms)
+18:57:39 heard (0 ms): 'neutral'
+18:57:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:57:39 [behav] following -> idle (voice pose)
+18:57:40 [vision] alive (ticks=740, last_latency=44.8 ms)
+18:57:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+18:57:42 [vision] alive (ticks=760, last_latency=9.3 ms)
+18:57:44 [behav] idle sway
+18:57:44 [vision] alive (ticks=780, last_latency=7.8 ms)
+18:57:45 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+18:57:46 [vision] alive (ticks=800, last_latency=10.2 ms)
+18:57:48 [vision] alive (ticks=820, last_latency=10.5 ms)
+18:57:49 heard (0 ms): 'do it again'
+18:57:49 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:57:49 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:57:50 [vision] alive (ticks=840, last_latency=11.7 ms)
+18:57:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2049, 2049, 2048]
+18:57:52 [vision] alive (ticks=860, last_latency=8.8 ms)
+18:57:53 [vision] EVENT person conf=0.61 streak=2
+18:57:54 [vision] EVENT person conf=0.63 streak=2
+18:57:54 [vision] alive (ticks=880, last_latency=9.7 ms)
+18:57:56 [vision] EVENT person conf=0.74 streak=2
+18:57:56 [vision] alive (ticks=900, last_latency=9.4 ms)
+18:57:58 [vision] alive (ticks=920, last_latency=11.4 ms)
+18:57:59 heard (0 ms): 'repeat that'
+18:57:59 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:57:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:58:00 [vision] EVENT person conf=0.62 streak=2
+18:58:00 [vision] alive (ticks=940, last_latency=7.1 ms)
+18:58:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2049, 2049, 2048]
+18:58:00 [behav] follow: lean_right (norm=+0.29)
+18:58:02 [behav] greet person (new=False)
+18:58:02 [vision] alive (ticks=960, last_latency=10.7 ms)
+18:58:04 [vision] alive (ticks=980, last_latency=7.4 ms)
+18:58:06 [vision] alive (ticks=1000, last_latency=9.6 ms)
+18:58:08 [vision] alive (ticks=1020, last_latency=8.0 ms)
+18:58:09 heard (0 ms): 'ping'
+18:58:09 decision: {'c': 'ping'}
+18:58:10 [vision] alive (ticks=1040, last_latency=8.0 ms)
+18:58:10 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2050, 2049, 2049, 2045]
+18:58:12 [vision] alive (ticks=1060, last_latency=8.8 ms)
+18:58:14 [vision] alive (ticks=1080, last_latency=8.5 ms)
+18:58:16 [vision] alive (ticks=1100, last_latency=8.2 ms)
+18:58:18 [vision] alive (ticks=1120, last_latency=7.5 ms)
+18:58:19 heard (0 ms): 'neutral'
+18:58:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:58:19 [behav] following -> idle (voice pose)
+18:58:20 [vision] alive (ticks=1140, last_latency=10.4 ms)
+18:58:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2050, 2049, 2049, 2045]
+18:58:22 [vision] alive (ticks=1160, last_latency=9.1 ms)
+18:58:24 [vision] alive (ticks=1180, last_latency=8.7 ms)
+18:58:25 [behav] idle sway
+18:58:26 [vision] alive (ticks=1200, last_latency=7.2 ms)
+18:58:27 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+18:58:28 [vision] alive (ticks=1220, last_latency=10.3 ms)
+18:58:29 heard (0 ms): 'lean_left'
+18:58:29 decision: None
+18:58:30 [vision] alive (ticks=1240, last_latency=11.2 ms)
+18:58:32 [vision] alive (ticks=1260, last_latency=10.3 ms)
+18:58:34 [vision] alive (ticks=1280, last_latency=9.5 ms)
+18:58:36 [vision] alive (ticks=1300, last_latency=9.4 ms)
+18:58:38 [vision] alive (ticks=1320, last_latency=10.8 ms)
+18:58:39 heard (0 ms): 'neutral'
+18:58:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:58:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2050, 2049, 2049, 2045]
+18:58:40 [vision] alive (ticks=1340, last_latency=10.9 ms)
+18:58:42 [vision] alive (ticks=1360, last_latency=7.9 ms)
+18:58:44 [vision] alive (ticks=1380, last_latency=9.8 ms)
+18:58:46 [vision] alive (ticks=1400, last_latency=9.0 ms)
+18:58:48 [vision] alive (ticks=1420, last_latency=21.4 ms)
+18:58:49 heard (0 ms): 'lean_right'
+18:58:49 decision: None
+18:58:50 [vision] alive (ticks=1440, last_latency=7.4 ms)
+18:58:52 [vision] alive (ticks=1460, last_latency=10.2 ms)
+18:58:54 [vision] EVENT person conf=0.71 streak=2
+18:58:55 [vision] alive (ticks=1480, last_latency=10.8 ms)
+18:58:55 [vision] EVENT person conf=0.56 streak=2
+18:58:55 [vision] EVENT person conf=0.74 streak=2
+18:58:56 [vision] EVENT person conf=0.79 streak=2
+18:58:57 [vision] alive (ticks=1500, last_latency=13.1 ms)
+18:58:57 [behav] idle sway
+18:58:58 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+18:58:59 [vision] alive (ticks=1520, last_latency=7.1 ms)
+18:58:59 heard (0 ms): 'neutral'
+18:58:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:59:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2050, 2049, 2049, 2045]
+18:59:00 [behav] follow: lean_right (norm=+0.17)
+18:59:01 [vision] alive (ticks=1540, last_latency=10.5 ms)
+18:59:02 [behav] greet person (new=False)
+18:59:03 [vision] alive (ticks=1560, last_latency=7.7 ms)
+18:59:04 [vision] EVENT person conf=0.65 streak=2
+18:59:05 [vision] alive (ticks=1580, last_latency=11.3 ms)
+18:59:05 [vision] EVENT person conf=0.64 streak=2
+18:59:07 [vision] alive (ticks=1600, last_latency=7.3 ms)
+18:59:09 [vision] alive (ticks=1620, last_latency=8.3 ms)
+18:59:09 heard (0 ms): 'bow'
+18:59:09 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+18:59:09 [behav] following -> idle (voice pose)
+18:59:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2597, 1594]
+18:59:11 [vision] alive (ticks=1640, last_latency=11.4 ms)
+18:59:12 [vision] EVENT person conf=0.88 streak=2
+18:59:13 [vision] alive (ticks=1660, last_latency=11.0 ms)
+18:59:15 [vision] alive (ticks=1680, last_latency=10.4 ms)
+18:59:17 [vision] alive (ticks=1700, last_latency=8.1 ms)
+18:59:19 [vision] alive (ticks=1720, last_latency=12.6 ms)
+18:59:19 heard (0 ms): 'neutral'
+18:59:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:59:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2046]
+18:59:21 [vision] alive (ticks=1740, last_latency=10.7 ms)
+18:59:23 [vision] alive (ticks=1760, last_latency=15.9 ms)
+18:59:25 [vision] alive (ticks=1780, last_latency=16.0 ms)
+18:59:27 [vision] alive (ticks=1800, last_latency=10.2 ms)
+18:59:28 [behav] idle sway
+18:59:29 [vision] alive (ticks=1820, last_latency=9.0 ms)
+18:59:29 heard (0 ms): 'do it again'
+18:59:29 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:59:29 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:59:30 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+18:59:31 [vision] alive (ticks=1840, last_latency=11.2 ms)
+18:59:31 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2046]
+18:59:33 [vision] alive (ticks=1860, last_latency=9.0 ms)
+18:59:35 [vision] alive (ticks=1880, last_latency=8.4 ms)
+18:59:37 [vision] alive (ticks=1900, last_latency=7.0 ms)
+18:59:39 [vision] alive (ticks=1920, last_latency=16.7 ms)
+18:59:39 heard (0 ms): 'repeat that'
+18:59:39 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:59:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+18:59:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2046]
+18:59:41 [vision] alive (ticks=1940, last_latency=11.0 ms)
+18:59:43 [vision] alive (ticks=1960, last_latency=11.2 ms)
+18:59:45 [vision] alive (ticks=1980, last_latency=6.8 ms)
+18:59:47 [vision] alive (ticks=2000, last_latency=29.3 ms)
+18:59:49 [vision] alive (ticks=2020, last_latency=9.7 ms)
+18:59:49 heard (0 ms): 'ping'
+18:59:49 decision: {'c': 'ping'}
+18:59:50 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2050, 2049, 2046]
+18:59:51 [vision] alive (ticks=2040, last_latency=9.4 ms)
+18:59:53 [vision] alive (ticks=2060, last_latency=7.1 ms)
+18:59:55 [vision] alive (ticks=2080, last_latency=8.4 ms)
+18:59:57 [vision] alive (ticks=2100, last_latency=10.4 ms)
+18:59:59 [vision] alive (ticks=2120, last_latency=10.1 ms)
+18:59:59 heard (0 ms): 'neutral'
+18:59:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:00:00 [behav] idle sway
+19:00:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2049, 2046]
+19:00:01 [vision] alive (ticks=2140, last_latency=9.6 ms)
+19:00:02 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:00:03 [vision] alive (ticks=2160, last_latency=7.6 ms)
+19:00:05 [vision] alive (ticks=2180, last_latency=15.4 ms)
+19:00:07 [vision] alive (ticks=2200, last_latency=40.4 ms)
+19:00:09 [vision] alive (ticks=2220, last_latency=9.5 ms)
+19:00:09 heard (0 ms): 'lean_left'
+19:00:09 decision: None
+19:00:11 [vision] alive (ticks=2240, last_latency=9.0 ms)
+19:00:13 [vision] alive (ticks=2260, last_latency=10.7 ms)
+19:00:15 [vision] alive (ticks=2280, last_latency=10.2 ms)
+19:00:17 [vision] alive (ticks=2300, last_latency=8.3 ms)
+19:00:19 heard (0 ms): 'neutral'
+19:00:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:00:19 [vision] alive (ticks=2320, last_latency=7.3 ms)
+19:00:20 [vision] EVENT person conf=0.78 streak=2
+19:00:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2049, 2046]
+19:00:20 [behav] greet person (new=False)
+19:00:21 [vision] alive (ticks=2340, last_latency=13.4 ms)
+19:00:23 [vision] alive (ticks=2360, last_latency=185.2 ms)
+19:00:25 [vision] alive (ticks=2380, last_latency=16.5 ms)
+19:00:27 [vision] alive (ticks=2400, last_latency=7.7 ms)
+19:00:29 heard (0 ms): 'lean_right'
+19:00:29 decision: None
+19:00:29 [vision] alive (ticks=2420, last_latency=14.2 ms)
+19:00:29 [vision] EVENT person conf=0.51 streak=2
+19:00:31 [vision] alive (ticks=2440, last_latency=32.0 ms)
+19:00:32 [behav] idle sway
+19:00:33 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:00:33 [vision] alive (ticks=2460, last_latency=24.6 ms)
+19:00:34 [vision] EVENT person conf=0.52 streak=2
+19:00:35 [vision] alive (ticks=2480, last_latency=52.7 ms)
+19:00:37 [vision] alive (ticks=2500, last_latency=11.1 ms)
+19:00:38 [vision] EVENT person conf=0.52 streak=2
+19:00:39 heard (0 ms): 'neutral'
+19:00:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:00:39 [vision] alive (ticks=2520, last_latency=10.1 ms)
+19:00:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2049, 2046]
+19:00:40 [behav] follow: lean_right (norm=+0.25)
+19:00:42 [vision] alive (ticks=2540, last_latency=25.1 ms)
+19:00:44 [vision] alive (ticks=2560, last_latency=20.5 ms)
+19:00:46 [vision] alive (ticks=2580, last_latency=12.2 ms)
+19:00:48 [vision] alive (ticks=2600, last_latency=46.5 ms)
+19:00:49 heard (0 ms): 'bow'
+19:00:49 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:00:49 [behav] following -> idle (voice pose)
+19:00:50 [vision] alive (ticks=2620, last_latency=31.8 ms)
+19:00:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:00:51 [vision] EVENT person conf=0.58 streak=2
+19:00:52 [vision] alive (ticks=2640, last_latency=29.5 ms)
+19:00:54 [vision] EVENT person conf=0.52 streak=2
+19:00:54 [vision] alive (ticks=2660, last_latency=24.2 ms)
+19:00:55 [vision] EVENT person conf=0.56 streak=2
+19:00:55 [vision] EVENT person conf=0.57 streak=2
+19:00:56 [vision] alive (ticks=2680, last_latency=16.4 ms)
+19:00:57 [vision] EVENT person conf=0.56 streak=2
+19:00:57 [vision] EVENT person conf=0.54 streak=2
+19:00:57 [vision] EVENT person conf=0.62 streak=2
+19:00:58 [vision] alive (ticks=2700, last_latency=7.6 ms)
+19:00:59 heard (0 ms): 'neutral'
+19:00:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:00:59 [vision] EVENT person conf=0.50 streak=2
+19:01:00 [vision] alive (ticks=2720, last_latency=8.4 ms)
+19:01:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2048]
+19:01:00 [behav] follow: lean_right (norm=+0.27)
+19:01:02 [behav] greet person (new=False)
+19:01:02 [vision] EVENT person conf=0.55 streak=2
+19:01:02 [vision] alive (ticks=2740, last_latency=11.8 ms)
+19:01:04 [vision] alive (ticks=2760, last_latency=12.2 ms)
+19:01:05 [vision] EVENT person conf=0.59 streak=2
+19:01:06 [vision] alive (ticks=2780, last_latency=8.0 ms)
+19:01:08 [vision] alive (ticks=2800, last_latency=11.3 ms)
+19:01:08 [vision] EVENT person conf=0.57 streak=2
+19:01:09 heard (0 ms): 'do it again'
+19:01:09 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:01:09 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:01:09 [behav] following -> idle (voice pose)
+19:01:10 [vision] EVENT person conf=0.52 streak=2
+19:01:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2048, 2048]
+19:01:10 [behav] follow: lean_right (norm=+0.27)
+19:01:10 [vision] alive (ticks=2820, last_latency=10.6 ms)
+19:01:12 [vision] EVENT person conf=0.53 streak=2
+19:01:12 [vision] alive (ticks=2840, last_latency=12.9 ms)
+19:01:12 [vision] EVENT person conf=0.54 streak=2
+19:01:13 [vision] EVENT person conf=0.53 streak=2
+19:01:14 [vision] alive (ticks=2860, last_latency=12.0 ms)
+19:01:16 [vision] alive (ticks=2880, last_latency=8.7 ms)
+19:01:18 [vision] alive (ticks=2900, last_latency=7.7 ms)
+19:01:19 heard (0 ms): 'repeat that'
+19:01:19 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:01:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:01:19 [behav] following -> idle (voice pose)
+19:01:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2050, 2049, 2047]
+19:01:20 [behav] follow: lean_right (norm=+0.27)
+19:01:20 [vision] alive (ticks=2920, last_latency=10.7 ms)
+19:01:22 [vision] alive (ticks=2940, last_latency=7.3 ms)
+19:01:24 [vision] EVENT person conf=0.54 streak=2
+19:01:24 [vision] alive (ticks=2960, last_latency=10.0 ms)
+19:01:26 [vision] alive (ticks=2980, last_latency=10.7 ms)
+19:01:28 [vision] alive (ticks=3000, last_latency=46.7 ms)
+19:01:29 heard (0 ms): 'ping'
+19:01:29 decision: {'c': 'ping'}
+19:01:30 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2046, 2049, 2048, 2047]
+19:01:30 [behav] follow: lean_right (norm=+0.26)
+19:01:30 [vision] alive (ticks=3020, last_latency=27.2 ms)
+19:01:32 [vision] alive (ticks=3040, last_latency=9.2 ms)
+19:01:34 [vision] alive (ticks=3060, last_latency=8.5 ms)
+19:01:36 [vision] alive (ticks=3080, last_latency=8.6 ms)
+19:01:38 [vision] alive (ticks=3100, last_latency=9.5 ms)
+19:01:39 heard (0 ms): 'neutral'
+19:01:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:01:39 [behav] following -> idle (voice pose)
+19:01:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:01:41 [vision] alive (ticks=3120, last_latency=67.7 ms)
+19:01:42 [vision] EVENT person conf=0.56 streak=2
+19:01:42 [vision] alive (ticks=3140, last_latency=11.4 ms)
+19:01:43 [behav] idle sway
+19:01:44 [vision] alive (ticks=3160, last_latency=7.9 ms)
+19:01:45 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:01:47 [vision] alive (ticks=3180, last_latency=7.7 ms)
+19:01:47 [vision] EVENT person conf=0.50 streak=2
+19:01:49 [vision] alive (ticks=3200, last_latency=12.1 ms)
+19:01:49 heard (0 ms): 'lean_left'
+19:01:49 decision: None
+19:01:49 [behav] follow: lean_right (norm=+0.26)
+19:01:50 [behav] greet person (new=False)
+19:01:51 [vision] alive (ticks=3220, last_latency=7.6 ms)
+19:01:53 [vision] alive (ticks=3240, last_latency=8.8 ms)
+19:01:55 [vision] alive (ticks=3260, last_latency=8.0 ms)
+19:01:57 [vision] alive (ticks=3280, last_latency=14.9 ms)
+19:01:59 [vision] alive (ticks=3300, last_latency=7.8 ms)
+19:01:59 heard (0 ms): 'neutral'
+19:01:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:01:59 [behav] following -> idle (voice pose)
+19:02:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2049, 2050, 2047]
+19:02:01 [vision] alive (ticks=3320, last_latency=9.0 ms)
+19:02:03 [vision] alive (ticks=3340, last_latency=7.9 ms)
+19:02:05 [vision] alive (ticks=3360, last_latency=10.9 ms)
+19:02:07 [vision] alive (ticks=3380, last_latency=8.2 ms)
+19:02:09 [vision] alive (ticks=3400, last_latency=6.9 ms)
+19:02:09 heard (0 ms): 'lean_right'
+19:02:09 decision: None
+19:02:11 [vision] alive (ticks=3420, last_latency=9.6 ms)
+19:02:13 [vision] alive (ticks=3440, last_latency=10.3 ms)
+19:02:15 [behav] idle sway
+19:02:15 [vision] alive (ticks=3460, last_latency=8.1 ms)
+19:02:16 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:02:17 [vision] alive (ticks=3480, last_latency=8.6 ms)
+19:02:19 [vision] alive (ticks=3500, last_latency=11.8 ms)
+19:02:19 heard (0 ms): 'neutral'
+19:02:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:02:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2049, 2050, 2047]
+19:02:21 [vision] alive (ticks=3520, last_latency=11.9 ms)
+19:02:23 [vision] alive (ticks=3540, last_latency=15.4 ms)
+19:02:25 [vision] alive (ticks=3560, last_latency=13.7 ms)
+19:02:27 [vision] alive (ticks=3580, last_latency=6.6 ms)
+19:02:29 [vision] alive (ticks=3600, last_latency=9.7 ms)
+19:02:29 heard (0 ms): 'bow'
+19:02:29 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:02:30 [vision] EVENT person conf=0.73 streak=2
+19:02:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:02:30 [behav] greet person (new=False)
+19:02:31 [vision] alive (ticks=3620, last_latency=8.3 ms)
+19:02:33 [vision] alive (ticks=3640, last_latency=9.1 ms)
+19:02:35 [vision] alive (ticks=3660, last_latency=8.6 ms)
+19:02:37 [vision] alive (ticks=3680, last_latency=10.6 ms)
+19:02:39 [vision] alive (ticks=3700, last_latency=9.9 ms)
+19:02:39 heard (0 ms): 'neutral'
+19:02:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:02:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2050, 2049, 2048]
+19:02:41 [vision] alive (ticks=3720, last_latency=7.8 ms)
+19:02:43 [vision] alive (ticks=3740, last_latency=6.8 ms)
+19:02:45 [vision] alive (ticks=3760, last_latency=31.8 ms)
+19:02:46 [behav] idle sway
+19:02:47 [vision] alive (ticks=3780, last_latency=15.0 ms)
+19:02:47 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:02:49 [vision] alive (ticks=3800, last_latency=34.3 ms)
+19:02:49 heard (0 ms): 'do it again'
+19:02:49 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:02:49 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:02:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2050, 2049, 2048]
+19:02:51 [vision] alive (ticks=3820, last_latency=44.4 ms)
+19:02:53 [vision] alive (ticks=3840, last_latency=23.5 ms)
+19:02:55 [vision] EVENT person conf=0.66 streak=2
+19:02:55 [vision] alive (ticks=3860, last_latency=70.3 ms)
+19:02:57 [vision] alive (ticks=3880, last_latency=48.9 ms)
+19:02:59 heard (0 ms): 'repeat that'
+19:02:59 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:02:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:02:59 [vision] alive (ticks=3900, last_latency=14.9 ms)
+19:03:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2050, 2049, 2048]
+19:03:00 [behav] greet person (new=False)
+19:03:01 [vision] alive (ticks=3920, last_latency=8.0 ms)
+19:03:03 [vision] alive (ticks=3940, last_latency=9.0 ms)
+19:03:05 [vision] alive (ticks=3960, last_latency=9.2 ms)
+19:03:07 [vision] alive (ticks=3980, last_latency=9.4 ms)
+19:03:09 heard (0 ms): 'ping'
+19:03:09 decision: {'c': 'ping'}
+19:03:09 [vision] alive (ticks=4000, last_latency=7.2 ms)
+19:03:10 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2050, 2049, 2048]
+19:03:11 [vision] alive (ticks=4020, last_latency=9.2 ms)
+19:03:13 [vision] alive (ticks=4040, last_latency=10.2 ms)
+19:03:15 [vision] alive (ticks=4060, last_latency=7.5 ms)
+19:03:17 [vision] alive (ticks=4080, last_latency=13.1 ms)
+19:03:17 [behav] idle sway
+19:03:19 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:03:19 heard (0 ms): 'neutral'
+19:03:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:03:19 [vision] alive (ticks=4100, last_latency=31.2 ms)
+19:03:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2049, 2048]
+19:03:21 [vision] alive (ticks=4120, last_latency=30.7 ms)
+19:03:23 [vision] alive (ticks=4140, last_latency=20.3 ms)
+19:03:25 [vision] alive (ticks=4160, last_latency=12.9 ms)
+19:03:27 [vision] alive (ticks=4180, last_latency=10.4 ms)
+19:03:29 heard (0 ms): 'lean_left'
+19:03:29 decision: None
+19:03:29 [vision] alive (ticks=4200, last_latency=9.4 ms)
+19:03:31 [vision] alive (ticks=4220, last_latency=11.8 ms)
+19:03:33 [vision] alive (ticks=4240, last_latency=35.1 ms)
+19:03:35 [vision] alive (ticks=4260, last_latency=29.2 ms)
+19:03:37 [vision] alive (ticks=4280, last_latency=22.1 ms)
+19:03:39 heard (0 ms): 'neutral'
+19:03:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:03:39 [vision] alive (ticks=4300, last_latency=16.3 ms)
+19:03:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2049, 2048]
+19:03:41 [vision] alive (ticks=4320, last_latency=9.3 ms)
+19:03:43 [vision] alive (ticks=4340, last_latency=7.5 ms)
+19:03:45 [vision] alive (ticks=4360, last_latency=9.7 ms)
+19:03:47 [vision] alive (ticks=4380, last_latency=14.0 ms)
+19:03:49 [behav] idle sway
+19:03:49 heard (0 ms): 'lean_right'
+19:03:49 decision: None
+19:03:49 [vision] alive (ticks=4400, last_latency=8.4 ms)
+19:03:50 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:03:51 [vision] alive (ticks=4420, last_latency=11.6 ms)
+19:03:53 [vision] alive (ticks=4440, last_latency=11.3 ms)
+19:03:55 [vision] alive (ticks=4460, last_latency=15.5 ms)
+19:03:57 [vision] alive (ticks=4480, last_latency=9.8 ms)
+19:03:59 heard (0 ms): 'neutral'
+19:03:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:03:59 [vision] alive (ticks=4500, last_latency=9.0 ms)
+19:04:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2049, 2048]
+19:04:01 [vision] alive (ticks=4520, last_latency=6.7 ms)
+19:04:03 [vision] alive (ticks=4540, last_latency=10.8 ms)
+19:04:05 [vision] alive (ticks=4560, last_latency=8.4 ms)
+19:04:07 [vision] alive (ticks=4580, last_latency=10.1 ms)
+19:04:09 heard (0 ms): 'bow'
+19:04:09 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:04:09 [vision] alive (ticks=4600, last_latency=8.3 ms)
+19:04:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:04:11 [vision] alive (ticks=4620, last_latency=25.8 ms)
+19:04:13 [vision] alive (ticks=4640, last_latency=41.9 ms)
+19:04:15 [vision] alive (ticks=4660, last_latency=27.8 ms)
+19:04:17 [vision] alive (ticks=4680, last_latency=18.9 ms)
+19:04:19 heard (0 ms): 'neutral'
+19:04:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:04:19 [vision] alive (ticks=4700, last_latency=11.2 ms)
+19:04:20 [behav] idle sway
+19:04:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2048, 2047]
+19:04:21 [vision] alive (ticks=4720, last_latency=13.0 ms)
+19:04:22 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:04:23 [vision] EVENT person conf=0.80 streak=2
+19:04:23 [vision] alive (ticks=4740, last_latency=10.7 ms)
+19:04:25 [vision] alive (ticks=4760, last_latency=10.2 ms)
+19:04:26 [vision] EVENT person conf=0.72 streak=2
+19:04:27 [vision] alive (ticks=4780, last_latency=7.5 ms)
+19:04:27 [vision] EVENT person conf=0.55 streak=2
+19:04:29 heard (0 ms): 'do it again'
+19:04:29 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:04:29 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:04:29 [vision] alive (ticks=4800, last_latency=10.2 ms)
+19:04:30 [vision] EVENT person conf=0.66 streak=2
+19:04:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2048, 2047]
+19:04:30 [behav] greet person (new=False)
+19:04:30 [behav] follow: lean_left (norm=-0.19)
+19:04:31 [vision] alive (ticks=4820, last_latency=7.3 ms)
+19:04:32 [vision] EVENT person conf=0.60 streak=2
+19:04:33 [vision] alive (ticks=4840, last_latency=9.0 ms)
+19:04:35 [vision] alive (ticks=4860, last_latency=8.0 ms)
+19:04:37 [vision] alive (ticks=4880, last_latency=37.0 ms)
+19:04:39 heard (0 ms): 'repeat that'
+19:04:39 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:04:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:04:39 [behav] following -> idle (voice pose)
+19:04:39 [vision] EVENT person conf=0.63 streak=2
+19:04:39 [vision] alive (ticks=4900, last_latency=27.9 ms)
+19:04:40 [vision] EVENT person conf=0.51 streak=2
+19:04:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2050, 2047]
+19:04:40 [behav] follow: lean_left (norm=-0.11)
+19:04:41 [vision] EVENT person conf=0.58 streak=2
+19:04:41 [vision] alive (ticks=4920, last_latency=19.0 ms)
+19:04:42 [vision] EVENT person conf=0.51 streak=2
+19:04:43 [vision] alive (ticks=4940, last_latency=11.3 ms)
+19:04:44 [vision] EVENT person conf=0.78 streak=2
+19:04:45 [vision] alive (ticks=4960, last_latency=9.3 ms)
+19:04:47 [vision] alive (ticks=4980, last_latency=8.0 ms)
+19:04:49 heard (0 ms): 'ping'
+19:04:49 decision: {'c': 'ping'}
+19:04:49 [vision] alive (ticks=5000, last_latency=8.4 ms)
+19:04:50 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:04:50 [behav] follow: lean_right (norm=+0.17)
+19:04:51 [vision] alive (ticks=5020, last_latency=7.4 ms)
+19:04:53 [vision] alive (ticks=5040, last_latency=8.7 ms)
+19:04:55 [vision] alive (ticks=5060, last_latency=7.2 ms)
+19:04:57 [vision] alive (ticks=5080, last_latency=8.4 ms)
+19:04:59 heard (0 ms): 'neutral'
+19:04:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:04:59 [behav] following -> idle (voice pose)
+19:05:00 [vision] alive (ticks=5100, last_latency=8.2 ms)
+19:05:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2049, 2049, 2047, 2048]
+19:05:02 [vision] alive (ticks=5120, last_latency=8.5 ms)
+19:05:02 [behav] idle sway
+19:05:03 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:05:04 [vision] alive (ticks=5140, last_latency=25.0 ms)
+19:05:06 [vision] alive (ticks=5160, last_latency=17.0 ms)
+19:05:08 [vision] alive (ticks=5180, last_latency=7.4 ms)
+19:05:09 heard (0 ms): 'lean_left'
+19:05:09 decision: None
+19:05:10 [vision] alive (ticks=5200, last_latency=9.2 ms)
+19:05:12 [vision] alive (ticks=5220, last_latency=8.5 ms)
+19:05:14 [vision] alive (ticks=5240, last_latency=7.2 ms)
+19:05:16 [vision] alive (ticks=5260, last_latency=10.2 ms)
+19:05:16 [vision] EVENT person conf=0.73 streak=2
+19:05:18 [vision] alive (ticks=5280, last_latency=13.0 ms)
+19:05:18 [vision] EVENT person conf=0.50 streak=2
+19:05:18 [vision] EVENT person conf=0.60 streak=2
+19:05:19 heard (0 ms): 'neutral'
+19:05:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:05:20 [vision] alive (ticks=5300, last_latency=8.6 ms)
+19:05:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2049, 2049, 2047]
+19:05:20 [behav] follow: lean_right (norm=+0.45)
+19:05:22 [vision] alive (ticks=5320, last_latency=7.9 ms)
+19:05:22 [behav] greet person (new=False)
+19:05:24 [vision] alive (ticks=5340, last_latency=8.4 ms)
+19:05:24 [vision] EVENT person conf=0.54 streak=2
+19:05:26 [vision] alive (ticks=5360, last_latency=33.1 ms)
+19:05:28 [vision] alive (ticks=5380, last_latency=24.2 ms)
+19:05:29 heard (0 ms): 'lean_right'
+19:05:29 decision: None
+19:05:29 [behav] follow: lean_right (norm=+0.34)
+19:05:30 [vision] alive (ticks=5400, last_latency=17.5 ms)
+19:05:30 [vision] EVENT person conf=0.74 streak=2
+19:05:32 [vision] alive (ticks=5420, last_latency=7.6 ms)
+19:05:34 [vision] alive (ticks=5440, last_latency=10.4 ms)
+19:05:36 [vision] alive (ticks=5460, last_latency=7.3 ms)
+19:05:38 [vision] alive (ticks=5480, last_latency=8.4 ms)
+19:05:39 heard (0 ms): 'neutral'
+19:05:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:05:39 [behav] following -> idle (voice pose)
+19:05:40 [vision] alive (ticks=5500, last_latency=7.8 ms)
+19:05:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2049, 2048, 2048]
+19:05:42 [vision] alive (ticks=5520, last_latency=10.5 ms)
+19:05:43 [behav] idle sway
+19:05:44 [vision] alive (ticks=5540, last_latency=9.1 ms)
+19:05:45 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:05:46 [vision] alive (ticks=5560, last_latency=9.1 ms)
+19:05:48 [vision] alive (ticks=5580, last_latency=7.1 ms)
+19:05:49 heard (0 ms): 'bow'
+19:05:49 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:05:50 [vision] alive (ticks=5600, last_latency=29.0 ms)
+19:05:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:05:50 [vision] EVENT person conf=0.91 streak=2
+19:05:52 [vision] alive (ticks=5620, last_latency=20.1 ms)
+19:05:54 [vision] alive (ticks=5640, last_latency=11.7 ms)
+19:05:56 [vision] alive (ticks=5660, last_latency=6.8 ms)
+19:05:58 [vision] alive (ticks=5680, last_latency=8.9 ms)
+19:05:59 heard (0 ms): 'neutral'
+19:05:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:06:00 [vision] alive (ticks=5700, last_latency=8.9 ms)
+19:06:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2049, 2049, 2048, 2047]
+19:06:00 [behav] greet person (new=False)
+19:06:02 [vision] alive (ticks=5720, last_latency=6.6 ms)
+19:06:02 [vision] EVENT person conf=0.81 streak=2
+19:06:03 [vision] EVENT person conf=0.86 streak=2
+19:06:04 [vision] alive (ticks=5740, last_latency=8.2 ms)
+19:06:06 [vision] EVENT person conf=0.90 streak=2
+19:06:06 [vision] alive (ticks=5760, last_latency=8.6 ms)
+19:06:08 [vision] alive (ticks=5780, last_latency=7.8 ms)
+19:06:09 heard (0 ms): 'do it again'
+19:06:09 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:06:09 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:06:10 [vision] alive (ticks=5800, last_latency=7.0 ms)
+19:06:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2049, 2049, 2048, 2047]
+19:06:10 [behav] follow: lean_left (norm=-0.42)
+19:06:12 [vision] alive (ticks=5820, last_latency=29.4 ms)
+19:06:14 [vision] alive (ticks=5840, last_latency=23.9 ms)
+19:06:16 [vision] alive (ticks=5860, last_latency=14.8 ms)
+19:06:18 [vision] alive (ticks=5880, last_latency=9.0 ms)
+19:06:19 heard (0 ms): 'repeat that'
+19:06:19 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:06:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:06:19 [behav] following -> idle (voice pose)
+19:06:20 [vision] alive (ticks=5900, last_latency=11.1 ms)
+19:06:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2049, 2048]
+19:06:22 [vision] alive (ticks=5920, last_latency=10.0 ms)
+19:06:24 [vision] alive (ticks=5940, last_latency=13.2 ms)
+19:06:25 [behav] idle sway
+19:06:26 [vision] alive (ticks=5960, last_latency=8.6 ms)
+19:06:26 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:06:28 [vision] alive (ticks=5980, last_latency=7.1 ms)
+19:06:29 heard (0 ms): 'ping'
+19:06:29 decision: {'c': 'ping'}
+19:06:30 [vision] alive (ticks=6000, last_latency=12.9 ms)
+19:06:30 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2048, 2049, 2048]
+19:06:32 [vision] alive (ticks=6020, last_latency=17.4 ms)
+19:06:34 [vision] alive (ticks=6040, last_latency=9.4 ms)
+19:06:36 [vision] alive (ticks=6060, last_latency=30.9 ms)
+19:06:38 [vision] alive (ticks=6080, last_latency=20.6 ms)
+19:06:39 heard (0 ms): 'neutral'
+19:06:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:06:40 [vision] alive (ticks=6100, last_latency=14.6 ms)
+19:06:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2049, 2048]
+19:06:42 [vision] alive (ticks=6120, last_latency=11.9 ms)
+19:06:44 [vision] alive (ticks=6140, last_latency=7.5 ms)
+19:06:46 [vision] alive (ticks=6160, last_latency=7.6 ms)
+19:06:48 [vision] alive (ticks=6180, last_latency=8.4 ms)
+19:06:49 heard (0 ms): 'lean_left'
+19:06:49 decision: None
+19:06:50 [vision] alive (ticks=6200, last_latency=8.3 ms)
+19:06:52 [vision] alive (ticks=6220, last_latency=6.8 ms)
+19:06:54 [vision] alive (ticks=6240, last_latency=8.0 ms)
+19:06:56 [behav] idle sway
+19:06:56 [vision] alive (ticks=6260, last_latency=8.1 ms)
+19:06:57 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:06:58 [vision] alive (ticks=6280, last_latency=10.3 ms)
+19:06:59 heard (0 ms): 'neutral'
+19:06:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:07:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2049, 2048]
+19:07:00 [vision] alive (ticks=6300, last_latency=31.0 ms)
+19:07:02 [vision] alive (ticks=6320, last_latency=23.8 ms)
+19:07:04 [vision] alive (ticks=6340, last_latency=8.9 ms)
+19:07:06 [vision] alive (ticks=6360, last_latency=16.8 ms)
+19:07:08 [vision] alive (ticks=6380, last_latency=6.4 ms)
+19:07:09 heard (0 ms): 'lean_right'
+19:07:09 decision: None
+19:07:10 [vision] alive (ticks=6400, last_latency=8.8 ms)
+19:07:12 [vision] alive (ticks=6420, last_latency=44.6 ms)
+19:07:14 [vision] alive (ticks=6440, last_latency=10.6 ms)
+19:07:16 [vision] alive (ticks=6460, last_latency=7.4 ms)
+19:07:18 [vision] alive (ticks=6480, last_latency=9.3 ms)
+19:07:19 heard (0 ms): 'neutral'
+19:07:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:07:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2049, 2047]
+19:07:20 [vision] alive (ticks=6500, last_latency=34.1 ms)
+19:07:22 [vision] alive (ticks=6520, last_latency=27.4 ms)
+19:07:24 [vision] alive (ticks=6540, last_latency=18.0 ms)
+19:07:26 [vision] alive (ticks=6560, last_latency=8.3 ms)
+19:07:27 [behav] idle sway
+19:07:28 [vision] alive (ticks=6580, last_latency=9.7 ms)
+19:07:29 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:07:29 heard (0 ms): 'bow'
+19:07:29 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:07:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:07:30 [vision] alive (ticks=6600, last_latency=8.3 ms)
+19:07:32 [vision] alive (ticks=6620, last_latency=6.9 ms)
+19:07:34 [vision] alive (ticks=6640, last_latency=8.1 ms)
+19:07:36 [vision] alive (ticks=6660, last_latency=7.5 ms)
+19:07:38 [vision] alive (ticks=6680, last_latency=33.2 ms)
+19:07:39 heard (0 ms): 'neutral'
+19:07:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:07:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2048]
+19:07:40 [vision] alive (ticks=6700, last_latency=24.0 ms)
+19:07:42 [vision] alive (ticks=6720, last_latency=16.4 ms)
+19:07:44 [vision] alive (ticks=6740, last_latency=15.8 ms)
+19:07:46 [vision] alive (ticks=6760, last_latency=35.6 ms)
+19:07:48 [vision] alive (ticks=6780, last_latency=11.9 ms)
+19:07:49 heard (0 ms): 'do it again'
+19:07:49 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:07:49 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:07:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2048]
+19:07:51 [vision] alive (ticks=6800, last_latency=13.3 ms)
+19:07:53 [vision] alive (ticks=6820, last_latency=11.2 ms)
+19:07:55 [vision] alive (ticks=6840, last_latency=12.9 ms)
+19:07:57 [vision] alive (ticks=6860, last_latency=17.1 ms)
+19:07:59 [vision] alive (ticks=6880, last_latency=32.9 ms)
+19:07:59 [behav] idle sway
+19:07:59 heard (0 ms): 'repeat that'
+19:07:59 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:07:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:08:00 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:08:01 [vision] alive (ticks=6900, last_latency=25.8 ms)
+19:08:02 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2048]
+19:08:03 [vision] alive (ticks=6920, last_latency=16.5 ms)
+19:08:05 [vision] alive (ticks=6940, last_latency=10.1 ms)
+19:08:07 [vision] alive (ticks=6960, last_latency=8.6 ms)
+19:08:09 [vision] alive (ticks=6980, last_latency=9.7 ms)
+19:08:09 heard (0 ms): 'ping'
+19:08:09 decision: {'c': 'ping'}
+19:08:10 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2050, 2048, 2048]
+19:08:11 [vision] alive (ticks=7000, last_latency=9.8 ms)
+19:08:13 [vision] alive (ticks=7020, last_latency=45.5 ms)
+19:08:15 [vision] alive (ticks=7040, last_latency=38.9 ms)
+19:08:17 [vision] alive (ticks=7060, last_latency=7.6 ms)
+19:08:19 heard (0 ms): 'neutral'
+19:08:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:08:19 [vision] alive (ticks=7080, last_latency=9.9 ms)
+19:08:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2048]
+19:08:21 [vision] alive (ticks=7100, last_latency=10.0 ms)
+19:08:23 [vision] alive (ticks=7120, last_latency=43.8 ms)
+19:08:25 [vision] alive (ticks=7140, last_latency=54.8 ms)
+19:08:27 [vision] alive (ticks=7160, last_latency=15.4 ms)
+19:08:29 heard (0 ms): 'lean_left'
+19:08:29 decision: None
+19:08:29 [vision] alive (ticks=7180, last_latency=28.7 ms)
+19:08:30 [behav] idle sway
+19:08:31 [vision] alive (ticks=7200, last_latency=46.0 ms)
+19:08:32 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:08:33 [vision] alive (ticks=7220, last_latency=49.3 ms)
+19:08:35 [vision] alive (ticks=7240, last_latency=11.2 ms)
+19:08:37 [vision] alive (ticks=7260, last_latency=9.6 ms)
+19:08:39 heard (0 ms): 'neutral'
+19:08:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:08:39 [vision] alive (ticks=7280, last_latency=22.5 ms)
+19:08:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2048]
+19:08:41 [vision] alive (ticks=7300, last_latency=21.5 ms)
+19:08:43 [vision] alive (ticks=7320, last_latency=9.0 ms)
+19:08:45 [vision] alive (ticks=7340, last_latency=8.5 ms)
+19:08:47 [vision] alive (ticks=7360, last_latency=8.0 ms)
+19:08:49 heard (0 ms): 'lean_right'
+19:08:49 decision: None
+19:08:49 [vision] alive (ticks=7380, last_latency=12.8 ms)
+19:08:52 [vision] alive (ticks=7400, last_latency=49.7 ms)
+19:08:54 [vision] alive (ticks=7420, last_latency=76.0 ms)
+19:08:56 [vision] alive (ticks=7440, last_latency=15.5 ms)
+19:08:58 [vision] alive (ticks=7460, last_latency=7.8 ms)
+19:08:59 heard (0 ms): 'neutral'
+19:08:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:09:00 [vision] alive (ticks=7480, last_latency=7.5 ms)
+19:09:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2050, 2048, 2048]
+19:09:02 [behav] idle sway
+19:09:02 [vision] alive (ticks=7500, last_latency=12.1 ms)
+19:09:03 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:09:04 [vision] alive (ticks=7520, last_latency=7.8 ms)
+19:09:06 [vision] alive (ticks=7540, last_latency=7.7 ms)
+19:09:08 [vision] alive (ticks=7560, last_latency=30.0 ms)
+19:09:09 heard (0 ms): 'bow'
+19:09:09 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:09:10 [vision] alive (ticks=7580, last_latency=24.7 ms)
+19:09:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:09:12 [vision] alive (ticks=7600, last_latency=16.6 ms)
+19:09:14 [vision] alive (ticks=7620, last_latency=8.9 ms)
+19:09:16 [vision] alive (ticks=7640, last_latency=13.5 ms)
+19:09:18 [vision] alive (ticks=7660, last_latency=8.4 ms)
+19:09:19 heard (0 ms): 'neutral'
+19:09:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:09:20 [vision] alive (ticks=7680, last_latency=10.8 ms)
+19:09:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2048, 2047]
+19:09:22 [vision] alive (ticks=7700, last_latency=19.8 ms)
+19:09:24 [vision] alive (ticks=7720, last_latency=13.3 ms)
+19:09:26 [vision] alive (ticks=7740, last_latency=9.6 ms)
+19:09:28 [vision] alive (ticks=7760, last_latency=30.6 ms)
+19:09:29 heard (0 ms): 'do it again'
+19:09:29 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:09:29 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:09:30 [vision] alive (ticks=7780, last_latency=24.4 ms)
+19:09:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:09:32 [vision] alive (ticks=7800, last_latency=23.0 ms)
+19:09:33 [behav] idle sway
+19:09:34 [vision] alive (ticks=7820, last_latency=9.4 ms)
+19:09:34 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:09:36 [vision] alive (ticks=7840, last_latency=33.2 ms)
+19:09:38 [vision] alive (ticks=7860, last_latency=18.5 ms)
+19:09:39 heard (0 ms): 'repeat that'
+19:09:39 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:09:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:09:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:09:40 [vision] alive (ticks=7880, last_latency=12.5 ms)
+19:09:42 [vision] alive (ticks=7900, last_latency=6.9 ms)
+19:09:44 [vision] alive (ticks=7920, last_latency=7.7 ms)
+19:09:46 [vision] alive (ticks=7940, last_latency=8.9 ms)
+19:09:48 [vision] alive (ticks=7960, last_latency=26.4 ms)
+19:09:49 heard (0 ms): 'ping'
+19:09:49 decision: {'c': 'ping'}
+19:09:50 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:09:50 [vision] alive (ticks=7980, last_latency=31.3 ms)
+19:09:52 [vision] alive (ticks=8000, last_latency=29.7 ms)
+19:09:54 [vision] alive (ticks=8020, last_latency=39.9 ms)
+19:09:56 [vision] alive (ticks=8040, last_latency=13.4 ms)
+19:09:58 [vision] alive (ticks=8060, last_latency=10.9 ms)
+19:09:59 heard (0 ms): 'neutral'
+19:09:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:10:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:10:01 [vision] alive (ticks=8080, last_latency=86.7 ms)
+19:10:03 [vision] alive (ticks=8100, last_latency=34.8 ms)
+19:10:04 [behav] idle sway
+19:10:05 [vision] alive (ticks=8120, last_latency=29.2 ms)
+19:10:06 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:10:07 [vision] alive (ticks=8140, last_latency=19.7 ms)
+19:10:09 [vision] alive (ticks=8160, last_latency=16.4 ms)
+19:10:09 heard (0 ms): 'lean_left'
+19:10:09 decision: None
+19:10:11 [vision] alive (ticks=8180, last_latency=9.3 ms)
+19:10:13 [vision] alive (ticks=8200, last_latency=17.3 ms)
+19:10:15 [vision] alive (ticks=8220, last_latency=50.6 ms)
+19:10:17 [vision] alive (ticks=8240, last_latency=23.0 ms)
+19:10:19 [vision] alive (ticks=8260, last_latency=7.8 ms)
+19:10:19 heard (0 ms): 'neutral'
+19:10:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:10:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:10:21 [vision] alive (ticks=8280, last_latency=6.6 ms)
+19:10:23 [vision] alive (ticks=8300, last_latency=12.9 ms)
+19:10:25 [vision] alive (ticks=8320, last_latency=187.8 ms)
+19:10:27 [vision] alive (ticks=8340, last_latency=10.1 ms)
+19:10:29 heard (0 ms): 'lean_right'
+19:10:29 decision: None
+19:10:30 [vision] alive (ticks=8360, last_latency=80.5 ms)
+19:10:32 [vision] alive (ticks=8380, last_latency=17.8 ms)
+19:10:34 [vision] alive (ticks=8400, last_latency=56.1 ms)
+19:10:36 [behav] idle sway
+19:10:36 [vision] alive (ticks=8420, last_latency=31.8 ms)
+19:10:37 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:10:38 [vision] alive (ticks=8440, last_latency=20.0 ms)
+19:10:39 heard (0 ms): 'neutral'
+19:10:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:10:40 [vision] alive (ticks=8460, last_latency=10.5 ms)
+19:10:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:10:42 [vision] alive (ticks=8480, last_latency=36.9 ms)
+19:10:44 [vision] alive (ticks=8500, last_latency=9.3 ms)
+19:10:46 [vision] alive (ticks=8520, last_latency=7.1 ms)
+19:10:48 [vision] alive (ticks=8540, last_latency=8.6 ms)
+19:10:49 heard (0 ms): 'bow'
+19:10:49 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:10:50 [vision] alive (ticks=8560, last_latency=6.8 ms)
+19:10:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2597, 1594]
+19:10:52 [vision] alive (ticks=8580, last_latency=34.1 ms)
+19:10:54 [vision] alive (ticks=8600, last_latency=24.8 ms)
+19:10:56 [vision] alive (ticks=8620, last_latency=16.2 ms)
+19:10:58 [vision] alive (ticks=8640, last_latency=8.2 ms)
+19:10:59 heard (0 ms): 'neutral'
+19:10:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:11:00 [vision] alive (ticks=8660, last_latency=10.8 ms)
+19:11:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2050, 2048]
+19:11:02 [vision] alive (ticks=8680, last_latency=6.7 ms)
+19:11:04 [vision] alive (ticks=8700, last_latency=8.5 ms)
+19:11:06 [vision] alive (ticks=8720, last_latency=7.0 ms)
+19:11:07 [behav] idle sway
+19:11:08 [vision] alive (ticks=8740, last_latency=8.9 ms)
+19:11:09 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:11:09 heard (0 ms): 'do it again'
+19:11:09 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:11:09 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:11:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2050, 2048]
+19:11:10 [vision] alive (ticks=8760, last_latency=8.2 ms)
+19:11:12 [vision] alive (ticks=8780, last_latency=26.4 ms)
+19:11:14 [vision] alive (ticks=8800, last_latency=16.8 ms)
+19:11:16 [vision] alive (ticks=8820, last_latency=15.2 ms)
+19:11:18 [vision] alive (ticks=8840, last_latency=9.0 ms)
+19:11:19 heard (0 ms): 'repeat that'
+19:11:19 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:11:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:11:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2050, 2048]
+19:11:20 [vision] alive (ticks=8860, last_latency=8.4 ms)
+19:11:22 [vision] alive (ticks=8880, last_latency=7.1 ms)
+19:11:24 [vision] alive (ticks=8900, last_latency=38.5 ms)
+19:11:26 [vision] alive (ticks=8920, last_latency=8.0 ms)
+19:11:28 [vision] alive (ticks=8940, last_latency=7.6 ms)
+19:11:29 heard (0 ms): 'ping'
+19:11:29 decision: {'c': 'ping'}
+19:11:30 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2049, 2050, 2048]
+19:11:30 [vision] alive (ticks=8960, last_latency=8.7 ms)
+19:11:32 [vision] alive (ticks=8980, last_latency=13.7 ms)
+19:11:34 [vision] alive (ticks=9000, last_latency=36.2 ms)
+19:11:36 [vision] alive (ticks=9020, last_latency=25.9 ms)
+19:11:38 [vision] alive (ticks=9040, last_latency=17.9 ms)
+19:11:39 [behav] idle sway
+19:11:39 heard (0 ms): 'neutral'
+19:11:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:11:40 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:11:40 [vision] alive (ticks=9060, last_latency=13.1 ms)
+19:11:41 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2050, 2048]
+19:11:42 [vision] alive (ticks=9080, last_latency=7.3 ms)
+19:11:44 [vision] alive (ticks=9100, last_latency=8.1 ms)
+19:11:46 [vision] alive (ticks=9120, last_latency=7.1 ms)
+19:11:48 [vision] alive (ticks=9140, last_latency=14.7 ms)
+19:11:49 heard (0 ms): 'lean_left'
+19:11:49 decision: None
+19:11:50 [vision] alive (ticks=9160, last_latency=7.8 ms)
+19:11:52 [vision] alive (ticks=9180, last_latency=9.2 ms)
+19:11:54 [vision] alive (ticks=9200, last_latency=7.6 ms)
+19:11:56 [vision] alive (ticks=9220, last_latency=10.1 ms)
+19:11:58 [vision] alive (ticks=9240, last_latency=33.7 ms)
+19:11:59 heard (0 ms): 'neutral'
+19:11:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:12:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2050, 2048]
+19:12:00 [vision] alive (ticks=9260, last_latency=22.1 ms)
+19:12:02 [vision] alive (ticks=9280, last_latency=8.3 ms)
+19:12:04 [vision] alive (ticks=9300, last_latency=10.8 ms)
+19:12:07 [vision] alive (ticks=9320, last_latency=7.5 ms)
+19:12:09 [vision] alive (ticks=9340, last_latency=8.6 ms)
+19:12:09 heard (0 ms): 'lean_right'
+19:12:09 decision: None
+19:12:10 [behav] idle sway
+19:12:11 [vision] alive (ticks=9360, last_latency=7.1 ms)
+19:12:11 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:12:13 [vision] alive (ticks=9380, last_latency=9.6 ms)
+19:12:15 [vision] alive (ticks=9400, last_latency=7.3 ms)
+19:12:17 [vision] alive (ticks=9420, last_latency=8.6 ms)
+19:12:19 [vision] alive (ticks=9440, last_latency=6.5 ms)
+19:12:19 heard (0 ms): 'neutral'
+19:12:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:12:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2050, 2048]
+19:12:21 [vision] alive (ticks=9460, last_latency=34.1 ms)
+19:12:23 [vision] alive (ticks=9480, last_latency=26.7 ms)
+19:12:25 [vision] alive (ticks=9500, last_latency=14.5 ms)
+19:12:27 [vision] alive (ticks=9520, last_latency=6.8 ms)
+19:12:29 [vision] alive (ticks=9540, last_latency=13.5 ms)
+19:12:29 heard (0 ms): 'bow'
+19:12:29 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:12:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:12:31 [vision] alive (ticks=9560, last_latency=7.0 ms)
+19:12:33 [vision] alive (ticks=9580, last_latency=8.7 ms)
+19:12:35 [vision] alive (ticks=9600, last_latency=7.4 ms)
+19:12:37 [vision] alive (ticks=9620, last_latency=9.2 ms)
+19:12:39 [vision] alive (ticks=9640, last_latency=8.4 ms)
+19:12:39 heard (0 ms): 'neutral'
+19:12:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:12:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:12:41 [vision] alive (ticks=9660, last_latency=7.7 ms)
+19:12:41 [behav] idle sway
+19:12:43 [vision] alive (ticks=9680, last_latency=35.1 ms)
+19:12:43 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:12:45 [vision] alive (ticks=9700, last_latency=24.9 ms)
+19:12:47 [vision] alive (ticks=9720, last_latency=18.5 ms)
+19:12:49 [vision] alive (ticks=9740, last_latency=7.3 ms)
+19:12:49 heard (0 ms): 'do it again'
+19:12:49 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:12:49 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:12:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:12:51 [vision] alive (ticks=9760, last_latency=7.6 ms)
+19:12:53 [vision] alive (ticks=9780, last_latency=10.0 ms)
+19:12:55 [vision] alive (ticks=9800, last_latency=8.6 ms)
+19:12:57 [vision] alive (ticks=9820, last_latency=8.2 ms)
+19:12:59 [vision] alive (ticks=9840, last_latency=7.2 ms)
+19:12:59 heard (0 ms): 'repeat that'
+19:12:59 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:12:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:13:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:13:01 [vision] alive (ticks=9860, last_latency=9.2 ms)
+19:13:03 [vision] alive (ticks=9880, last_latency=7.5 ms)
+19:13:05 [vision] alive (ticks=9900, last_latency=8.3 ms)
+19:13:07 [vision] alive (ticks=9920, last_latency=25.7 ms)
+19:13:09 [vision] alive (ticks=9940, last_latency=22.1 ms)
+19:13:09 heard (0 ms): 'ping'
+19:13:09 decision: {'c': 'ping'}
+19:13:10 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:13:11 [vision] alive (ticks=9960, last_latency=12.7 ms)
+19:13:13 [vision] alive (ticks=9980, last_latency=9.4 ms)
+19:13:13 [behav] idle sway
+19:13:14 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:13:15 [vision] alive (ticks=10000, last_latency=6.3 ms)
+19:13:17 [vision] alive (ticks=10020, last_latency=10.3 ms)
+19:13:19 [vision] alive (ticks=10040, last_latency=7.2 ms)
+19:13:19 heard (0 ms): 'neutral'
+19:13:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:13:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:13:21 [vision] alive (ticks=10060, last_latency=8.5 ms)
+19:13:23 [vision] alive (ticks=10080, last_latency=6.8 ms)
+19:13:25 [vision] alive (ticks=10100, last_latency=9.0 ms)
+19:13:27 [vision] alive (ticks=10120, last_latency=7.7 ms)
+19:13:29 heard (0 ms): 'lean_left'
+19:13:29 decision: None
+19:13:29 [vision] alive (ticks=10140, last_latency=8.3 ms)
+19:13:31 [vision] alive (ticks=10160, last_latency=31.2 ms)
+19:13:33 [vision] alive (ticks=10180, last_latency=36.0 ms)
+19:13:35 [vision] alive (ticks=10200, last_latency=15.8 ms)
+19:13:37 [vision] alive (ticks=10220, last_latency=7.4 ms)
+19:13:39 heard (0 ms): 'neutral'
+19:13:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:13:39 [vision] alive (ticks=10240, last_latency=7.9 ms)
+19:13:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:13:41 [vision] alive (ticks=10260, last_latency=8.1 ms)
+19:13:43 [vision] alive (ticks=10280, last_latency=7.9 ms)
+19:13:44 [behav] idle sway
+19:13:45 [vision] alive (ticks=10300, last_latency=9.0 ms)
+19:13:46 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:13:47 [vision] alive (ticks=10320, last_latency=10.8 ms)
+19:13:49 heard (0 ms): 'lean_right'
+19:13:49 decision: None
+19:13:49 [vision] alive (ticks=10340, last_latency=16.8 ms)
+19:13:51 [vision] alive (ticks=10360, last_latency=8.1 ms)
+19:13:53 [vision] alive (ticks=10380, last_latency=7.1 ms)
+19:13:55 [vision] alive (ticks=10400, last_latency=25.8 ms)
+19:13:57 [vision] alive (ticks=10420, last_latency=25.6 ms)
+19:13:59 heard (0 ms): 'neutral'
+19:13:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:13:59 [vision] alive (ticks=10440, last_latency=14.5 ms)
+19:14:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:14:01 [vision] alive (ticks=10460, last_latency=6.9 ms)
+19:14:03 [vision] alive (ticks=10480, last_latency=9.0 ms)
+19:14:05 [vision] alive (ticks=10500, last_latency=9.2 ms)
+19:14:07 [vision] alive (ticks=10520, last_latency=7.6 ms)
+19:14:09 heard (0 ms): 'bow'
+19:14:09 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:14:09 [vision] alive (ticks=10540, last_latency=8.7 ms)
+19:14:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2597, 1594]
+19:14:11 [vision] alive (ticks=10560, last_latency=8.4 ms)
+19:14:13 [vision] alive (ticks=10580, last_latency=9.9 ms)
+19:14:15 [vision] alive (ticks=10600, last_latency=7.9 ms)
+19:14:16 [behav] idle sway
+19:14:17 [vision] alive (ticks=10620, last_latency=32.3 ms)
+19:14:17 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:14:19 heard (0 ms): 'neutral'
+19:14:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:14:19 [vision] alive (ticks=10640, last_latency=25.8 ms)
+19:14:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2047, 2048, 2048]
+19:14:21 [vision] alive (ticks=10660, last_latency=8.3 ms)
+19:14:23 [vision] alive (ticks=10680, last_latency=6.9 ms)
+19:14:25 [vision] alive (ticks=10700, last_latency=8.9 ms)
+19:14:27 [vision] alive (ticks=10720, last_latency=12.1 ms)
+19:14:29 heard (0 ms): 'do it again'
+19:14:29 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:14:29 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:14:29 [vision] alive (ticks=10740, last_latency=10.3 ms)
+19:14:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2047, 2048, 2048]
+19:14:31 [vision] alive (ticks=10760, last_latency=7.2 ms)
+19:14:33 [vision] alive (ticks=10780, last_latency=8.6 ms)
+19:14:35 [vision] alive (ticks=10800, last_latency=8.4 ms)
+19:14:37 [vision] alive (ticks=10820, last_latency=40.4 ms)
+19:14:39 heard (0 ms): 'repeat that'
+19:14:39 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:14:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:14:39 [vision] alive (ticks=10840, last_latency=31.0 ms)
+19:14:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2047, 2048, 2048]
+19:14:41 [vision] alive (ticks=10860, last_latency=21.2 ms)
+19:14:43 [vision] alive (ticks=10880, last_latency=14.4 ms)
+19:14:45 [vision] alive (ticks=10900, last_latency=10.4 ms)
+19:14:47 [behav] idle sway
+19:14:47 [vision] alive (ticks=10920, last_latency=6.5 ms)
+19:14:49 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:14:49 heard (0 ms): 'ping'
+19:14:49 decision: {'c': 'ping'}
+19:14:49 [vision] alive (ticks=10940, last_latency=7.0 ms)
+19:14:50 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2046, 2047, 2048, 2048]
+19:14:51 [vision] alive (ticks=10960, last_latency=8.4 ms)
+19:14:53 [vision] alive (ticks=10980, last_latency=9.8 ms)
+19:14:55 [vision] alive (ticks=11000, last_latency=8.4 ms)
+19:14:57 [vision] alive (ticks=11020, last_latency=7.5 ms)
+19:14:59 heard (0 ms): 'neutral'
+19:14:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:14:59 [vision] alive (ticks=11040, last_latency=8.5 ms)
+19:15:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2047, 2048, 2048]
+19:15:01 [vision] alive (ticks=11060, last_latency=37.1 ms)
+19:15:03 [vision] alive (ticks=11080, last_latency=27.3 ms)
+19:15:05 [vision] alive (ticks=11100, last_latency=18.7 ms)
+19:15:07 [vision] alive (ticks=11120, last_latency=13.2 ms)
+19:15:09 heard (0 ms): 'lean_left'
+19:15:09 decision: None
+19:15:09 [vision] alive (ticks=11140, last_latency=8.6 ms)
+19:15:11 [vision] alive (ticks=11160, last_latency=8.6 ms)
+19:15:13 [vision] alive (ticks=11180, last_latency=7.0 ms)
+19:15:15 [vision] alive (ticks=11200, last_latency=10.4 ms)
+19:15:17 [vision] alive (ticks=11220, last_latency=9.8 ms)
+19:15:19 [behav] idle sway
+19:15:19 heard (0 ms): 'neutral'
+19:15:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:15:19 [vision] alive (ticks=11240, last_latency=7.9 ms)
+19:15:20 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:15:21 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2047, 2048, 2048]
+19:15:21 [vision] alive (ticks=11260, last_latency=8.7 ms)
+19:15:23 [vision] alive (ticks=11280, last_latency=8.5 ms)
+19:15:25 [vision] alive (ticks=11300, last_latency=34.8 ms)
+19:15:27 [vision] alive (ticks=11320, last_latency=25.0 ms)
+19:15:29 heard (0 ms): 'lean_right'
+19:15:29 decision: None
+19:15:29 [vision] alive (ticks=11340, last_latency=16.1 ms)
+19:15:31 [vision] alive (ticks=11360, last_latency=8.4 ms)
+19:15:33 [vision] alive (ticks=11380, last_latency=6.8 ms)
+19:15:35 [vision] alive (ticks=11400, last_latency=7.2 ms)
+19:15:37 [vision] alive (ticks=11420, last_latency=8.7 ms)
+19:15:39 heard (0 ms): 'neutral'
+19:15:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:15:39 [vision] alive (ticks=11440, last_latency=8.0 ms)
+19:15:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2047, 2048, 2048]
+19:15:41 [vision] alive (ticks=11460, last_latency=7.7 ms)
+19:15:43 [vision] alive (ticks=11480, last_latency=6.9 ms)
+19:15:45 [vision] alive (ticks=11500, last_latency=9.0 ms)
+19:15:47 [vision] alive (ticks=11520, last_latency=9.0 ms)
+19:15:49 heard (0 ms): 'bow'
+19:15:49 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:15:50 [vision] alive (ticks=11540, last_latency=28.1 ms)
+19:15:50 [behav] idle sway
+19:15:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2597, 1594]
+19:15:52 [vision] alive (ticks=11560, last_latency=19.8 ms)
+19:15:52 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:15:54 [vision] alive (ticks=11580, last_latency=11.8 ms)
+19:15:56 [vision] alive (ticks=11600, last_latency=16.5 ms)
+19:15:58 [vision] alive (ticks=11620, last_latency=7.9 ms)
+19:15:59 heard (0 ms): 'neutral'
+19:15:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:16:00 [vision] alive (ticks=11640, last_latency=7.4 ms)
+19:16:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:16:02 [vision] alive (ticks=11660, last_latency=7.2 ms)
+19:16:04 [vision] alive (ticks=11680, last_latency=16.3 ms)
+19:16:06 [vision] alive (ticks=11700, last_latency=7.8 ms)
+19:16:08 [vision] alive (ticks=11720, last_latency=8.1 ms)
+19:16:09 heard (0 ms): 'do it again'
+19:16:09 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:16:09 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:16:10 [vision] alive (ticks=11740, last_latency=6.5 ms)
+19:16:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:16:12 [vision] alive (ticks=11760, last_latency=17.7 ms)
+19:16:14 [vision] alive (ticks=11780, last_latency=30.3 ms)
+19:16:16 [vision] alive (ticks=11800, last_latency=20.2 ms)
+19:16:18 [vision] alive (ticks=11820, last_latency=14.6 ms)
+19:16:19 heard (0 ms): 'repeat that'
+19:16:19 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:16:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:16:20 [vision] alive (ticks=11840, last_latency=12.0 ms)
+19:16:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:16:22 [vision] alive (ticks=11860, last_latency=7.0 ms)
+19:16:22 [behav] idle sway
+19:16:23 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:16:24 [vision] alive (ticks=11880, last_latency=8.0 ms)
+19:16:26 [vision] alive (ticks=11900, last_latency=6.9 ms)
+19:16:28 [vision] alive (ticks=11920, last_latency=16.3 ms)
+19:16:29 heard (0 ms): 'ping'
+19:16:29 decision: {'c': 'ping'}
+19:16:30 [vision] alive (ticks=11940, last_latency=8.1 ms)
+19:16:30 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:16:32 [vision] alive (ticks=11960, last_latency=25.8 ms)
+19:16:34 [vision] alive (ticks=11980, last_latency=18.1 ms)
+19:16:36 [vision] alive (ticks=12000, last_latency=35.1 ms)
+19:16:38 [vision] alive (ticks=12020, last_latency=8.4 ms)
+19:16:39 heard (0 ms): 'neutral'
+19:16:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:16:40 [vision] alive (ticks=12040, last_latency=6.5 ms)
+19:16:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:16:42 [vision] alive (ticks=12060, last_latency=7.8 ms)
+19:16:44 [vision] alive (ticks=12080, last_latency=8.6 ms)
+19:16:46 [vision] alive (ticks=12100, last_latency=7.5 ms)
+19:16:48 [vision] alive (ticks=12120, last_latency=10.2 ms)
+19:16:49 heard (0 ms): 'lean_left'
+19:16:49 decision: None
+19:16:50 [vision] alive (ticks=12140, last_latency=6.7 ms)
+19:16:52 [vision] alive (ticks=12160, last_latency=11.8 ms)
+19:16:53 [behav] idle sway
+19:16:54 [vision] alive (ticks=12180, last_latency=7.4 ms)
+19:16:54 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:16:56 [vision] alive (ticks=12200, last_latency=28.5 ms)
+19:16:58 [vision] alive (ticks=12220, last_latency=20.6 ms)
+19:16:59 heard (0 ms): 'neutral'
+19:16:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:17:00 [vision] alive (ticks=12240, last_latency=33.6 ms)
+19:17:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:17:02 [vision] alive (ticks=12260, last_latency=7.1 ms)
+19:17:04 [vision] alive (ticks=12280, last_latency=9.7 ms)
+19:17:06 [vision] alive (ticks=12300, last_latency=7.6 ms)
+19:17:08 [vision] alive (ticks=12320, last_latency=10.6 ms)
+19:17:09 heard (0 ms): 'lean_right'
+19:17:09 decision: None
+19:17:10 [vision] alive (ticks=12340, last_latency=7.7 ms)
+19:17:12 [vision] alive (ticks=12360, last_latency=7.1 ms)
+19:17:14 [vision] alive (ticks=12380, last_latency=8.4 ms)
+19:17:16 [vision] alive (ticks=12400, last_latency=8.1 ms)
+19:17:18 [vision] alive (ticks=12420, last_latency=33.4 ms)
+19:17:19 heard (0 ms): 'neutral'
+19:17:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:17:20 [vision] alive (ticks=12440, last_latency=25.9 ms)
+19:17:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2047]
+19:17:22 [vision] alive (ticks=12460, last_latency=17.0 ms)
+19:17:24 [vision] alive (ticks=12480, last_latency=10.4 ms)
+19:17:24 [behav] idle sway
+19:17:26 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:17:26 [vision] alive (ticks=12500, last_latency=9.3 ms)
+19:17:28 [vision] alive (ticks=12520, last_latency=7.2 ms)
+19:17:29 heard (0 ms): 'bow'
+19:17:29 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:17:30 [vision] alive (ticks=12540, last_latency=9.0 ms)
+19:17:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:17:32 [vision] alive (ticks=12560, last_latency=8.5 ms)
+19:17:34 [vision] alive (ticks=12580, last_latency=8.7 ms)
+19:17:36 [vision] alive (ticks=12600, last_latency=7.2 ms)
+19:17:38 [vision] alive (ticks=12620, last_latency=8.7 ms)
+19:17:39 heard (0 ms): 'neutral'
+19:17:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:17:40 [vision] alive (ticks=12640, last_latency=8.1 ms)
+19:17:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:17:42 [vision] alive (ticks=12660, last_latency=32.5 ms)
+19:17:44 [vision] alive (ticks=12680, last_latency=25.6 ms)
+19:17:46 [vision] alive (ticks=12700, last_latency=15.1 ms)
+19:17:48 [vision] alive (ticks=12720, last_latency=9.2 ms)
+19:17:49 heard (0 ms): 'do it again'
+19:17:49 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:17:49 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:17:50 [vision] alive (ticks=12740, last_latency=8.1 ms)
+19:17:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:17:52 [vision] alive (ticks=12760, last_latency=7.5 ms)
+19:17:54 [vision] alive (ticks=12780, last_latency=8.0 ms)
+19:17:56 [behav] idle sway
+19:17:56 [vision] alive (ticks=12800, last_latency=8.7 ms)
+19:17:57 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:17:58 [vision] alive (ticks=12820, last_latency=7.6 ms)
+19:17:59 heard (0 ms): 'repeat that'
+19:17:59 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:17:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:18:00 [vision] alive (ticks=12840, last_latency=8.4 ms)
+19:18:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:18:02 [vision] alive (ticks=12860, last_latency=9.1 ms)
+19:18:04 [vision] alive (ticks=12880, last_latency=14.3 ms)
+19:18:06 [vision] alive (ticks=12900, last_latency=35.8 ms)
+19:18:08 [vision] alive (ticks=12920, last_latency=26.9 ms)
+19:18:09 heard (0 ms): 'ping'
+19:18:09 decision: {'c': 'ping'}
+19:18:10 [vision] alive (ticks=12940, last_latency=25.8 ms)
+19:18:10 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:18:12 [vision] alive (ticks=12960, last_latency=15.3 ms)
+19:18:14 [vision] alive (ticks=12980, last_latency=7.4 ms)
+19:18:16 [vision] alive (ticks=13000, last_latency=9.5 ms)
+19:18:18 [vision] alive (ticks=13020, last_latency=9.0 ms)
+19:18:19 heard (0 ms): 'neutral'
+19:18:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:18:20 [vision] alive (ticks=13040, last_latency=8.6 ms)
+19:18:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:18:22 [vision] alive (ticks=13060, last_latency=6.5 ms)
+19:18:24 [vision] alive (ticks=13080, last_latency=8.1 ms)
+19:18:26 [vision] alive (ticks=13100, last_latency=8.6 ms)
+19:18:27 [behav] idle sway
+19:18:28 [vision] alive (ticks=13120, last_latency=9.8 ms)
+19:18:29 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:18:29 heard (0 ms): 'lean_left'
+19:18:29 decision: None
+19:18:30 [vision] alive (ticks=13140, last_latency=29.8 ms)
+19:18:32 [vision] alive (ticks=13160, last_latency=22.0 ms)
+19:18:34 [vision] alive (ticks=13180, last_latency=15.7 ms)
+19:18:36 [vision] alive (ticks=13200, last_latency=9.2 ms)
+19:18:38 [vision] alive (ticks=13220, last_latency=7.5 ms)
+19:18:39 heard (0 ms): 'neutral'
+19:18:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:18:40 [vision] alive (ticks=13240, last_latency=7.7 ms)
+19:18:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:18:42 [vision] alive (ticks=13260, last_latency=9.9 ms)
+19:18:44 [vision] alive (ticks=13280, last_latency=8.9 ms)
+19:18:46 [vision] alive (ticks=13300, last_latency=10.5 ms)
+19:18:48 [vision] alive (ticks=13320, last_latency=7.7 ms)
+19:18:49 heard (0 ms): 'lean_right'
+19:18:49 decision: None
+19:18:50 [vision] alive (ticks=13340, last_latency=9.5 ms)
+19:18:52 [vision] alive (ticks=13360, last_latency=9.7 ms)
+19:18:54 [vision] alive (ticks=13380, last_latency=26.7 ms)
+19:18:56 [vision] alive (ticks=13400, last_latency=19.0 ms)
+19:18:58 [vision] alive (ticks=13420, last_latency=11.8 ms)
+19:18:59 [behav] idle sway
+19:18:59 heard (0 ms): 'neutral'
+19:18:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:19:00 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:19:00 [vision] alive (ticks=13440, last_latency=7.1 ms)
+19:19:02 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2049, 2049, 2048]
+19:19:02 [vision] alive (ticks=13460, last_latency=7.6 ms)
+19:19:04 [vision] alive (ticks=13480, last_latency=9.0 ms)
+19:19:06 [vision] alive (ticks=13500, last_latency=7.8 ms)
+19:19:08 [vision] alive (ticks=13520, last_latency=8.4 ms)
+19:19:09 heard (0 ms): 'bow'
+19:19:09 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:19:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2597, 1594]
+19:19:10 [vision] alive (ticks=13540, last_latency=7.3 ms)
+19:19:12 [vision] alive (ticks=13560, last_latency=9.1 ms)
+19:19:14 [vision] alive (ticks=13580, last_latency=8.8 ms)
+19:19:16 [vision] alive (ticks=13600, last_latency=9.8 ms)
+19:19:18 [vision] alive (ticks=13620, last_latency=29.0 ms)
+19:19:19 heard (0 ms): 'neutral'
+19:19:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:19:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2047, 2048]
+19:19:20 [vision] alive (ticks=13640, last_latency=21.0 ms)
+19:19:22 [vision] alive (ticks=13660, last_latency=18.5 ms)
+19:19:24 [vision] alive (ticks=13680, last_latency=8.3 ms)
+19:19:26 [vision] alive (ticks=13700, last_latency=6.7 ms)
+19:19:28 [vision] alive (ticks=13720, last_latency=8.6 ms)
+19:19:29 heard (0 ms): 'do it again'
+19:19:29 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:19:29 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:19:30 [behav] idle sway
+19:19:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2047, 2048]
+19:19:30 [vision] alive (ticks=13740, last_latency=7.8 ms)
+19:19:32 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:19:32 [vision] alive (ticks=13760, last_latency=7.9 ms)
+19:19:34 [vision] alive (ticks=13780, last_latency=7.4 ms)
+19:19:36 [vision] alive (ticks=13800, last_latency=8.5 ms)
+19:19:39 [vision] alive (ticks=13820, last_latency=9.6 ms)
+19:19:39 heard (0 ms): 'repeat that'
+19:19:39 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:19:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:19:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2047, 2048]
+19:19:41 [vision] alive (ticks=13840, last_latency=33.3 ms)
+19:19:43 [vision] alive (ticks=13860, last_latency=23.6 ms)
+19:19:45 [vision] alive (ticks=13880, last_latency=17.2 ms)
+19:19:47 [vision] alive (ticks=13900, last_latency=13.4 ms)
+19:19:49 [vision] alive (ticks=13920, last_latency=7.9 ms)
+19:19:49 heard (0 ms): 'ping'
+19:19:49 decision: {'c': 'ping'}
+19:19:50 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2048, 2048, 2047, 2048]
+19:19:51 [vision] alive (ticks=13940, last_latency=8.1 ms)
+19:19:53 [vision] alive (ticks=13960, last_latency=7.2 ms)
+19:19:55 [vision] alive (ticks=13980, last_latency=10.7 ms)
+19:19:57 [vision] alive (ticks=14000, last_latency=6.4 ms)
+19:19:59 [vision] alive (ticks=14020, last_latency=9.3 ms)
+19:19:59 heard (0 ms): 'neutral'
+19:19:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:20:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2047, 2048]
+19:20:01 [vision] alive (ticks=14040, last_latency=9.0 ms)
+19:20:02 [behav] idle sway
+19:20:03 [vision] alive (ticks=14060, last_latency=9.1 ms)
+19:20:03 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:20:05 [vision] alive (ticks=14080, last_latency=31.7 ms)
+19:20:07 [vision] alive (ticks=14100, last_latency=24.0 ms)
+19:20:09 [vision] alive (ticks=14120, last_latency=16.4 ms)
+19:20:09 heard (0 ms): 'lean_left'
+19:20:09 decision: None
+19:20:11 [vision] alive (ticks=14140, last_latency=8.4 ms)
+19:20:13 [vision] alive (ticks=14160, last_latency=8.7 ms)
+19:20:15 [vision] alive (ticks=14180, last_latency=6.9 ms)
+19:20:17 [vision] alive (ticks=14200, last_latency=9.0 ms)
+19:20:19 [vision] alive (ticks=14220, last_latency=6.9 ms)
+19:20:19 heard (0 ms): 'neutral'
+19:20:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:20:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2047, 2048]
+19:20:21 [vision] alive (ticks=14240, last_latency=7.3 ms)
+19:20:23 [vision] alive (ticks=14260, last_latency=11.4 ms)
+19:20:25 [vision] alive (ticks=14280, last_latency=9.1 ms)
+19:20:27 [vision] alive (ticks=14300, last_latency=29.8 ms)
+19:20:29 [vision] alive (ticks=14320, last_latency=21.8 ms)
+19:20:29 heard (0 ms): 'lean_right'
+19:20:29 decision: None
+19:20:31 [vision] alive (ticks=14340, last_latency=13.7 ms)
+19:20:33 [vision] alive (ticks=14360, last_latency=8.8 ms)
+19:20:33 [behav] idle sway
+19:20:34 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:20:35 [vision] alive (ticks=14380, last_latency=10.1 ms)
+19:20:37 [vision] alive (ticks=14400, last_latency=6.5 ms)
+19:20:39 [vision] alive (ticks=14420, last_latency=7.6 ms)
+19:20:39 heard (0 ms): 'neutral'
+19:20:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:20:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2048, 2048, 2047, 2048]
+19:20:41 [vision] alive (ticks=14440, last_latency=10.4 ms)
+19:20:43 [vision] alive (ticks=14460, last_latency=7.3 ms)
+19:20:45 [vision] alive (ticks=14480, last_latency=7.4 ms)
+19:20:47 [vision] alive (ticks=14500, last_latency=7.7 ms)
+19:20:49 [vision] alive (ticks=14520, last_latency=8.5 ms)
+19:20:49 heard (0 ms): 'bow'
+19:20:49 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:20:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2598, 1594]
+19:20:51 [vision] alive (ticks=14540, last_latency=29.2 ms)
+19:20:53 [vision] alive (ticks=14560, last_latency=20.3 ms)
+19:20:55 [vision] alive (ticks=14580, last_latency=12.5 ms)
+19:20:57 [vision] alive (ticks=14600, last_latency=8.3 ms)
+19:20:59 [vision] alive (ticks=14620, last_latency=8.1 ms)
+19:20:59 heard (0 ms): 'neutral'
+19:20:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:21:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2047]
+19:21:01 [vision] alive (ticks=14640, last_latency=8.4 ms)
+19:21:03 [vision] alive (ticks=14660, last_latency=7.7 ms)
+19:21:04 [behav] idle sway
+19:21:05 [vision] alive (ticks=14680, last_latency=11.0 ms)
+19:21:06 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:21:07 [vision] alive (ticks=14700, last_latency=6.6 ms)
+19:21:09 heard (0 ms): 'do it again'
+19:21:09 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:21:09 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:21:09 [vision] alive (ticks=14720, last_latency=10.6 ms)
+19:21:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2047]
+19:21:11 [vision] alive (ticks=14740, last_latency=7.8 ms)
+19:21:13 [vision] alive (ticks=14760, last_latency=9.1 ms)
+19:21:15 [vision] alive (ticks=14780, last_latency=26.2 ms)
+19:21:17 [vision] alive (ticks=14800, last_latency=18.9 ms)
+19:21:19 heard (0 ms): 'repeat that'
+19:21:19 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:21:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:21:19 [vision] alive (ticks=14820, last_latency=16.7 ms)
+19:21:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2047]
+19:21:21 [vision] alive (ticks=14840, last_latency=9.2 ms)
+19:21:23 [vision] alive (ticks=14860, last_latency=8.0 ms)
+19:21:25 [vision] alive (ticks=14880, last_latency=6.7 ms)
+19:21:27 [vision] alive (ticks=14900, last_latency=10.1 ms)
+19:21:29 heard (0 ms): 'ping'
+19:21:29 decision: {'c': 'ping'}
+19:21:29 [vision] alive (ticks=14920, last_latency=8.0 ms)
+19:21:30 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2045, 2049, 2049, 2047]
+19:21:31 [vision] alive (ticks=14940, last_latency=8.7 ms)
+19:21:33 [vision] alive (ticks=14960, last_latency=6.3 ms)
+19:21:35 [vision] alive (ticks=14980, last_latency=8.7 ms)
+19:21:36 [behav] idle sway
+19:21:37 [vision] alive (ticks=15000, last_latency=32.0 ms)
+19:21:37 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:21:39 heard (0 ms): 'neutral'
+19:21:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:21:39 [vision] alive (ticks=15020, last_latency=24.4 ms)
+19:21:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2047]
+19:21:41 [vision] alive (ticks=15040, last_latency=16.3 ms)
+19:21:43 [vision] alive (ticks=15060, last_latency=10.2 ms)
+19:21:45 [vision] alive (ticks=15080, last_latency=6.5 ms)
+19:21:47 [vision] alive (ticks=15100, last_latency=8.5 ms)
+19:21:49 heard (0 ms): 'lean_left'
+19:21:49 decision: None
+19:21:49 [vision] alive (ticks=15120, last_latency=7.0 ms)
+19:21:51 [vision] alive (ticks=15140, last_latency=34.1 ms)
+19:21:53 [vision] alive (ticks=15160, last_latency=8.5 ms)
+19:21:55 [vision] alive (ticks=15180, last_latency=6.2 ms)
+19:21:57 [vision] alive (ticks=15200, last_latency=8.9 ms)
+19:21:59 heard (0 ms): 'neutral'
+19:21:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:21:59 [vision] alive (ticks=15220, last_latency=8.9 ms)
+19:22:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2047]
+19:22:01 [vision] alive (ticks=15240, last_latency=28.0 ms)
+19:22:03 [vision] alive (ticks=15260, last_latency=20.1 ms)
+19:22:05 [vision] alive (ticks=15280, last_latency=10.7 ms)
+19:22:07 [vision] alive (ticks=15300, last_latency=12.1 ms)
+19:22:07 [behav] idle sway
+19:22:09 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:22:09 heard (0 ms): 'lean_right'
+19:22:09 decision: None
+19:22:09 [vision] alive (ticks=15320, last_latency=7.7 ms)
+19:22:11 [vision] alive (ticks=15340, last_latency=8.4 ms)
+19:22:13 [vision] alive (ticks=15360, last_latency=7.1 ms)
+19:22:15 [vision] alive (ticks=15380, last_latency=13.7 ms)
+19:22:17 [vision] alive (ticks=15400, last_latency=6.9 ms)
+19:22:19 heard (0 ms): 'neutral'
+19:22:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:22:19 [vision] alive (ticks=15420, last_latency=7.0 ms)
+19:22:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2045, 2049, 2049, 2047]
+19:22:21 [vision] alive (ticks=15440, last_latency=8.0 ms)
+19:22:23 [vision] alive (ticks=15460, last_latency=31.6 ms)
+19:22:25 [vision] alive (ticks=15480, last_latency=20.3 ms)
+19:22:27 [vision] alive (ticks=15500, last_latency=11.0 ms)
+19:22:29 heard (0 ms): 'bow'
+19:22:29 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:22:29 [vision] alive (ticks=15520, last_latency=8.7 ms)
+19:22:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1501, 2500, 2597, 1594]
+19:22:31 [vision] alive (ticks=15540, last_latency=8.5 ms)
+19:22:33 [vision] alive (ticks=15560, last_latency=8.6 ms)
+19:22:35 [vision] alive (ticks=15580, last_latency=10.9 ms)
+19:22:37 [vision] alive (ticks=15600, last_latency=11.0 ms)
+19:22:39 [behav] idle sway
+19:22:39 heard (0 ms): 'neutral'
+19:22:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:22:39 [vision] alive (ticks=15620, last_latency=12.2 ms)
+19:22:40 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:22:41 [vision] alive (ticks=15640, last_latency=8.3 ms)
+19:22:41 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2048, 2046, 2047]
+19:22:43 [vision] alive (ticks=15660, last_latency=7.4 ms)
+19:22:45 [vision] alive (ticks=15680, last_latency=42.8 ms)
+19:22:47 [vision] alive (ticks=15700, last_latency=27.9 ms)
+19:22:49 heard (0 ms): 'do it again'
+19:22:49 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:22:49 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:22:49 [vision] alive (ticks=15720, last_latency=19.5 ms)
+19:22:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2048, 2046, 2047]
+19:22:51 [vision] alive (ticks=15740, last_latency=10.1 ms)
+19:22:53 [vision] alive (ticks=15760, last_latency=8.0 ms)
+19:22:55 [vision] alive (ticks=15780, last_latency=9.5 ms)
+19:22:57 [vision] alive (ticks=15800, last_latency=6.6 ms)
+19:22:59 heard (0 ms): 'repeat that'
+19:22:59 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:22:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:22:59 [vision] alive (ticks=15820, last_latency=8.1 ms)
+19:23:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2048, 2046, 2047]
+19:23:01 [vision] alive (ticks=15840, last_latency=7.2 ms)
+19:23:03 [vision] alive (ticks=15860, last_latency=8.1 ms)
+19:23:05 [vision] alive (ticks=15880, last_latency=7.0 ms)
+19:23:07 [vision] alive (ticks=15900, last_latency=7.2 ms)
+19:23:09 heard (0 ms): 'ping'
+19:23:09 decision: {'c': 'ping'}
+19:23:09 [vision] alive (ticks=15920, last_latency=31.5 ms)
+19:23:10 [behav] idle sway
+19:23:10 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2047, 2048, 2046, 2047]
+19:23:11 [vision] alive (ticks=15940, last_latency=23.5 ms)
+19:23:12 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:23:13 [vision] alive (ticks=15960, last_latency=15.8 ms)
+19:23:15 [vision] alive (ticks=15980, last_latency=8.0 ms)
+19:23:17 [vision] alive (ticks=16000, last_latency=11.0 ms)
+19:23:19 heard (0 ms): 'neutral'
+19:23:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:23:19 [vision] alive (ticks=16020, last_latency=7.3 ms)
+19:23:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2048, 2046, 2047]
+19:23:21 [vision] alive (ticks=16040, last_latency=10.4 ms)
+19:23:23 [vision] alive (ticks=16060, last_latency=7.9 ms)
+19:23:26 [vision] alive (ticks=16080, last_latency=10.0 ms)
+19:23:28 [vision] alive (ticks=16100, last_latency=7.3 ms)
+19:23:29 heard (0 ms): 'lean_left'
+19:23:29 decision: None
+19:23:30 [vision] alive (ticks=16120, last_latency=9.7 ms)
+19:23:32 [vision] alive (ticks=16140, last_latency=34.5 ms)
+19:23:34 [vision] alive (ticks=16160, last_latency=29.8 ms)
+19:23:36 [vision] alive (ticks=16180, last_latency=22.1 ms)
+19:23:38 [vision] alive (ticks=16200, last_latency=12.0 ms)
+19:23:39 heard (0 ms): 'neutral'
+19:23:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:23:40 [vision] alive (ticks=16220, last_latency=6.5 ms)
+19:23:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2048, 2046, 2047]
+19:23:42 [vision] alive (ticks=16240, last_latency=71.6 ms)
+19:23:42 [behav] idle sway
+19:23:43 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:23:44 [vision] alive (ticks=16260, last_latency=6.8 ms)
+19:23:46 [vision] alive (ticks=16280, last_latency=7.7 ms)
+19:23:48 [vision] alive (ticks=16300, last_latency=8.0 ms)
+19:23:49 heard (0 ms): 'lean_right'
+19:23:49 decision: None
+19:23:50 [vision] alive (ticks=16320, last_latency=8.4 ms)
+19:23:52 [vision] alive (ticks=16340, last_latency=9.3 ms)
+19:23:54 [vision] alive (ticks=16360, last_latency=7.1 ms)
+19:23:56 [vision] alive (ticks=16380, last_latency=29.0 ms)
+19:23:58 [vision] alive (ticks=16400, last_latency=22.8 ms)
+19:23:59 heard (0 ms): 'neutral'
+19:23:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:24:00 [vision] alive (ticks=16420, last_latency=17.5 ms)
+19:24:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2048, 2046, 2047]
+19:24:02 [vision] alive (ticks=16440, last_latency=7.4 ms)
+19:24:04 [vision] alive (ticks=16460, last_latency=8.2 ms)
+19:24:06 [vision] alive (ticks=16480, last_latency=8.0 ms)
+19:24:08 [vision] alive (ticks=16500, last_latency=8.8 ms)
+19:24:09 heard (0 ms): 'bow'
+19:24:09 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:24:10 [vision] alive (ticks=16520, last_latency=6.9 ms)
+19:24:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1502, 2500, 2597, 1594]
+19:24:12 [vision] alive (ticks=16540, last_latency=8.8 ms)
+19:24:13 [behav] idle sway
+19:24:14 [vision] alive (ticks=16560, last_latency=7.9 ms)
+19:24:15 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:24:16 [vision] alive (ticks=16580, last_latency=6.7 ms)
+19:24:18 [vision] alive (ticks=16600, last_latency=8.4 ms)
+19:24:19 heard (0 ms): 'neutral'
+19:24:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:24:20 [vision] alive (ticks=16620, last_latency=31.0 ms)
+19:24:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:24:22 [vision] alive (ticks=16640, last_latency=23.0 ms)
+19:24:24 [vision] alive (ticks=16660, last_latency=15.9 ms)
+19:24:26 [vision] alive (ticks=16680, last_latency=8.8 ms)
+19:24:28 [vision] alive (ticks=16700, last_latency=8.7 ms)
+19:24:29 heard (0 ms): 'do it again'
+19:24:29 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:24:29 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:24:30 [vision] alive (ticks=16720, last_latency=8.4 ms)
+19:24:30 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:24:32 [vision] alive (ticks=16740, last_latency=7.6 ms)
+19:24:34 [vision] alive (ticks=16760, last_latency=8.3 ms)
+19:24:36 [vision] alive (ticks=16780, last_latency=8.0 ms)
+19:24:38 [vision] alive (ticks=16800, last_latency=8.3 ms)
+19:24:39 heard (0 ms): 'repeat that'
+19:24:39 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:24:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:24:40 [vision] alive (ticks=16820, last_latency=6.6 ms)
+19:24:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:24:42 [vision] alive (ticks=16840, last_latency=7.3 ms)
+19:24:44 [vision] alive (ticks=16860, last_latency=28.4 ms)
+19:24:45 [behav] idle sway
+19:24:46 [vision] alive (ticks=16880, last_latency=21.0 ms)
+19:24:46 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:24:48 [vision] alive (ticks=16900, last_latency=10.9 ms)
+19:24:49 heard (0 ms): 'ping'
+19:24:49 decision: {'c': 'ping'}
+19:24:50 [vision] alive (ticks=16920, last_latency=8.5 ms)
+19:24:50 wire:   {"t":"ack","c":"ping","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:24:52 [vision] alive (ticks=16940, last_latency=9.7 ms)
+19:24:54 [vision] alive (ticks=16960, last_latency=6.5 ms)
+19:24:56 [vision] alive (ticks=16980, last_latency=7.5 ms)
+19:24:58 [vision] alive (ticks=17000, last_latency=7.4 ms)
+19:24:59 heard (0 ms): 'neutral'
+19:24:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:25:00 [vision] alive (ticks=17020, last_latency=8.2 ms)
+19:25:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:25:02 [vision] alive (ticks=17040, last_latency=9.6 ms)
+19:25:04 [vision] alive (ticks=17060, last_latency=35.2 ms)
+19:25:06 [vision] alive (ticks=17080, last_latency=31.1 ms)
+19:25:08 [vision] alive (ticks=17100, last_latency=20.5 ms)
+19:25:09 heard (0 ms): 'lean_left'
+19:25:09 decision: None
+19:25:10 [vision] alive (ticks=17120, last_latency=11.9 ms)
+19:25:12 [vision] alive (ticks=17140, last_latency=6.5 ms)
+19:25:14 [vision] alive (ticks=17160, last_latency=10.7 ms)
+19:25:16 [behav] idle sway
+19:25:16 [vision] alive (ticks=17180, last_latency=6.7 ms)
+19:25:17 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:25:18 [vision] alive (ticks=17200, last_latency=7.8 ms)
+19:25:19 heard (0 ms): 'neutral'
+19:25:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:25:20 [vision] alive (ticks=17220, last_latency=7.6 ms)
+19:25:20 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:25:22 [vision] alive (ticks=17240, last_latency=12.5 ms)
+19:25:24 [vision] alive (ticks=17260, last_latency=8.4 ms)
+19:25:26 [vision] alive (ticks=17280, last_latency=7.1 ms)
+19:25:28 [vision] alive (ticks=17300, last_latency=30.2 ms)
+19:25:29 heard (0 ms): 'lean_right'
+19:25:29 decision: None
+19:25:30 [vision] alive (ticks=17320, last_latency=24.6 ms)
+19:25:32 [vision] alive (ticks=17340, last_latency=15.5 ms)
+19:25:34 [vision] alive (ticks=17360, last_latency=6.3 ms)
+19:25:36 [vision] alive (ticks=17380, last_latency=8.6 ms)
+19:25:38 [vision] alive (ticks=17400, last_latency=9.1 ms)
+19:25:39 heard (0 ms): 'neutral'
+19:25:39 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:25:40 [vision] alive (ticks=17420, last_latency=7.0 ms)
+19:25:40 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2047, 2049, 2049, 2048]
+19:25:42 [vision] alive (ticks=17440, last_latency=8.7 ms)
+19:25:44 [vision] alive (ticks=17460, last_latency=6.7 ms)
+19:25:46 [vision] alive (ticks=17480, last_latency=13.2 ms)
+19:25:47 [behav] idle sway
+19:25:48 [vision] alive (ticks=17500, last_latency=7.6 ms)
+19:25:49 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:25:49 heard (0 ms): 'bow'
+19:25:49 decision: {'c': 'pose', 'n': 'bow_front', 'd': 1800}
+19:25:50 [vision] alive (ticks=17520, last_latency=8.5 ms)
+19:25:50 wire:   {"t":"ack","c":"pose","ok":true}   servos: [1502, 2500, 2597, 1594]
+19:25:52 [vision] alive (ticks=17540, last_latency=26.0 ms)
+19:25:54 [vision] alive (ticks=17560, last_latency=20.4 ms)
+19:25:56 [vision] alive (ticks=17580, last_latency=11.1 ms)
+19:25:58 [vision] alive (ticks=17600, last_latency=7.9 ms)
+19:25:59 heard (0 ms): 'neutral'
+19:25:59 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:26:00 [vision] alive (ticks=17620, last_latency=7.0 ms)
+19:26:00 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2048, 2046, 2047]
+19:26:02 [vision] alive (ticks=17640, last_latency=11.8 ms)
+19:26:04 [vision] alive (ticks=17660, last_latency=7.6 ms)
+19:26:06 [vision] alive (ticks=17680, last_latency=7.8 ms)
+19:26:08 [vision] alive (ticks=17700, last_latency=12.9 ms)
+19:26:09 heard (0 ms): 'do it again'
+19:26:09 [mem] resolved 'do it again' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:26:09 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:26:10 [vision] alive (ticks=17720, last_latency=6.4 ms)
+19:26:10 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2048, 2046, 2047]
+19:26:12 [vision] alive (ticks=17740, last_latency=8.5 ms)
+19:26:14 [vision] alive (ticks=17760, last_latency=32.9 ms)
+19:26:16 [vision] alive (ticks=17780, last_latency=27.7 ms)
+19:26:18 [vision] alive (ticks=17800, last_latency=18.5 ms)
+19:26:19 [behav] idle sway
+19:26:19 heard (0 ms): 'repeat that'
+19:26:19 [mem] resolved 'repeat that' -> {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:26:19 decision: {'c': 'pose', 'n': 'neutral', 'd': 1500}
+19:26:20 [behav] tick-wire {'c': 'pose', 'n': 'neutral', 'd': 1500} -> {"t":"ack","c":"pose","ok":true}
+19:26:20 [vision] alive (ticks=17820, last_latency=15.7 ms)
+19:26:22 wire:   {"t":"ack","c":"pose","ok":true}   servos: [2046, 2048, 2046, 2047]
+19:26:22 [vision] alive (ticks=17840, last_latency=6.7 ms)
+19:26:24 heard (0 ms): 'shut down'
+19:26:24 decision: {'_exit': True}
+19:26:24 [vision] watcher stopped
+19:26:24 shutdown

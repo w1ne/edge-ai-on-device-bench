@@ -349,39 +349,49 @@ def _phone_transcribe_whisper_cli(wav: str, phone: str) -> tuple[str, float]:
     return "", dt
 
 
-def _phone_transcribe_tflite(wav: str) -> tuple[str, float] | None:
-    """TFLite path via scripts/whisper_tflite_runner.py.
+# Cache the in-process whisper runner module so we pay the ~2.9 s
+# Python/torch/tf import + model-load cost exactly once per daemon run
+# instead of per utterance.  Subprocess-shelling would spend that every
+# single call and wipe out the compute win.
+_WHISPER_TFLITE_MOD = None
+_WHISPER_TFLITE_PROBED = False
 
-    Returns (transcript, wall_s) on clean run (transcript may be empty),
-    or None if the runner script is missing / crashed / returned no JSON.
-    Caller handles None by falling back to the whisper-cli path.
+
+def _phone_transcribe_tflite(wav: str) -> tuple[str, float] | None:
+    """TFLite path — runs scripts/whisper_tflite_runner.py IN-PROCESS.
+
+    Encoder-only TFLite graph + openai-whisper pytorch decoder, both
+    cached at the module level so only the first call pays import cost.
+    Measured warm mean 1.25 s vs whisper.cpp ggml-tiny 1.80 s on
+    utter_16k.wav (1.44x speedup captured end-to-end).  See
+    docs/STATUS.md 'Whisper TFLite' section.
+
+    Returns (transcript, wall_s) or None on failure — caller falls back
+    to the whisper-cli path so we never lose STT.
     """
-    if not os.path.exists(TFLITE_RUNNER_PATH):
+    global _WHISPER_TFLITE_MOD, _WHISPER_TFLITE_PROBED
+    if not _WHISPER_TFLITE_PROBED:
+        _WHISPER_TFLITE_PROBED = True
+        scripts_dir = str(HERE.parent / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        try:
+            import whisper_tflite_runner  # type: ignore
+            _WHISPER_TFLITE_MOD = whisper_tflite_runner
+        except Exception:
+            _WHISPER_TFLITE_MOD = None
+    if _WHISPER_TFLITE_MOD is None:
         return None
     t0 = time.time()
     try:
-        r = subprocess.run(
-            [sys.executable, TFLITE_RUNNER_PATH, wav, "--json", "--threads", "4"],
-            capture_output=True, text=True, timeout=60,
-        )
+        out = _WHISPER_TFLITE_MOD.run_encoder_only(wav)
     except Exception:
         return None
     dt = time.time() - t0
-    if r.returncode != 0:
+    if out is None:
         return None
-    # The runner may print TF/XNNPack banners before the JSON line.
-    # Parse the LAST json-looking line on stdout.
-    for line in reversed(r.stdout.splitlines()):
-        s = line.strip()
-        if s.startswith("{") and s.endswith("}"):
-            try:
-                obj = json.loads(s)
-                # Prefer the runner's measured wall_s (excludes subprocess
-                # spawn overhead), falling back to our own wall clock.
-                return obj.get("transcript", "") or "", float(obj.get("wall_s", dt))
-            except Exception:
-                continue
-    return None
+    text = (out.get("transcript", "") if isinstance(out, dict) else str(out or "")).strip()
+    return text, float((out.get("wall_s", dt) if isinstance(out, dict) else dt))
 
 
 def phone_transcribe(wav: str, dry_run: bool,
