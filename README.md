@@ -119,7 +119,7 @@ python3 demo/pipeline_demo.py "lean left"
 python3 demo/pipeline_demo.py "walk"
 ```
 
-Long-running voice loop (the "usable robot"):
+Long-running voice + vision robot loop:
 
 ```bash
 # push-to-talk voice loop + USB to ESP32 + spoken ack
@@ -128,11 +128,16 @@ python3 demo/robot_daemon.py
 # typed commands + no hardware, for testing the matcher
 python3 demo/robot_daemon.py --mode text --dry-run
 
-# optional: poll phone camera + YOLO in a background thread
-python3 demo/robot_daemon.py --with-eyes 5 --log logs/robot.log
+# full stack: webcam vision + BehaviorEngine (greets on new class, stops
+# on close obstacle while walking) + DeepInfra API for out-of-vocab phrases
+source ~/Projects/AIHW/.env.local     # export DEEPINFRA_API_KEY
+python3 demo/robot_daemon.py --with-vision person \
+                             --vision-phone pixel6 \
+                             --with-llm --llm-api api \
+                             --log logs/robot.log
 
-# optional: TinyLlama fallback when keyword match misses (slow, ~25 s/call on P20)
-python3 demo/robot_daemon.py --with-llm
+# offline-only LLM fallback (on-phone, slower, less accurate):
+python3 demo/robot_daemon.py --with-llm --llm-api local --llm-model gemma
 ```
 
 Vision on a single frame (phone camera → YOLO-Fastest v2 → detections + overlay PNG):
