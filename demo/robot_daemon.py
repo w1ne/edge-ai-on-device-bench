@@ -1450,8 +1450,10 @@ def main():
                     send_wire({"c": "pose", "n": name, "d": int(duration_ms)}, args.dry_run)
                     return {"ok": True}
 
-                def _tool_walk(on: bool, stride: int = 150, step: int = 400) -> dict:
-                    send_wire({"c": "walk", "on": bool(on),
+                def _tool_walk(stride: int = 150, step: int = 400, **_ignored) -> dict:
+                    # walk() only starts walking; stop() is the halt path.
+                    # **_ignored swallows any legacy `on=` arg the LLM might emit.
+                    send_wire({"c": "walk", "on": True,
                                "stride": int(stride), "step": int(step)}, args.dry_run)
                     return {"ok": True}
 

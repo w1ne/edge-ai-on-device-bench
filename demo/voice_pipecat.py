@@ -440,30 +440,218 @@ class _BasicVoiceLoop:
 
 
 # ---------------------------------------------------------------------------
-# Pipecat-backed loop.  Best-effort; only instantiated if the capability
-# probe passed and the user hasn't forced the fallback via env.
+# Pipecat-backed loop.  Only instantiated if the capability probe passed
+# AND the user opts in via VOICE_USE_PIPECAT=1.
 #
 # The pipeline is:
-#   LocalAudioTransport.input() -> SileroVADAnalyzer -> WhisperSTTService ->
-#       _UtteranceSink  (pushes text to our callback)
-#   speak() emits TextFrames directly into a PiperTTSService -> transport.output()
-# Barge-in is provided by the transport's built-in interruption handling
-# when a user-started-speaking frame arrives while TTS is mid-stream.
+#   LocalAudioTransport.input()
+#     -> SileroVADAnalyzer (on the transport params)
+#     -> WhisperSTTService (faster-whisper, base.en CPU)
+#     -> _UtteranceSink          (TranscriptionFrame -> on_utterance)
+#     -> PiperTTSService         (en_US-lessac-low, downloads to cache_dir)
+#     -> LocalAudioTransport.output()
 #
-# Because wiring this up requires pyaudio + faster-whisper on this box and
-# they aren't installed, this class currently falls through to the basic
-# loop in __init__.  If you install them and want to enable it, set
-# VOICE_USE_PIPECAT=1 and the real pipeline will run.
+# Barge-in is provided by pipecat: when SileroVAD emits
+# UserStartedSpeakingFrame mid-TTS, the pipeline's interruption handler
+# cancels downstream frames and the transport stops playback.
+#
+# speak() is a sync method; internally it queues a TextFrame onto the
+# pipeline's task via run_coroutine_threadsafe so any thread can call it.
 # ---------------------------------------------------------------------------
 class _PipecatVoiceLoop:
-    def __init__(self, *args, **kwargs):  # pragma: no cover - stub path
-        # This ctor is only reached when _PIPECAT_AVAILABLE is True AND the
-        # user explicitly opts in via env.  Anything else falls through to
-        # _BasicVoiceLoop above at the VoiceLoop() factory level.
-        raise NotImplementedError(
-            "The real pipecat pipeline needs pyaudio + faster-whisper; "
-            "install them and set VOICE_USE_PIPECAT=1, or use the basic loop."
+    def __init__(self,
+                 on_utterance: Callable[[str], None],
+                 stt: str,
+                 tts: str,
+                 wake_word: Optional[str],
+                 logger: Callable[[str], None]):
+        self._on_utterance = on_utterance
+        self._stt = stt
+        self._tts = tts
+        self._wake_word_name = wake_word
+        self._log = logger
+        self._thread: Optional[threading.Thread] = None
+        self._loop: "asyncio.AbstractEventLoop | None" = None
+        self._task = None  # PipelineTask
+        self._transport = None  # LocalAudioTransport
+        self._running = False
+        self._started_evt = threading.Event()
+        self._stop_evt = threading.Event()
+        # Wake-word state: when a wake-word name is set, we gate on_utterance
+        # on a recent wake-word hit.  OpenWakeWord runs in a side-thread off
+        # the same arecord tap used by the basic loop, because pipecat's
+        # transport consumes the mic and exposes frames, not raw PCM we can
+        # fan out.  So we leave the wake-word path to the basic loop and
+        # treat pipecat mode as always-on STT.  Document this tradeoff.
+        if self._wake_word_name:
+            self._log(f"[warn] pipecat path ignores wake_word={wake_word!r}; "
+                      f"always-on STT.  Use basic loop for wake-gated capture.")
+
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(
+            target=self._run_loop, daemon=True, name="pipecat-voice")
+        self._thread.start()
+        # Wait up to 20s for pipeline to come up — Silero + Whisper both need
+        # to warm on first run.  If it doesn't, mark not-running so callers
+        # don't deadlock in speak().
+        if not self._started_evt.wait(timeout=20.0):
+            self._log("[voice] pipecat pipeline start timed out")
+            self._running = False
+
+    def stop(self) -> None:
+        if not self._running:
+            return
+        self._stop_evt.set()
+        self._running = False
+        loop = self._loop
+        task = self._task
+        if loop is not None and task is not None and loop.is_running():
+            try:
+                import asyncio
+                from pipecat.frames.frames import EndFrame
+                fut = asyncio.run_coroutine_threadsafe(
+                    task.queue_frame(EndFrame()), loop)
+                try:
+                    fut.result(timeout=3.0)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        if self._thread is not None:
+            self._thread.join(timeout=5.0)
+
+    def speak(self, text: str) -> None:
+        if not text or not text.strip():
+            return
+        if not self._running or self._loop is None or self._task is None:
+            return
+        try:
+            import asyncio
+            from pipecat.frames.frames import TTSSpeakFrame
+            fut = asyncio.run_coroutine_threadsafe(
+                self._task.queue_frame(TTSSpeakFrame(text)), self._loop)
+            try:
+                fut.result(timeout=2.0)
+            except Exception:
+                pass
+        except Exception as e:
+            self._log(f"[voice] speak failed: {type(e).__name__}: {e}")
+
+    def stop_speaking(self) -> None:
+        """Barge-in from the outside — emit a StopTaskFrame to the pipeline."""
+        if not self._running or self._loop is None or self._task is None:
+            return
+        try:
+            import asyncio
+            from pipecat.frames.frames import BotInterruptionFrame
+            asyncio.run_coroutine_threadsafe(
+                self._task.queue_frame(BotInterruptionFrame()), self._loop)
+        except Exception:
+            pass
+
+    def is_running(self) -> bool:
+        return self._running
+
+    # ---- pipeline thread ----
+    def _run_loop(self) -> None:
+        import asyncio
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        try:
+            self._loop.run_until_complete(self._main_async())
+        except Exception as e:
+            self._log(f"[voice] pipecat loop crashed: {type(e).__name__}: {e}")
+        finally:
+            try:
+                self._loop.close()
+            except Exception:
+                pass
+            self._loop = None
+            self._started_evt.set()
+
+    async def _main_async(self) -> None:
+        from pipecat.pipeline.pipeline import Pipeline
+        from pipecat.pipeline.runner import PipelineRunner
+        from pipecat.pipeline.task import PipelineTask, PipelineParams
+        from pipecat.processors.frame_processor import FrameProcessor, FrameDirection
+        from pipecat.frames.frames import TranscriptionFrame, Frame
+        from pipecat.transports.local.audio import (
+            LocalAudioTransport, LocalAudioTransportParams,
         )
+        from pipecat.audio.vad.silero import SileroVADAnalyzer
+        from pipecat.services.whisper.stt import WhisperSTTService
+        from pipecat.services.piper.tts import PiperTTSService
+
+        piper_cache = Path(os.path.expanduser("~/.cache/piper"))
+        piper_cache.mkdir(parents=True, exist_ok=True)
+
+        # Pipecat 0.0.108+: vad_enabled / vad_audio_passthrough / vad_analyzer
+        # on the transport params are deprecated in favour of audio_in_enabled
+        # + a dedicated VAD processor.  But VADProcessor isn't exposed as a
+        # top-level Pipeline node in this version either — the supported path
+        # for local-audio is still params.vad_analyzer.  Keep the deprecated
+        # path; re-evaluate on next pipecat release.
+        params = LocalAudioTransportParams(
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+            audio_in_sample_rate=SAMPLE_RATE,
+            audio_out_sample_rate=22050,
+            vad_enabled=True,
+            vad_audio_passthrough=True,
+            vad_analyzer=SileroVADAnalyzer(),
+        )
+        self._transport = LocalAudioTransport(params)
+
+        stt_settings = WhisperSTTService.Settings(model="base.en")
+        stt = WhisperSTTService(settings=stt_settings,
+                                device="cpu", compute_type="int8")
+        tts_settings = PiperTTSService.Settings(voice="en_US-lessac-low")
+        tts = PiperTTSService(settings=tts_settings,
+                              download_dir=piper_cache)
+
+        on_utterance = self._on_utterance
+        log = self._log
+
+        class _UtteranceSink(FrameProcessor):
+            async def process_frame(self, frame: Frame, direction):
+                await super().process_frame(frame, direction)
+                if isinstance(frame, TranscriptionFrame):
+                    text = (frame.text or "").strip()
+                    if text:
+                        try:
+                            on_utterance(text)
+                        except Exception as e:
+                            log(f"[voice] on_utterance raised: "
+                                f"{type(e).__name__}: {e}")
+                await self.push_frame(frame, direction)
+
+        sink = _UtteranceSink()
+
+        pipeline = Pipeline([
+            self._transport.input(),
+            stt,
+            sink,
+            tts,
+            self._transport.output(),
+        ])
+
+        self._task = PipelineTask(
+            pipeline,
+            params=PipelineParams(allow_interruptions=True),
+            idle_timeout_secs=None,  # run indefinitely; we end via EndFrame
+        )
+
+        self._log("[voice] pipecat pipeline ready (Silero+Whisper+Piper)")
+        self._started_evt.set()
+
+        runner = PipelineRunner(handle_sigint=False)
+        try:
+            await runner.run(self._task)
+        except Exception as e:
+            self._log(f"[voice] runner exit: {type(e).__name__}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -494,7 +682,18 @@ class VoiceLoop:
                       f"({_PIPECAT_REASON or 'not installed'})")
         elif not use_pipecat:
             self._log("[info] pipecat installed but VOICE_USE_PIPECAT!=1, "
-                      "using basic loop (no pyaudio/faster-whisper on laptop)")
+                      "using basic loop")
+        if use_pipecat:
+            try:
+                self._impl = _PipecatVoiceLoop(
+                    on_utterance=on_utterance,
+                    stt=stt, tts=tts, wake_word=wake_word, logger=self._log,
+                )
+                self._log("[voice] pipecat pipeline selected")
+                return
+            except Exception as e:
+                self._log(f"[voice] pipecat init failed "
+                          f"({type(e).__name__}: {e}); falling back to basic")
         self._impl = _BasicVoiceLoop(
             on_utterance=on_utterance,
             stt=stt,

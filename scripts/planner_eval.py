@@ -62,9 +62,9 @@ def _build_stub_tools(look_queue: list[dict]) -> tuple[dict, list[dict]]:
                          "args": {"name": name, "duration_ms": duration_ms}})
         return {"ok": True}
 
-    def walk(on: bool, stride: int = 150, step: int = 400) -> dict:
+    def walk(stride: int = 150, step: int = 400, **_ignored) -> dict:
         call_log.append({"tool": "walk",
-                         "args": {"on": on, "stride": stride, "step": step}})
+                         "args": {"stride": stride, "step": step}})
         return {"ok": True}
 
     def stop() -> dict:

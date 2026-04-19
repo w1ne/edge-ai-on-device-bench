@@ -118,15 +118,17 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "walk",
-            "description": "Start or stop the walking gait.",
+            "description": (
+                "Start the walking gait.  This tool ONLY starts walking; "
+                "to halt motion (including walking), call `stop` instead."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "on": {"type": "boolean"},
                     "stride": {"type": "integer", "default": 150},
                     "step":   {"type": "integer", "default": 400},
                 },
-                "required": ["on"],
+                "required": [],
             },
         },
     },
@@ -134,7 +136,10 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "stop",
-            "description": "Halt all motion immediately.",
+            "description": (
+                "Halt all motion immediately — use this to stop walking, "
+                "stop a pose, or as an emergency halt."
+            ),
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -218,8 +223,14 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "  - Prefer the fewest tool calls that accomplish the goal.\n"
     "  - If the user asked you to say something, call `say` with that text.\n"
-    "  - If the goal involves finding / spotting something, use `look` and "
-    "then `say` what you saw (or didn't).\n"
+    "  - For factual or verbal questions with no physical action "
+    "(weather, math, trivia, yes/no questions about the world): "
+    "answer with `say`, then `finish`.  Do NOT call `look` — `look` is "
+    "only for questions about the physical scene around the robot.\n"
+    "  - If the goal involves finding / spotting something physically "
+    "present, use `look` and then `say` what you saw (or didn't).\n"
+    "  - To halt any motion, call `stop`.  Do not call `walk` with an "
+    "off/disable argument — `walk` only starts walking.\n"
     "  - Always call `finish` once the goal is done.  Do not keep calling "
     "tools after finishing.\n"
     "  - Never invent tools.  Only use the tools provided.\n"
