@@ -165,31 +165,61 @@ def phone_transcribe(wav: str, dry_run: bool) -> tuple[str, float]:
 
 # ------------------------------------------------------------------ ESP32 wire
 
-def send_wire(cmd: dict, dry_run: bool):
-    if dry_run:
-        return "dry-run", None
-    import usb.core, usb.util  # lazy import so --dry-run works without pyusb
+# Persistent USB handle — re-finding + re-claiming the device on every call
+# triggers "Resource busy" on this ESP32-S3's USB CDC endpoint after the
+# first write.  Cache it; only reopen on error.
+_USB_DEV = None
+_USB_LOCK = threading.Lock()
+
+
+def _open_usb():
+    import usb.core, usb.util  # lazy so --dry-run works without pyusb
     dev = usb.core.find(idVendor=0x303a, idProduct=0x1001)
     if dev is None:
-        return "no-device", None
+        return None
     try: usb.util.claim_interface(dev, 1)
     except Exception: pass
-    try:
-        while True: dev.read(0x81, 4096, timeout=60)
-    except Exception: pass
-    payload = (json.dumps({k: v for k, v in cmd.items() if not k.startswith("_")})
-               + "\n").encode()
-    dev.write(0x01, payload, timeout=500)
-    buf, end = bytearray(), time.time() + 1.3
-    while time.time() < end:
-        try: buf.extend(dev.read(0x81, 4096, timeout=120))
+    return dev
+
+
+def send_wire(cmd: dict, dry_run: bool):
+    global _USB_DEV
+    if dry_run:
+        return "dry-run", None
+    with _USB_LOCK:
+        if _USB_DEV is None:
+            _USB_DEV = _open_usb()
+            if _USB_DEV is None:
+                return "no-device", None
+        dev = _USB_DEV
+        # drain any stale telemetry first
+        try:
+            while True: dev.read(0x81, 4096, timeout=60)
         except Exception: pass
-    ack, pos = None, None
-    for line in buf.decode("utf-8", "replace").splitlines():
-        if '"ack"' in line or '"err"' in line: ack = line.strip()
-        m = re.search(r'"p":\[([\-\d,]+)\]', line)
-        if m: pos = [int(x) for x in m.group(1).split(',')]
-    return ack, pos
+        payload = (json.dumps({k: v for k, v in cmd.items()
+                               if not k.startswith("_")}) + "\n").encode()
+        try:
+            dev.write(0x01, payload, timeout=500)
+        except Exception:
+            # kernel detached us; drop handle and retry once
+            try: import usb.util; usb.util.dispose_resources(dev)
+            except Exception: pass
+            _USB_DEV = _open_usb()
+            if _USB_DEV is None:
+                return "no-device", None
+            dev = _USB_DEV
+            dev.write(0x01, payload, timeout=500)
+
+        buf, end = bytearray(), time.time() + 1.3
+        while time.time() < end:
+            try: buf.extend(dev.read(0x81, 4096, timeout=120))
+            except Exception: pass
+        ack, pos = None, None
+        for line in buf.decode("utf-8", "replace").splitlines():
+            if '"ack"' in line or '"err"' in line: ack = line.strip()
+            m = re.search(r'"p":\[([\-\d,]+)\]', line)
+            if m: pos = [int(x) for x in m.group(1).split(',')]
+        return ack, pos
 
 
 # ------------------------------------------------------------------ LLM fallback
