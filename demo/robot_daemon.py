@@ -66,7 +66,7 @@ Wire protocol (authoritative in w1ne/PhoneWalker:brain/wire.py):
 """
 from __future__ import annotations
 
-import argparse, datetime, json, os, queue, re, subprocess, sys, threading, time
+import argparse, datetime, json, os, queue, re, secrets, subprocess, sys, threading, time
 from pathlib import Path
 
 from robot_behaviors import BehaviorEngine
@@ -108,6 +108,7 @@ class RobotState:
         "ts", "transcript", "cmd", "wire_ack", "servos", "voltage_v",
         "temp_c", "uptime_ms", "imu", "walking", "mode", "vision_fps",
         "vision_recent", "planner_last", "behavior_state", "error_last",
+        "standing_goal",
     )
 
     def __init__(self, path: str | None = "/tmp/robot_state.json"):
@@ -131,6 +132,7 @@ class RobotState:
             "planner_last": None,
             "behavior_state": None,
             "error_last": None,
+            "standing_goal": None,
         }
 
     @property
@@ -1080,7 +1082,8 @@ def one_turn(args, logger, state: dict,
              engine: BehaviorEngine | None = None,
              mute_evt: "threading.Event | None" = None,
              planner=None,
-             state_obj: "RobotState | None" = None) -> dict | None:
+             state_obj: "RobotState | None" = None,
+             goal_keeper=None) -> dict | None:
     # When VoiceLoop is running (--voice pipecat), transcripts arrive on the
     # shared queue from its on_utterance callback.  Block until one shows up.
     if _VOICE_UTT_Q is not None:
@@ -1157,6 +1160,50 @@ def one_turn(args, logger, state: dict,
         if cmd is not None:
             logger(f"[matcher] LLM proposed: {cmd}")
 
+    # Persistent-goal cancel phrases ("never mind", "cancel that", "forget it")
+    # — only act on these when a GoalKeeper is active and holds a goal.
+    if (goal_keeper is not None and cmd is None and transcript
+            and re.search(r"\b(never\s?mind|cancel\s+that|forget\s+it|"
+                          r"cancel\s+goal|stop\s+watching)\b",
+                          transcript.lower())):
+        gk_status = goal_keeper.status()
+        if gk_status.get("state") == "active":
+            goal_keeper.cancel()
+            logger("[goal] cancelled by user")
+            speak("okay, cancelling", args.tts, mute_evt=mute_evt)
+            if state_obj is not None:
+                state_obj.update(standing_goal=goal_keeper.status())
+            return {"c": "goal_cancelled"}
+
+    # GoalKeeper route: long goals go through the persistent-goal wrapper
+    # so they stay active across turns.  Replaces a direct planner.run().
+    if (cmd is None and goal_keeper is not None and transcript
+            and len(transcript.split()) >= 3):
+        logger(f"[goal] routing to GoalKeeper: {transcript!r}")
+        try:
+            result = goal_keeper.set_goal(transcript)
+            steps = len(result.get("steps", []))
+            ok = result.get("success")
+            logger(f"[goal] initial run: {'success' if ok else 'fail'} "
+                   f"({result.get('reason')!r}, {steps} steps)")
+            if state_obj is not None:
+                state_obj.update(
+                    planner_last={
+                        "goal": transcript, "steps": int(steps),
+                        "success": bool(ok),
+                        "reason": str(result.get("reason") or ""),
+                    },
+                    standing_goal=goal_keeper.status(),
+                )
+            return {"c": "planner_done", "_planner": result}
+        except Exception as e:
+            logger(f"[goal] error: {type(e).__name__}: {e}")
+            if state_obj is not None:
+                state_obj.update(planner_last={
+                    "goal": transcript, "steps": 0, "success": False,
+                    "reason": f"{type(e).__name__}: {e}",
+                })
+
     # Planner fallback: multi-step goals that regex + intent-LLM both
     # couldn't collapse into a single primitive.  Requires --planner and
     # at least 3 words (short utterances are more likely typos than goals).
@@ -1232,19 +1279,38 @@ def one_turn(args, logger, state: dict,
 def drain_vision_events(event_queue: "queue.Queue[dict]", state: dict,
                         args, logger,
                         engine: BehaviorEngine | None = None,
-                        state_obj: "RobotState | None" = None):
+                        state_obj: "RobotState | None" = None,
+                        goal_keeper=None):
     """Called between voice turns. Pulls any vision events off the queue.
 
     When an engine is supplied (--with-vision on), delegates to
     engine.on_vision_event — the engine owns greet / auto-stop / follow-me
     logic.  When no engine, falls back to the original simple react (kept
     for backwards compat so --with-vision off still works unchanged).
+
+    If a GoalKeeper is present, every vision event is also forwarded to it
+    so a standing goal ("wait for a person") can re-engage the planner.
+    The GoalKeeper's on_event() is event-driven, not polled, and runs the
+    actual planner re-engagement on a daemon thread so we don't block.
     """
     GREETING_COOLDOWN = 10.0
     now = time.time()
     try:
         while True:
             ev = event_queue.get_nowait()
+            # Forward to the GoalKeeper (non-blocking; spawns its own thread
+            # for the actual planner follow-up).
+            if goal_keeper is not None:
+                try:
+                    goal_keeper.on_event({"type": "vision",
+                                          "class": ev.get("class", "?"),
+                                          "ts": ev.get("ts", time.time()),
+                                          "conf": ev.get("conf")})
+                    if state_obj is not None:
+                        state_obj.update(standing_goal=goal_keeper.status())
+                except Exception as e:
+                    logger(f"[goal] on_event(vision) err: "
+                           f"{type(e).__name__}: {e}")
             if engine is not None:
                 engine.on_vision_event(ev)
                 if state_obj is not None:
@@ -1303,7 +1369,8 @@ _MS_RE   = re.compile(r'"ms"\s*:\s*(\d+)')
 _IMU_RE  = re.compile(r'"imu"\s*:\s*\[([^\]]+)\]')
 
 
-def make_battery_watcher(logger, speak_fn, state_obj: "RobotState | None" = None):
+def make_battery_watcher(logger, speak_fn, state_obj: "RobotState | None" = None,
+                         goal_keeper=None):
     """Item 3: scan ESP32 telemetry text for ``"v":<int>`` (volts*10).
 
     When voltage stays below BATTERY_LOW_V for BATTERY_LOW_STREAK consecutive
@@ -1359,6 +1426,20 @@ def make_battery_watcher(logger, speak_fn, state_obj: "RobotState | None" = None
                         speak_fn("battery low")
                     except Exception:
                         pass
+                    # Push a battery event into any standing goal so the
+                    # planner can decide (e.g. 'walking to charger' might
+                    # want to stop now).
+                    if goal_keeper is not None:
+                        try:
+                            goal_keeper.on_event({"type": "battery",
+                                                  "voltage": float(v),
+                                                  "ts": time.time()})
+                            if state_obj is not None:
+                                state_obj.update(
+                                    standing_goal=goal_keeper.status())
+                        except Exception as e:
+                            logger(f"[goal] on_event(battery) err: "
+                                   f"{type(e).__name__}: {e}")
                     state["armed"] = False
             elif v >= BATTERY_RECOVER_V:
                 if not state["armed"]:
@@ -1543,6 +1624,14 @@ def main():
                    help="enable LLM tool-calling planner as a fallback for "
                         "long utterances that regex + parse_intent_api both "
                         "return noop for. requires DEEPINFRA_API_KEY.")
+    p.add_argument("--persistent-goal", dest="persistent_goal",
+                   action="store_true",
+                   help="wrap --planner in a GoalKeeper so each voice goal "
+                        "stays active across turns and re-engages the "
+                        "planner when a relevant vision / IMU / battery "
+                        "event arrives.  Off by default to preserve the "
+                        "existing single-turn planner behaviour (and the "
+                        "planner_eval regression tests).")
     p.add_argument("--voice", choices=["default", "pipecat"], default="default",
                    help="voice I/O backend. default: existing arecord + "
                         "whisper-cli + piper/espeak path. pipecat: use "
@@ -1565,6 +1654,27 @@ def main():
     p.add_argument("--no-state-server", dest="no_state_server",
                    action="store_true",
                    help="disable the HTTP/SSE state server entirely.")
+    p.add_argument("--auth-token-file",
+                   default=str(Path.home() / ".cache" / "edge-robot-token"),
+                   help="path the daemon writes its bearer token to (mode "
+                        "0600).  Clients read this file and pass the "
+                        "contents as Authorization: Bearer <tok>.  "
+                        "default: ~/.cache/edge-robot-token")
+    p.add_argument("--no-auth", dest="no_auth", action="store_true",
+                   help="disable bearer-token auth entirely (DEBUG ONLY). "
+                        "Any host that can reach the state port can then "
+                        "call /stop.  Logs a [warn] line.")
+    p.add_argument("--cors-origin", action="append", default=None,
+                   metavar="URL",
+                   help="additional origin to accept for CORS (repeat to "
+                        "allow several).  Default allowlist is "
+                        "http://127.0.0.1:5555 -- our own web UI.")
+    p.add_argument("--tls-cert", default=None, metavar="PATH",
+                   help="PEM certificate for the state server.  Requires "
+                        "--tls-key.  Enables https:// on the state port.  "
+                        "For loopback-only the default plaintext is fine.")
+    p.add_argument("--tls-key", default=None, metavar="PATH",
+                   help="PEM private key matching --tls-cert.")
     args = p.parse_args()
 
     logger = make_logger(args.log)
@@ -1611,12 +1721,60 @@ def main():
             def _emergency_stop():
                 return send_wire({"c": "stop"}, args.dry_run)
 
+            # Token provisioning: random 32-byte urlsafe string, written
+            # mode 0600 so only the owning UID can read it.  Anyone with
+            # shell access to the box can still `cat` it -- that's the
+            # threat model we're willing to live with (the ESP32 is
+            # already USB-local).
+            auth_token: str | None = None
+            auth_token_path: str | None = None
+            if args.no_auth:
+                logger("[state-server] [warn] --no-auth: token generation "
+                       "skipped; /stop is unauthenticated to any reachable "
+                       "client")
+            else:
+                token_path = Path(args.auth_token_file).expanduser()
+                token_path.parent.mkdir(parents=True, exist_ok=True)
+                auth_token = secrets.token_urlsafe(32)
+                # Write via temp file + rename so a concurrent reader
+                # never sees a half-written token.
+                tmp = token_path.with_suffix(token_path.suffix + ".tmp")
+                with open(os.open(str(tmp),
+                                  os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                                  0o600), "w") as fh:
+                    fh.write(auth_token + "\n")
+                os.replace(tmp, token_path)
+                # Defensive: if the file pre-existed with looser perms,
+                # tighten them after the rename.
+                try:
+                    os.chmod(token_path, 0o600)
+                except OSError:
+                    pass
+                auth_token_path = str(token_path)
+
+            cors_origins = ("http://127.0.0.1:5555",)
+            if args.cors_origin:
+                cors_origins = cors_origins + tuple(args.cors_origin)
+
+            if bool(args.tls_cert) != bool(args.tls_key):
+                logger("[state-server] --tls-cert and --tls-key must both "
+                       "be set; ignoring TLS config")
+                tls_cert = tls_key = None
+            else:
+                tls_cert = args.tls_cert
+                tls_key = args.tls_key
+
             state_httpd = make_server(
                 state_obj,
                 bind=args.state_bind,
                 port=args.state_port,
                 stop_fn=_emergency_stop,
                 logger=logger,
+                auth_token=auth_token,
+                auth_token_path=auth_token_path,
+                cors_origins=cors_origins,
+                tls_cert=tls_cert,
+                tls_key=tls_key,
             )
             state_httpd_thread = threading.Thread(
                 target=state_httpd.serve_forever, daemon=True,
@@ -1781,13 +1939,42 @@ def main():
                 logger(f"[planner] init failed ({type(e).__name__}: {e}); disabled")
                 planner = None
 
+    # GoalKeeper — wraps the planner so goals persist across turns and
+    # re-engage on relevant vision/IMU/battery events.  OFF by default;
+    # --persistent-goal opts in.  Guards the planner_eval regression tests.
+    goal_keeper = None
+    if args.persistent_goal and planner is not None:
+        try:
+            from goal_keeper import GoalKeeper
+            goal_keeper = GoalKeeper(planner, logger=logger)
+            state_obj.update(standing_goal=goal_keeper.status())
+            logger("[goal] GoalKeeper enabled (--persistent-goal)")
+        except Exception as e:
+            logger(f"[goal] init failed ({type(e).__name__}: {e}); disabled")
+            goal_keeper = None
+    elif args.persistent_goal and planner is None:
+        logger("[goal] --persistent-goal requires --planner; disabled")
+
+    # Rebind the battery watcher to include goal_keeper so low-battery
+    # alerts fan out to any standing goal.
+    if goal_keeper is not None:
+        _bat_watch2, _ = make_battery_watcher(
+            logger,
+            lambda s: speak(s, args.tts, mute_evt=mute_evt),
+            state_obj=state_obj,
+            goal_keeper=goal_keeper,
+        )
+        _TELEMETRY_HOOK = _bat_watch2
+
     try:
         while True:
             try:
                 drain_vision_events(event_queue, state, args, logger, engine,
-                                    state_obj=state_obj)
+                                    state_obj=state_obj,
+                                    goal_keeper=goal_keeper)
                 cmd = one_turn(args, logger, state, engine, mute_evt=mute_evt,
-                               planner=planner, state_obj=state_obj)
+                               planner=planner, state_obj=state_obj,
+                               goal_keeper=goal_keeper)
             except KeyboardInterrupt:
                 logger("interrupted during turn; idle.")
                 continue

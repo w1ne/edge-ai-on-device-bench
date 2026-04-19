@@ -370,14 +370,37 @@ class Planner:
     def run(self, goal: str, observation: dict | None = None) -> dict:
         api_key = _api_key()
 
-        user_content = goal.strip()
-        if observation:
-            user_content += "\n\nInitial observation: " + json.dumps(observation)
-
         messages: list[dict] = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": user_content},
+            {"role": "user",   "content": goal.strip()},
         ]
+
+        # When the GoalKeeper re-engages us with a fresh event (vision detect,
+        # IMU anomaly, battery alert, etc.) it passes `observation` carrying
+        # {"event": <event dict>, "prior_result": <previous PlanResult>}.
+        # Surface that as a follow-up user-role message so the LLM decides
+        # whether to act on the new observation or mark the goal complete.
+        if observation:
+            ev = observation.get("event") if isinstance(observation, dict) else None
+            prior = (observation.get("prior_result")
+                     if isinstance(observation, dict) else None)
+            lines = [
+                f"STANDING GOAL (still active): {goal.strip()}",
+                f"NEW OBSERVATION: {json.dumps(ev)}"
+                if ev is not None
+                else f"NEW OBSERVATION: {json.dumps(observation)}",
+            ]
+            if isinstance(prior, dict) and prior.get("final_say"):
+                lines.append(
+                    f"You previously said: {prior.get('final_say')!r}"
+                )
+            lines.append(
+                "Decide: does this observation satisfy the goal? "
+                "If yes, take the one appropriate action (e.g. `say` hello) "
+                "and then call `finish`.  If it does not satisfy the goal, "
+                "you may ignore it by calling `finish` with reason='ignored'."
+            )
+            messages.append({"role": "user", "content": "\n".join(lines)})
 
         steps: list[dict] = []
         final_say = ""
