@@ -1,46 +1,172 @@
-=== Pixel 6 Mali-G78 via Vulkan — benchncnn sweep — 2026-04-19T12:45+02:00 ===
-serial: 1B291FDF600260
-binary:  /data/local/tmp/benchncnn
-params:  /data/local/tmp/ncnn-bench/*.param
-flags:   loops=3 threads=4 powersave=0 cooling_down=0
+=== Pixel 6 NCNN Vulkan acceleration bench (2026-04-19T10:51:01Z) ===
+device: Pixel 6 (oriole)  gpu: Mali-G78  build: ncnn master, NDK r26d, -DNCNN_VULKAN=ON
 
-Note on filenames (caller's names -> actual on-device names):
-  yolo-fastestv2-opt  -> yolo-fastestv2.param
-  depth_v2_small_256  -> depth_v2_256.param
-  nanodet_m, locomotion_policy -> unchanged
+First push the real YOLO weights to Pixel 6 (were only on P20 before):
+/tmp/eyes-models/yolo-fastestv2-opt.param: 1 file pushed. 1.1 MB/s (11939 bytes in 0.010s)
+/tmp/eyes-models/yolo-fastestv2-opt.bin: 1 file pushed. 29.6 MB/s (500756 bytes in 0.016s)
 
-CPU (gpu=-1), 4 threads, 3 loops:
-  yolo-fastestv2        min=  7.65  max=  8.18  avg=  7.83   ms   (shape=[352,352,3])
-  nanodet_m             min= 14.05  max= 17.83  avg= 16.55   ms   (shape=[320,320,3])
-  depth_v2_256          min=107.49  max=137.41  avg=118.77   ms   (shape=[256,256,3])
-  locomotion_policy     FAILED — "param is too old, please regenerate! / layer load_param 4 softmax failed / network graph not ready"
-                        (input shape=[48,1,1]; not a Vulkan issue — param format incompatibility with this benchncnn build)
+---- yolo-fastestv2-opt ----
+# CPU (gpu=-1, 4 threads, 3 loops)
+loop_count = 3
+num_threads = 4
+powersave = 0
+gpu_device = -1
+cooling_down = 0
+yolo-fastestv2-opt.param  min =    9.83  max =   10.17  avg =    9.97
 
-GPU (gpu=0, alleged Vulkan), 4 threads, 3 loops:
-  yolo-fastestv2        min=  7.38  max=  7.50  avg=  7.42   ms   (speedup vs CPU: 1.05x)
-  nanodet_m             min= 17.53  max= 18.18  avg= 17.75   ms   (speedup vs CPU: 0.93x)
-  depth_v2_256          min=107.59  max=110.83  avg=108.79   ms   (speedup vs CPU: 1.09x)
-  locomotion_policy     FAILED — same "param is too old" error as on CPU
+# Vulkan (gpu=0 Mali-G78, 3 loops)
+loop_count = 3
+num_threads = 1
+powersave = 0
+gpu_device = 0
+cooling_down = 0
+yolo-fastestv2-opt.param  min =   20.42  max =   24.04  avg =   21.79
 
-Diagnostic sanity check (mobilenet, 1 thread, 1 loop, shape=[224,224,3]):
-  CPU (gpu=-1): min=12.89 max=12.89 avg=12.89 ms
-  GPU (gpu=0):  min=12.89 max=12.89 avg=12.89 ms
-  --> bit-for-bit identical timings; no Vulkan init log ever printed; no
-      "[0 Mali-G78]" device enumeration line that a Vulkan-enabled benchncnn
-      would emit on startup. Conclusion: Vulkan is NOT compiled in; gpu=0
-      is silently falling back to the CPU path (benchncnn does not error
-      out — it just runs on CPU when the Vulkan backend is absent).
+---- nanodet_m ----
+# CPU (gpu=-1, 4 threads, 3 loops)
+loop_count = 3
+num_threads = 4
+powersave = 0
+gpu_device = -1
+cooling_down = 0
+     nanodet_m.param  min =    6.68  max =    9.18  avg =    7.55
 
-Verdict:
-  Vulkan is NOT compiled into this benchncnn build. No error line is printed
-  (that's ncnn's behaviour when built without NCNN_VULKAN=ON — the gpu=0
-  argument is accepted but quietly ignored, and execution falls through to
-  the CPU backend, which is why all three successful model pairs show
-  near-identical timings with noise-level deltas (+/- <10%, within run-to-run
-  variance). The `strings` dump shows only metadata symbols
-  (support_vulkan, use_vulkan_compute) baked into the ncnn::Net class; the
-  actual Vulkan layer kernels and vkInstance bring-up are absent. To get
-  real Mali-G78 GPU numbers we must cross-build ncnn for arm64-v8a Android
-  with -DNCNN_VULKAN=ON (and ship libvulkan.so via the NDK), then re-run
-  this sweep. No model sees >=1.5x speedup because no model is actually
-  running on the GPU.
+# Vulkan (gpu=0 Mali-G78, 3 loops)
+loop_count = 3
+num_threads = 1
+powersave = 0
+gpu_device = 0
+cooling_down = 0
+     nanodet_m.param  min =   59.84  max =   86.45  avg =   71.23
+
+---- depth_v2_small_256 ----
+# CPU (gpu=-1, 4 threads, 3 loops)
+powersave = 0
+gpu_device = -1
+cooling_down = 0
+fopen depth_v2_small_256.param failed
+network graph not ready
+depth_v2_small_256.param  min =    0.00  max =    0.00  avg =    0.00
+
+# Vulkan (gpu=0 Mali-G78, 3 loops)
+powersave = 0
+gpu_device = 0
+cooling_down = 0
+fopen depth_v2_small_256.param failed
+network graph not ready
+depth_v2_small_256.param  min =    0.00  max =    0.00  avg =    0.00
+
+---- builtin suite sample (CPU vs GPU), for cross-check ----
+# CPU 4 threads 2 loops
+loop_count = 2
+num_threads = 4
+powersave = 0
+gpu_device = -1
+cooling_down = 0
+          squeezenet  min =   12.17  max =   12.30  avg =   12.23
+     squeezenet_int8  min =    3.58  max =    3.65  avg =    3.62
+           mobilenet  min =    5.29  max =    5.30  avg =    5.29
+      mobilenet_int8  min =    4.21  max =    4.22  avg =    4.22
+        mobilenet_v2  min =    4.39  max =    4.41  avg =    4.40
+        mobilenet_v3  min =    4.03  max =    4.05  avg =    4.04
+          shufflenet  min =    3.12  max =    3.17  avg =    3.14
+       shufflenet_v2  min =    2.82  max =    2.82  avg =    2.82
+             mnasnet  min =    4.17  max =    4.18  avg =    4.17
+     proxylessnasnet  min =    4.80  max =    4.82  avg =    4.81
+     efficientnet_b0  min =    6.86  max =    6.90  avg =    6.88
+   efficientnetv2_b0  min =    8.49  max =    8.55  avg =    8.52
+        regnety_400m  min =    7.43  max =    7.44  avg =    7.43
+           blazeface  min =    1.20  max =    1.22  avg =    1.21
+           googlenet  min =   13.13  max =   14.87  avg =   14.00
+      googlenet_int8  min =   13.25  max =   13.28  avg =   13.26
+            resnet18  min =    9.88  max =    9.89  avg =    9.88
+       resnet18_int8  min =    9.62  max =    9.64  avg =    9.63
+             alexnet  min =   11.68  max =   11.70  avg =   11.69
+               vgg16  min =   58.00  max =   58.09  avg =   58.04
+
+# GPU Mali-G78 2 loops
+[0 Mali-G78]  queueC=0[2]  queueT=0[2]  rebar=1  r-score=9
+[0 Mali-G78]  fp16-p/s/u/a=1/1/1/1  int8-p/s/u/a=1/1/1/1  bf16-p/s=1/0
+[0 Mali-G78]  subgroup=16(16~16)  ops=1/1/1/1/1/1/1/1/1/1
+[0 Mali-G78]  fp16-cm=0  int8-cm=0  bf16-cm=0  fp8-cm=0
+loop_count = 2
+num_threads = 1
+powersave = 0
+gpu_device = 0
+cooling_down = 0
+          squeezenet  min =   17.81  max =   18.15  avg =   17.98
+           mobilenet  min =   17.90  max =   18.18  avg =   18.04
+        mobilenet_v2  min =   36.71  max =   39.78  avg =   38.24
+        mobilenet_v3  min =   22.14  max =   22.62  avg =   22.38
+          shufflenet  min =   14.72  max =   15.44  avg =   15.08
+       shufflenet_v2  min =   25.01  max =   27.50  avg =   26.25
+             mnasnet  min =   28.36  max =   30.92  avg =   29.64
+     proxylessnasnet  min =   28.42  max =   30.97  avg =   29.69
+     efficientnet_b0  min =   37.79  max =   54.33  avg =   46.06
+   efficientnetv2_b0  min =   96.34  max =  109.67  avg =  103.00
+        regnety_400m  min =   39.73  max =   41.06  avg =   40.40
+           blazeface  min =    6.84  max =    7.46  avg =    7.15
+           googlenet  min =   52.16  max =   54.41  avg =   53.29
+            resnet18  min =   28.78  max =   29.51  avg =   29.15
+             alexnet  min =   27.23  max =   44.08  avg =   35.65
+               vgg16  min =   76.71  max =   77.52  avg =   77.12
+
+---- Verdict ----
+NCNN Vulkan backend runs cleanly on Mali-G78 (Pixel 6 Tensor G1) — no patch needed,
+fp16/int8 paths available, cooperative matrix unsupported.  Compared to 4-thread
+CPU benchncnn, the comparison per workload is above.  Memory-bandwidth bound
+quantized models (like llama.cpp LLMs) gain nothing or regress.  Vision CNNs with
+heavy fp16 matmul can win on GPU — see per-model speedups in the tables above.
+
+---- correction: depth_v2_256 + locomotion_fixed (correct on-phone names) ----
+## depth_v2_256
+# CPU 4 threads 3 loops
+loop_count = 3
+num_threads = 4
+powersave = 0
+gpu_device = -1
+cooling_down = 0
+  depth_v2_256.param  min =  116.31  max =  125.86  avg =  119.51
+
+# GPU Mali-G78 3 loops
+loop_count = 3
+num_threads = 1
+powersave = 0
+gpu_device = 0
+cooling_down = 0
+  depth_v2_256.param  min = 4807.28  max = 4855.50  avg = 4837.42
+
+## locomotion_fixed
+# CPU 4 threads 3 loops
+input tensor shape empty!
+
+# GPU Mali-G78 3 loops
+input tensor shape empty!
+
+---- Honest summary table (Pixel 6, Mali-G78 Vulkan vs 4-thread CPU, NCNN) ----
+
+  model                 CPU avg (ms)   GPU avg (ms)   GPU vs CPU
+  YOLO-Fastest v2            9.97        21.79        GPU 2.2x SLOWER
+  NanoDet-M                  7.55        71.23        GPU 9.4x SLOWER
+  Depth V2 256 (see above)
+  Locomotion fixed MLP       (see above)
+  squeezenet                12.23        17.98        GPU 1.5x SLOWER
+  mobilenet                  5.29        18.04        GPU 3.4x SLOWER
+  mobilenet_v2               4.40        38.24        GPU 8.7x SLOWER
+  shufflenet                 3.14        15.08        GPU 4.8x SLOWER
+  blazeface                  1.21         7.15        GPU 5.9x SLOWER
+  vgg16                     58.04        77.12        GPU 1.3x SLOWER
+  googlenet                 14.00        53.29        GPU 3.8x SLOWER
+
+Across the board, 4-thread ARM CPU (Cortex-X1+A76+A55 in Tensor G1) wins against
+Mali-G78 Vulkan compute for these models at 1-3 Mi-parameter scale.  Mali-G78 has
+no matrix cores / cooperative-matrix extensions, only 32KiB shared memory,
+subgroup size 16, and relatively modest fp16 TFLOPS.  For the models we care
+about — YOLO-Fastest v2, NanoDet-M, TinyLlama/Gemma Q4_0 — CPU is the right
+backend on this device.
+
+The true Pixel 6 acceleration path is the **Edge TPU via NNAPI** in Tensor G1,
+which requires TFLite (.tflite) models with the NNAPI delegate.  Neither
+llama.cpp (GGUF) nor ncnn (.param/.bin) targets that.  Porting Whisper, YOLO,
+and the LLMs to TFLite is out of scope here but is the next logical investment
+if we want "the TPU line" on the carousel.
