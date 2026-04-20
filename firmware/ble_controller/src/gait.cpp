@@ -21,27 +21,38 @@ void Gait::tick(uint32_t now_ms, ServoBus& bus, const Config& cfg) {
   if ((now_ms - last_step_ms_) < step_ms_) return;
   last_step_ms_ = now_ms;
 
-  // Alternate left/right half-step. This is a placeholder gait; the real
-  // per-leg phase angles need to be ported from the original firmware or
-  // tuned on the bench.
-  const int16_t off = (int16_t)stride_;
-  const uint16_t speed = kDefaultGait.speed;
-  const uint8_t  acc   = kDefaultGait.acc;
+  // Alternating trot.  Convention (matching the original firmware's live
+  // telemetry, captured 2026-04-20):
+  //   In the active phase's pair, the FIRST entry goes DOWN (-stride) and
+  //   the SECOND entry goes UP (+stride).  The resting pair holds NEUTRAL.
+  //
+  //   Phase A  (phase_ even) -> swing {1, 2}:
+  //       servo 1 -> NEUTRAL - stride   (pulls forward)
+  //       servo 2 -> NEUTRAL + stride   (diagonal counter-swing)
+  //       servos 0, 3 -> NEUTRAL
+  //   Phase B  (phase_ odd)  -> swing {0, 3}:
+  //       servo 0 -> NEUTRAL - stride
+  //       servo 3 -> NEUTRAL + stride
+  //       servos 1, 2 -> NEUTRAL
+  //
+  // For different leg topologies, swap kPhaseA / kPhaseB in robot_profile.h.
+  const int16_t off   = (int16_t)stride_;
+  const uint16_t spd  = kDefaultGait.speed;
+  const uint8_t  acc  = kDefaultGait.acc;
 
-  // Phase even: swing pair A (first member -off, second +off). Phase odd:
-  // swing pair B (first member +off, second -off), matching the pre-refactor
-  // alternating-trot pattern ({0:-off, 2:+off} / {1:+off, 3:-off}).
   const uint8_t* swing = (phase_ & 1) ? kPhaseB : kPhaseA;
   const uint8_t* rest  = (phase_ & 1) ? kPhaseA : kPhaseB;
-  const int16_t sign0  = (phase_ & 1) ? +1 : -1;
-  for (uint8_t k = 0; k < N_SERVOS; ++k) {
-    if (swing[k] >= N_SERVOS) break;
-    int16_t delta = ((k == 0) ? sign0 : -sign0) * off;
-    bus.writePosition(cfg.ids[swing[k]], NEUTRAL_POS + delta, speed, acc);
+
+  uint8_t k = 0;
+  if (swing[k] < N_SERVOS) {
+    bus.writePosition(cfg.ids[swing[k]], NEUTRAL_POS - off, spd, acc);  // DOWN
+    ++k;
   }
-  for (uint8_t k = 0; k < N_SERVOS; ++k) {
-    if (rest[k] >= N_SERVOS) break;
-    bus.writePosition(cfg.ids[rest[k]], NEUTRAL_POS, speed, acc);
+  if (k < N_SERVOS && swing[k] < N_SERVOS) {
+    bus.writePosition(cfg.ids[swing[k]], NEUTRAL_POS + off, spd, acc);  // UP
+  }
+  for (uint8_t r = 0; r < N_SERVOS && rest[r] < N_SERVOS; ++r) {
+    bus.writePosition(cfg.ids[rest[r]], NEUTRAL_POS, spd, acc);
   }
   phase_++;
 }

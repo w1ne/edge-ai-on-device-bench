@@ -43,12 +43,17 @@ struct GaitParams {
 };
 extern const GaitParams kDefaultGait;
 
-// Which servos belong to the "diagonal A" and "diagonal B" pair. The gait
-// tick alternates swinging A forward, then B forward. For a quadruped this
-// is typically {0,2} and {1,3}. For a different topology, edit these.
-// phase_a[] entries that are >= N_SERVOS are ignored (sentinel).
-static constexpr uint8_t kPhaseA[N_SERVOS] = {0, 2, 255, 255};
-static constexpr uint8_t kPhaseB[N_SERVOS] = {1, 3, 255, 255};
+// Trot gait: alternate swinging two diagonal pairs.  Captured from the
+// original firmware's live walk telemetry on 2026-04-20:
+//   Phase A: servo 1 -> NEUTRAL - stride,  servo 2 -> NEUTRAL + stride
+//            (servos 0 and 3 stay near neutral)
+//   Phase B: servo 0 -> NEUTRAL - stride,  servo 3 -> NEUTRAL + stride
+//            (servos 1 and 2 stay near neutral)
+// First index in each phase = the servo that goes DOWN (pulls forward).
+// Second index = the diagonal servo that goes UP (counter-swing).
+// 255 = sentinel / unused leg.
+static constexpr uint8_t kPhaseA[N_SERVOS] = {1, 2, 255, 255};  // down=1, up=2
+static constexpr uint8_t kPhaseB[N_SERVOS] = {0, 3, 255, 255};  // down=0, up=3
 
 // ------------ 4. Jump sequence ------------------------------------------
 // Two-step "crouch then extend" timing, tuned on hardware later.
