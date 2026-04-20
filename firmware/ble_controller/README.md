@@ -83,16 +83,16 @@ The BLE service is Nordic UART Service (NUS):
 ## Pin remap over the air (no re-flash)
 
 If servos don't move after a first flash, the most likely cause is wrong pin
-defaults. Defaults in `src/main.cpp`:
+defaults. Defaults in `src/robot_config.cpp::kDefaultConfig`:
 
 | Signal | Default GPIO |
 |---|---|
-| Servo UART TX | 43 |
-| Servo UART RX | 44 |
-| Servo DE/RE | 42 |
+| Servo UART TX | 17 |
+| Servo UART RX | 18 |
+| Servo DE/RE | 255 (disabled) |
 | I2C SDA | 8 |
 | I2C SCL | 9 |
-| VBAT ADC | 3 |
+| VBAT ADC | 1 (unverified) |
 | Servo IDs | 1, 2, 3, 4 |
 
 Send a `cfg` JSON to either RX or CFG characteristic to persist new values to
@@ -117,6 +117,13 @@ The firmware replies `{"t":"ack","c":"cfg","ok":true}` and
 `scripts/ble_smoke.py` (Bleak) scans for `PhoneWalker-BLE`, connects, pings,
 then drives a `pose` command and streams state packets for 5 s. Run it after a
 successful flash.
+
+## Porting to a different robot
+
+The firmware is split into modules so adapting to a new robot is a
+configuration edit. See `docs/FIRMWARE_PORTING.md` for the checklist;
+the short version is "edit `src/robot_profile.{h,cpp}`, maybe touch
+`src/gait.cpp`, rebuild."
 
 ## Known risks
 
