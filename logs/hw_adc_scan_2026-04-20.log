@@ -1,0 +1,233 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0x8 (SPI_FAST_FLASH_BOOT)
+Saved PC:0x420220a6
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce3808,len:0x4bc
+load:0x403c9700,len:0xbd8
+load:0x403cc700,len:0x2a0c
+entry 0x403c98d0
+[adc_scan] boot: BATTERY_SCAN_DIAG=1
+[adc_scan] scanning ADC1 (GPIO 1..10) for ~10 seconds
+[adc_scan] GPIO=1   raw=761    mv=570   est_bat_v=1.140
+[adc_scan] GPIO=2   raw=681    mv=516   est_bat_v=1.032
+[adc_scan] GPIO=3   raw=665    mv=490   est_bat_v=0.980
+[adc_scan] GPIO=4   raw=675    mv=498   est_bat_v=0.996
+[adc_scan] GPIO=5   raw=686    mv=516   est_bat_v=1.032
+[adc_scan] GPIO=6   raw=714    mv=537   est_bat_v=1.074
+[adc_scan] GPIO=7   raw=803    mv=610   est_bat_v=1.220
+[adc_scan] GPIO=8   raw=3851   mv=3149  est_bat_v=6.298
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=603    mv=447   est_bat_v=0.894
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=773    mv=583   est_bat_v=1.166
+[adc_scan] GPIO=2   raw=699    mv=529   est_bat_v=1.058
+[adc_scan] GPIO=3   raw=685    mv=513   est_bat_v=1.026
+[adc_scan] GPIO=4   raw=713    mv=533   est_bat_v=1.066
+[adc_scan] GPIO=5   raw=741    mv=556   est_bat_v=1.112
+[adc_scan] GPIO=6   raw=781    mv=592   est_bat_v=1.184
+[adc_scan] GPIO=7   raw=895    mv=684   est_bat_v=1.368
+[adc_scan] GPIO=8   raw=3845   mv=3147  est_bat_v=6.294
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=604    mv=455   est_bat_v=0.910
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=781    mv=590   est_bat_v=1.180
+[adc_scan] GPIO=2   raw=711    mv=536   est_bat_v=1.072
+[adc_scan] GPIO=3   raw=697    mv=522   est_bat_v=1.044
+[adc_scan] GPIO=4   raw=724    mv=538   est_bat_v=1.076
+[adc_scan] GPIO=5   raw=739    mv=555   est_bat_v=1.110
+[adc_scan] GPIO=6   raw=723    mv=540   est_bat_v=1.080
+[adc_scan] GPIO=7   raw=853    mv=644   est_bat_v=1.288
+[adc_scan] GPIO=8   raw=3839   mv=3140  est_bat_v=6.280
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=570    mv=423   est_bat_v=0.846
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=767    mv=583   est_bat_v=1.166
+[adc_scan] GPIO=2   raw=685    mv=521   est_bat_v=1.042
+[adc_scan] GPIO=3   raw=664    mv=495   est_bat_v=0.990
+[adc_scan] GPIO=4   raw=677    mv=501   est_bat_v=1.002
+[adc_scan] GPIO=5   raw=680    mv=502   est_bat_v=1.004
+[adc_scan] GPIO=6   raw=698    mv=527   est_bat_v=1.054
+[adc_scan] GPIO=7   raw=765    mv=577   est_bat_v=1.154
+[adc_scan] GPIO=8   raw=3847   mv=3145  est_bat_v=6.290
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=580    mv=430   est_bat_v=0.860
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=761    mv=576   est_bat_v=1.152
+[adc_scan] GPIO=2   raw=685    mv=521   est_bat_v=1.042
+[adc_scan] GPIO=3   raw=661    mv=487   est_bat_v=0.974
+[adc_scan] GPIO=4   raw=668    mv=497   est_bat_v=0.994
+[adc_scan] GPIO=5   raw=678    mv=509   est_bat_v=1.018
+[adc_scan] GPIO=6   raw=638    mv=480   est_bat_v=0.960
+[adc_scan] GPIO=7   raw=781    mv=591   est_bat_v=1.182
+[adc_scan] GPIO=8   raw=3848   mv=3147  est_bat_v=6.294
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=586    mv=435   est_bat_v=0.870
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=775    mv=587   est_bat_v=1.174
+[adc_scan] GPIO=2   raw=697    mv=529   est_bat_v=1.058
+[adc_scan] GPIO=3   raw=675    mv=500   est_bat_v=1.000
+[adc_scan] GPIO=4   raw=687    mv=515   est_bat_v=1.030
+[adc_scan] GPIO=5   raw=709    mv=533   est_bat_v=1.066
+[adc_scan] GPIO=6   raw=739    mv=562   est_bat_v=1.124
+[adc_scan] GPIO=7   raw=843    mv=644   est_bat_v=1.288
+[adc_scan] GPIO=8   raw=3850   mv=3144  est_bat_v=6.288
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=612    mv=456   est_bat_v=0.912
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=787    mv=594   est_bat_v=1.188
+[adc_scan] GPIO=2   raw=717    mv=540   est_bat_v=1.080
+[adc_scan] GPIO=3   raw=703    mv=526   est_bat_v=1.052
+[adc_scan] GPIO=4   raw=731    mv=555   est_bat_v=1.110
+[adc_scan] GPIO=5   raw=755    mv=573   est_bat_v=1.146
+[adc_scan] GPIO=6   raw=806    mv=614   est_bat_v=1.228
+[adc_scan] GPIO=7   raw=891    mv=680   est_bat_v=1.360
+[adc_scan] GPIO=8   raw=3837   mv=3143  est_bat_v=6.286
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=585    mv=433   est_bat_v=0.866
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=780    mv=589   est_bat_v=1.178
+[adc_scan] GPIO=2   raw=701    mv=533   est_bat_v=1.066
+[adc_scan] GPIO=3   raw=679    mv=501   est_bat_v=1.002
+[adc_scan] GPIO=4   raw=693    mv=519   est_bat_v=1.038
+[adc_scan] GPIO=5   raw=699    mv=527   est_bat_v=1.054
+[adc_scan] GPIO=6   raw=681    mv=513   est_bat_v=1.026
+[adc_scan] GPIO=7   raw=803    mv=607   est_bat_v=1.214
+[adc_scan] GPIO=8   raw=3831   mv=3141  est_bat_v=6.282
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=568    mv=420   est_bat_v=0.840
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=761    mv=576   est_bat_v=1.152
+[adc_scan] GPIO=2   raw=679    mv=514   est_bat_v=1.028
+[adc_scan] GPIO=3   raw=658    mv=487   est_bat_v=0.974
+[adc_scan] GPIO=4   raw=665    mv=495   est_bat_v=0.990
+[adc_scan] GPIO=5   raw=674    mv=501   est_bat_v=1.002
+[adc_scan] GPIO=6   raw=635    mv=475   est_bat_v=0.950
+[adc_scan] GPIO=7   raw=767    mv=583   est_bat_v=1.166
+[adc_scan] GPIO=8   raw=3837   mv=3149  est_bat_v=6.298
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=584    mv=433   est_bat_v=0.866
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=763    mv=580   est_bat_v=1.160
+[adc_scan] GPIO=2   raw=684    mv=519   est_bat_v=1.038
+[adc_scan] GPIO=3   raw=667    mv=495   est_bat_v=0.990
+[adc_scan] GPIO=4   raw=676    mv=508   est_bat_v=1.016
+[adc_scan] GPIO=5   raw=691    mv=519   est_bat_v=1.038
+[adc_scan] GPIO=6   raw=687    mv=510   est_bat_v=1.020
+[adc_scan] GPIO=7   raw=805    mv=607   est_bat_v=1.214
+[adc_scan] GPIO=8   raw=3851   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=597    mv=445   est_bat_v=0.890
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=776    mv=588   est_bat_v=1.176
+[adc_scan] GPIO=2   raw=701    mv=533   est_bat_v=1.066
+[adc_scan] GPIO=3   raw=691    mv=515   est_bat_v=1.030
+[adc_scan] GPIO=4   raw=720    mv=540   est_bat_v=1.080
+[adc_scan] GPIO=5   raw=745    mv=563   est_bat_v=1.126
+[adc_scan] GPIO=6   raw=773    mv=583   est_bat_v=1.166
+[adc_scan] GPIO=7   raw=901    mv=689   est_bat_v=1.378
+[adc_scan] GPIO=8   raw=3852   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=599    mv=445   est_bat_v=0.890
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=787    mv=594   est_bat_v=1.188
+[adc_scan] GPIO=2   raw=717    mv=540   est_bat_v=1.080
+[adc_scan] GPIO=3   raw=697    mv=522   est_bat_v=1.044
+[adc_scan] GPIO=4   raw=719    mv=536   est_bat_v=1.072
+[adc_scan] GPIO=5   raw=731    mv=548   est_bat_v=1.096
+[adc_scan] GPIO=6   raw=723    mv=540   est_bat_v=1.080
+[adc_scan] GPIO=7   raw=843    mv=636   est_bat_v=1.272
+[adc_scan] GPIO=8   raw=3857   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=571    mv=424   est_bat_v=0.848
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=765    mv=579   est_bat_v=1.158
+[adc_scan] GPIO=2   raw=691    mv=524   est_bat_v=1.048
+[adc_scan] GPIO=3   raw=664    mv=495   est_bat_v=0.990
+[adc_scan] GPIO=4   raw=671    mv=499   est_bat_v=0.998
+[adc_scan] GPIO=5   raw=679    mv=508   est_bat_v=1.016
+[adc_scan] GPIO=6   raw=631    mv=473   est_bat_v=0.946
+[adc_scan] GPIO=7   raw=767    mv=583   est_bat_v=1.166
+[adc_scan] GPIO=8   raw=3880   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=573    mv=426   est_bat_v=0.852
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=762    mv=578   est_bat_v=1.156
+[adc_scan] GPIO=2   raw=687    mv=521   est_bat_v=1.042
+[adc_scan] GPIO=3   raw=661    mv=491   est_bat_v=0.982
+[adc_scan] GPIO=4   raw=670    mv=498   est_bat_v=0.996
+[adc_scan] GPIO=5   raw=681    mv=512   est_bat_v=1.024
+[adc_scan] GPIO=6   raw=700    mv=529   est_bat_v=1.058
+[adc_scan] GPIO=7   raw=783    mv=594   est_bat_v=1.188
+[adc_scan] GPIO=8   raw=3883   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=589    mv=438   est_bat_v=0.876
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=767    mv=583   est_bat_v=1.166
+[adc_scan] GPIO=2   raw=697    mv=529   est_bat_v=1.058
+[adc_scan] GPIO=3   raw=677    mv=501   est_bat_v=1.002
+[adc_scan] GPIO=4   raw=691    mv=518   est_bat_v=1.036
+[adc_scan] GPIO=5   raw=712    mv=536   est_bat_v=1.072
+[adc_scan] GPIO=6   raw=747    mv=569   est_bat_v=1.138
+[adc_scan] GPIO=7   raw=857    mv=654   est_bat_v=1.308
+[adc_scan] GPIO=8   raw=3887   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=607    mv=456   est_bat_v=0.912
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=789    mv=594   est_bat_v=1.188
+[adc_scan] GPIO=2   raw=712    mv=540   est_bat_v=1.080
+[adc_scan] GPIO=3   raw=703    mv=525   est_bat_v=1.050
+[adc_scan] GPIO=4   raw=732    mv=548   est_bat_v=1.096
+[adc_scan] GPIO=5   raw=751    mv=570   est_bat_v=1.140
+[adc_scan] GPIO=6   raw=767    mv=583   est_bat_v=1.166
+[adc_scan] GPIO=7   raw=891    mv=683   est_bat_v=1.366
+[adc_scan] GPIO=8   raw=3884   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=580    mv=428   est_bat_v=0.856
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=777    mv=590   est_bat_v=1.180
+[adc_scan] GPIO=2   raw=696    mv=529   est_bat_v=1.058
+[adc_scan] GPIO=3   raw=679    mv=503   est_bat_v=1.006
+[adc_scan] GPIO=4   raw=693    mv=519   est_bat_v=1.038
+[adc_scan] GPIO=5   raw=695    mv=524   est_bat_v=1.048
+[adc_scan] GPIO=6   raw=687    mv=516   est_bat_v=1.032
+[adc_scan] GPIO=7   raw=797    mv=607   est_bat_v=1.214
+[adc_scan] GPIO=8   raw=3881   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=567    mv=419   est_bat_v=0.838
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=763    mv=578   est_bat_v=1.156
+[adc_scan] GPIO=2   raw=686    mv=522   est_bat_v=1.044
+[adc_scan] GPIO=3   raw=658    mv=487   est_bat_v=0.974
+[adc_scan] GPIO=4   raw=677    mv=503   est_bat_v=1.006
+[adc_scan] GPIO=5   raw=672    mv=503   est_bat_v=1.006
+[adc_scan] GPIO=6   raw=672    mv=508   est_bat_v=1.016
+[adc_scan] GPIO=7   raw=775    mv=582   est_bat_v=1.164
+[adc_scan] GPIO=8   raw=3901   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=586    mv=435   est_bat_v=0.870
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=766    mv=580   est_bat_v=1.160
+[adc_scan] GPIO=2   raw=692    mv=525   est_bat_v=1.050
+[adc_scan] GPIO=3   raw=667    mv=496   est_bat_v=0.992
+[adc_scan] GPIO=4   raw=679    mv=508   est_bat_v=1.016
+[adc_scan] GPIO=5   raw=693    mv=519   est_bat_v=1.038
+[adc_scan] GPIO=6   raw=725    mv=548   est_bat_v=1.096
+[adc_scan] GPIO=7   raw=807    mv=610   est_bat_v=1.220
+[adc_scan] GPIO=8   raw=3901   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=598    mv=444   est_bat_v=0.888
+[adc_scan] ---
+[adc_scan] GPIO=1   raw=779    mv=590   est_bat_v=1.180
+[adc_scan] GPIO=2   raw=703    mv=533   est_bat_v=1.066
+[adc_scan] GPIO=3   raw=701    mv=519   est_bat_v=1.038
+[adc_scan] GPIO=4   raw=725    mv=540   est_bat_v=1.080
+[adc_scan] GPIO=5   raw=749    mv=567   est_bat_v=1.134
+[adc_scan] GPIO=6   raw=779    mv=577   est_bat_v=1.154
+[adc_scan] GPIO=7   raw=903    mv=689   est_bat_v=1.378
+[adc_scan] GPIO=8   raw=3877   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=9   raw=4095   mv=3153  est_bat_v=6.306
+[adc_scan] GPIO=10  raw=597    mv=442   est_bat_v=0.884
+[adc_scan] ---
+[adc_scan] done; halting (no BLE, no servos). Reflash normal firmware next.

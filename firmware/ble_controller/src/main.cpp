@@ -54,7 +54,13 @@ void setup() {
   g_bus.probe(g_cfg.ids);
 #endif
   g_imu.begin(g_cfg.i2c_sda, g_cfg.i2c_scl);
-  g_battery.configure(g_cfg.adc_vbat, /*divider_ratio=*/2);
+  // divider_ratio_x100 = 225 -> real divider ≈ 2.25:1, matched against the
+  // stock firmware's `v=67` (6.7 V) state-packet sample with ADC pin reading
+  // ~2981 mV on GPIO 8 (see logs/hw_adc_scan_2026-04-20.log).
+  g_battery.configure(g_cfg.adc_vbat, /*divider_ratio_x100=*/225);
+  Serial.printf("[battery] adc_pin=%u centiV=%u\n",
+                (unsigned)g_cfg.adc_vbat,
+                (unsigned)g_battery.readCentiVolts());
 
   // 3. Power-on pose (no autonomous motion after this).
   robot::applyNeutral(g_bus, g_cfg, /*log=*/true);

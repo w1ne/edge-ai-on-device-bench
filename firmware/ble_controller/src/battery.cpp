@@ -2,9 +2,9 @@
 
 namespace robot {
 
-void Battery::configure(uint8_t adc_pin, uint8_t divider_ratio) {
+void Battery::configure(uint8_t adc_pin, uint16_t divider_ratio_x100) {
   pin_ = adc_pin;
-  ratio_ = divider_ratio == 0 ? 1 : divider_ratio;
+  ratio_x100_ = divider_ratio_x100 == 0 ? 100 : divider_ratio_x100;
 }
 
 int Battery::readMilliVolts() const {
@@ -14,9 +14,11 @@ int Battery::readMilliVolts() const {
 
 uint16_t Battery::readCentiVolts() const {
   if (pin_ == 255) return 0;
-  uint32_t raw = analogReadMilliVolts(pin_);
-  uint32_t mv_batt = raw * ratio_;
-  return (uint16_t)(mv_batt / 100);
+  uint32_t mv_adc  = analogReadMilliVolts(pin_);
+  // mv_batt = mv_adc * (ratio_x100 / 100); centiV = mv_batt / 100.
+  //         = mv_adc * ratio_x100 / 10000
+  uint32_t centiV  = (mv_adc * (uint32_t)ratio_x100_) / 10000u;
+  return (uint16_t)centiV;
 }
 
 } // namespace robot

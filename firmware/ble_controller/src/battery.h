@@ -13,7 +13,14 @@ namespace robot {
 class Battery {
  public:
   // Set the ADC pin. 255 = disabled (reads return 0).
-  void configure(uint8_t adc_pin, uint8_t divider_ratio = 2);
+  //
+  // `divider_ratio_x100` is the real-world divider ratio * 100 so we can
+  // encode non-integer ratios like 2.25 (pass 225). For a plain 2:1
+  // divider, pass 200. Defaults to 225 to match the observed behavior of
+  // the Waveshare ESP32-S3 Zero board: at the ADC pin the measured reading
+  // (~2981 mV) times 2.25 yields 6.7 V which matches the stock firmware's
+  // `v=67` state packet (centivolts).
+  void configure(uint8_t adc_pin, uint16_t divider_ratio_x100 = 225);
 
   // Raw mV at the ADC (pre-divider compensation).
   int readMilliVolts() const;
@@ -23,8 +30,8 @@ class Battery {
   uint16_t readCentiVolts() const;
 
  private:
-  uint8_t pin_ = 255;
-  uint8_t ratio_ = 2;
+  uint8_t  pin_           = 255;
+  uint16_t ratio_x100_    = 225;
 };
 
 } // namespace robot

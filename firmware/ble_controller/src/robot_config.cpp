@@ -11,7 +11,15 @@ const Config kDefaultConfig = {
   /*servo_dir*/ 255,   // disabled; original firmware uses no DIR pin
   /*i2c_sda  */  8,
   /*i2c_scl  */  9,
-  /*adc_vbat */  1,    // best-guess; override via cfg when pin is known
+  /*adc_vbat */  8,    // confirmed via battery_scan.cpp sweep on 2026-04-20
+                       // (2:1 divider tap; see logs/hw_adc_scan_2026-04-20.log).
+                       // NOTE: GPIO 8 is also listed as i2c_sda above. The
+                       // ADC sweep showed GPIO 8 holds a real analog level
+                       // (~3150 mV ≈ 6.3 V battery via 2:1) while GPIO 9 is
+                       // saturated to raw=4095 (I2C SCL pull-up). I2C and
+                       // VBAT likely aren't both on 8 in hardware — one of
+                       // these defaults is inherited from the guess and
+                       // should be re-verified separately.
   /*ids      */ {1, 2, 3, 4},
 };
 
