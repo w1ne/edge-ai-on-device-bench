@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import io
 import json
 import os
 import re
@@ -47,6 +48,12 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+try:
+    from PIL import Image  # type: ignore
+    _PIL_OK = True
+except ImportError:
+    _PIL_OK = False
 
 HOME = Path(os.environ.get("HOME", str(Path.home())))
 
@@ -196,14 +203,25 @@ class CameraQuery:
 
     def __init__(self, logger=None, camera_id: int = 0,
                  model: str | None = None, url: str | None = None,
-                 frame_path: str | None = None):
+                 frame_path: str | None = None,
+                 compress: bool = True,
+                 max_dim: int = 512,
+                 jpeg_quality: int = 70):
         self._log = logger or _default_logger
         self.camera_id = int(camera_id)
         self.model = model or DEFAULT_MODEL
         self.url = url or DEFAULT_URL
         self.frame_path = frame_path or DEFAULT_FRAME
+        self.compress = bool(compress)
+        self.max_dim = int(max_dim)
+        self.jpeg_quality = int(jpeg_quality)
         self._cam_bin = shutil.which("termux-camera-photo")
         self._closed = False
+        self._pil_warned = False
+        if self.compress and not _PIL_OK:
+            self._log("Pillow not installed; sending full-res JPEG "
+                      "(pkg install python-pillow libjpeg-turbo to enable compression)")
+            self._pil_warned = True
         try:
             Path(self.frame_path).parent.mkdir(parents=True, exist_ok=True)
         except OSError:
@@ -300,11 +318,33 @@ class CameraQuery:
 
         try:
             with open(self.frame_path, "rb") as fh:
-                b64 = base64.b64encode(fh.read()).decode("ascii")
+                raw = fh.read()
         except OSError as e:
             self._log(f"read frame failed: {e}")
             return {"seen": [], "scores": {}, "frame_ms": frame_ms,
                     "error": "frame_read_failed"}
+        # Compress the frame before sending: the VLM downsamples server-side
+        # anyway, and a 512x... q70 JPEG is ~15-25 KB vs the ~1.4 MB raw.
+        # Cuts upload + server-decode time by ~5-7 s on a typical run.
+        encoded = raw
+        if self.compress and _PIL_OK:
+            try:
+                img = Image.open(io.BytesIO(raw)).convert("RGB")
+                before_kb = len(raw) // 1024
+                img.thumbnail((self.max_dim, self.max_dim))
+                buf = io.BytesIO()
+                img.save(buf, "JPEG", quality=self.jpeg_quality, optimize=True)
+                encoded = buf.getvalue()
+                after_kb = len(encoded) // 1024
+                self._log(
+                    f"compressed {before_kb}KB -> {after_kb}KB "
+                    f"({img.size[0]}x{img.size[1]})"
+                )
+            except Exception as e:
+                self._log(f"compress failed ({type(e).__name__}: {e}); "
+                          f"sending raw JPEG")
+                encoded = raw
+        b64 = base64.b64encode(encoded).decode("ascii")
 
         # Compose a terse prompt that forces a JSON-only answer.
         phrases_json = json.dumps(phrases)
@@ -399,9 +439,17 @@ def _cli() -> int:
     ap.add_argument("--flag-path", default=DEFAULT_FLAG,
                     help="write JSON summary here for adb to read")
     ap.add_argument("--no-flag", action="store_true")
+    ap.add_argument("--no-compress", action="store_true",
+                    help="send raw JPEG (no Pillow resize + recompress)")
+    ap.add_argument("--max-dim", type=int, default=512,
+                    help="max dimension for compressed frames (default 512)")
+    ap.add_argument("--jpeg-quality", type=int, default=70)
     args = ap.parse_args()
 
-    cq = CameraQuery(camera_id=args.camera_id)
+    cq = CameraQuery(camera_id=args.camera_id,
+                     compress=not args.no_compress,
+                     max_dim=args.max_dim,
+                     jpeg_quality=args.jpeg_quality)
     runs = []
     t_all = time.time()
     for i in range(args.runs):

@@ -35,10 +35,18 @@ exec > >(tee -a "$FLAG") 2>&1
 
 log "== phone_vision bootstrap =="
 
-# -- 1. ensure termux-api + curl + jq are installed -------------------------
+# -- 1. ensure termux-api + curl + jq + Pillow are installed ----------------
 if ! command -v termux-camera-photo >/dev/null 2>&1; then
   log "termux-camera-photo missing -> pkg install termux-api"
   pkg install -y termux-api || { log "pkg install termux-api failed"; exit 2; }
+fi
+# Pillow + libjpeg-turbo: used by phone_vision.py to resize + recompress
+# frames before the VLM call (70x smaller payload -> ~3x faster query).
+# Non-fatal: phone_vision falls back to raw JPEG if Pillow is missing.
+if ! python3 -c "from PIL import Image" 2>/dev/null; then
+  log "Pillow missing -> pkg install python-pillow libjpeg-turbo"
+  pkg install -y python-pillow libjpeg-turbo \
+    || log "Pillow install failed; phone_vision will send uncompressed frames"
 fi
 for b in curl jq python3; do
   command -v "$b" >/dev/null 2>&1 || { log "missing $b (run termux_bootstrap.sh first)"; exit 2; }
