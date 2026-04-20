@@ -56,6 +56,19 @@ class MainActivity : AppCompatActivity() {
                         }
                         val vFallback = j.optDouble("batt_v", -1.0)
                         if (vFallback > 0) RobotState.update { it.copy(battV = vFallback.toFloat()) }
+                        // F2: feed IMU samples into the tilt reflex.  State packets
+                        // arrive at 10 Hz with "imu":[ax,ay,az,gx,gy,gz] in g / deg-s.
+                        val imu = j.optJSONArray("imu")
+                        if (imu != null && imu.length() >= 6) {
+                            orch.imuReflex.onImu(
+                                imu.optDouble(0, 0.0).toFloat(),
+                                imu.optDouble(1, 0.0).toFloat(),
+                                imu.optDouble(2, 0.0).toFloat(),
+                                imu.optDouble(3, 0.0).toFloat(),
+                                imu.optDouble(4, 0.0).toFloat(),
+                                imu.optDouble(5, 0.0).toFloat(),
+                            )
+                        }
                         // Convert structured vision/event payloads into goalkeeper events.
                         val t = j.optString("t", "")
                         if (t == "event" || j.has("class") || j.has("seen")) {
@@ -120,6 +133,11 @@ class MainActivity : AppCompatActivity() {
         binding.editWakeWord.setText(cfg.wakeWord)
         binding.cbWakeRequired.isChecked = cfg.wakeRequired
         binding.cbTts.isChecked = cfg.ttsEnabled
+        binding.cbImuReflex.isChecked = cfg.imuReflexEnabled
+        binding.cbImuReflex.setOnCheckedChangeListener { _, checked ->
+            cfg.imuReflexEnabled = checked
+            orch.imuReflex.setEnabled(checked)
+        }
 
         // Observe RobotState for UI refresh.
         lifecycleScope.launch {
@@ -541,6 +559,8 @@ class MainActivity : AppCompatActivity() {
             .ifEmpty { Config.DEFAULT_WAKE_WORD }
         cfg.wakeRequired = binding.cbWakeRequired.isChecked
         cfg.ttsEnabled = binding.cbTts.isChecked
+        cfg.imuReflexEnabled = binding.cbImuReflex.isChecked
+        orch.imuReflex.setEnabled(cfg.imuReflexEnabled)
         Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
         RobotState.appendLog("[ui] settings saved")
     }

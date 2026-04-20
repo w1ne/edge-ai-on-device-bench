@@ -593,6 +593,14 @@
                     android:textColor="@color/fg"
                     android:checked="true" />
 
+                <CheckBox
+                    android:id="@+id/cbImuReflex"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="IMU tilt reflex enabled"
+                    android:textColor="@color/fg"
+                    android:checked="true" />
+
                 <Button
                     android:id="@+id/btnSaveSettings"
                     android:layout_width="match_parent"

@@ -36,6 +36,13 @@ class TestBroadcastReceiver : BroadcastReceiver() {
                     RobotState.appendLog("[test] API key set via broadcast (len=${key.length})")
                 }
             }
+            ACTION_SET_IDLE_ENABLED -> {
+                val on = intent.getBooleanExtra("enabled", false)
+                val o = Orchestrator.getOrInit(context.applicationContext)
+                o.config.idleLoopEnabled = on
+                o.idleLoop.setEnabled(on)
+                RobotState.appendLog("[test] idle loop enabled=$on")
+            }
             ACTION_TEST_MIC -> {
                 // Headless mic smoke: start the SpeechRecognizer loop, log that
                 // it's running, stop after a few seconds.  Doesn't need audio.
@@ -49,6 +56,23 @@ class TestBroadcastReceiver : BroadcastReceiver() {
                     RobotState.appendLog("[test] mic listener stopped")
                 }, 4000)
             }
+            ACTION_TEST_IMU_REFLEX -> {
+                // F2: inject a synthetic IMU sample to drive the tilt reflex.
+                //   adb shell am broadcast -a dev.robot.TEST_IMU_REFLEX \
+                //       --ef ax 0.5 --ef ay 0 --ef az 0.85
+                // Call ≥3 times at 10 Hz-ish pace to trip the 150 ms debounce.
+                val ax = intent.getFloatExtra("ax", 0f)
+                val ay = intent.getFloatExtra("ay", 0f)
+                val az = intent.getFloatExtra("az", 0.98f)
+                val gx = intent.getFloatExtra("gx", 0f)
+                val gy = intent.getFloatExtra("gy", 0f)
+                val gz = intent.getFloatExtra("gz", 0f)
+                val tilt = ImuReflex.tiltDegrees(ax, ay, az)
+                RobotState.appendLog(
+                    "[test] TEST_IMU_REFLEX ax=$ax ay=$ay az=$az tilt=%.1f°".format(tilt))
+                Orchestrator.getOrInit(context.applicationContext)
+                    .imuReflex.onImu(ax, ay, az, gx, gy, gz)
+            }
         }
     }
 
@@ -57,5 +81,7 @@ class TestBroadcastReceiver : BroadcastReceiver() {
         const val ACTION_TEST_SAY = "dev.robot.TEST_SAY"
         const val ACTION_SET_API_KEY = "dev.robot.SET_API_KEY"
         const val ACTION_TEST_MIC = "dev.robot.TEST_MIC"
+        const val ACTION_SET_IDLE_ENABLED = "dev.robot.SET_IDLE_ENABLED"
+        const val ACTION_TEST_IMU_REFLEX = "dev.robot.TEST_IMU_REFLEX"
     }
 }

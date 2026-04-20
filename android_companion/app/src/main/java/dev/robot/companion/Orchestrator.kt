@@ -2,6 +2,8 @@ package dev.robot.companion
 
 import android.content.Context
 import androidx.lifecycle.LifecycleOwner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
@@ -24,6 +26,22 @@ class Orchestrator private constructor(appCtx: Context) {
         private set
 
     private val bg = Executors.newSingleThreadExecutor()
+    private val reflexScope = CoroutineScope(SupervisorJob())
+
+    /** F2 safety reflex — cuts power via BLE stop when chassis tilts past 20°. */
+    val imuReflex: ImuReflex = ImuReflex(wire, tts, reflexScope).also {
+        it.setEnabled(config.imuReflexEnabled)
+    }
+
+    /** F1 autonomous heartbeat — glances around + announces new objects. */
+    val idleLoop: IdleLoop = IdleLoop(
+        vision = { vision },
+        tts = tts,
+        wire = wire,
+        getBatteryV = { RobotState.state.value.battV },
+        getGoalState = { RobotState.state.value.goalState },
+        scope = reflexScope,
+    ).also { if (config.idleLoopEnabled) it.start() }
 
     // Built lazily once vision + wire are available.
     @Volatile private var planner: Planner? = null

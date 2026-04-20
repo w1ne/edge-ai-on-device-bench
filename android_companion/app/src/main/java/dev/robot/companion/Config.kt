@@ -22,6 +22,8 @@ class Config(ctx: Context) {
         private const val K_WAKE_WORD = "wake_word"
         private const val K_WAKE_REQUIRED = "wake_required"
         private const val K_TTS_ENABLED = "tts_enabled"
+        private const val K_IMU_REFLEX = "imu_reflex_enabled"
+        private const val K_IDLE_LOOP  = "idle_loop_enabled"
 
         const val DEFAULT_PLANNER_MODEL = "Qwen/Qwen2.5-72B-Instruct"
         const val DEFAULT_VISION_MODEL = "meta-llama/Llama-3.2-11B-Vision-Instruct"
@@ -61,4 +63,14 @@ class Config(ctx: Context) {
     var ttsEnabled: Boolean
         get() = prefs.getBoolean(K_TTS_ENABLED, true)
         set(value) { prefs.edit().putBoolean(K_TTS_ENABLED, value).apply() }
+
+    // F2: IMU tilt reflex — safety feature, defaults ON.
+    var imuReflexEnabled: Boolean
+        get() = prefs.getBoolean(K_IMU_REFLEX, true)
+        set(value) { prefs.edit().putBoolean(K_IMU_REFLEX, value).apply() }
+
+    // F1: Idle autonomous loop — defaults OFF (opt-in).
+    var idleLoopEnabled: Boolean
+        get() = prefs.getBoolean(K_IDLE_LOOP, false)
+        set(value) { prefs.edit().putBoolean(K_IDLE_LOOP, value).apply() }
 }
