@@ -44,18 +44,27 @@
 // If the servos don't move, send a cfg JSON over BLE to correct the pins
 // (see README.md) — no re-flash needed.
 // ------------------------------------------------------------------
-static constexpr uint8_t DEFAULT_SERVO_TX  = 43;  // ESP32 -> bus TX (half-duplex)
-static constexpr uint8_t DEFAULT_SERVO_RX  = 44;  // bus -> ESP32 RX
-static constexpr uint8_t DEFAULT_SERVO_DIR = 42;  // DE/RE direction pin (if used)
-static constexpr uint8_t DEFAULT_I2C_SDA   =  8;
-static constexpr uint8_t DEFAULT_I2C_SCL   =  9;
-static constexpr uint8_t DEFAULT_ADC_VBAT  =  3;  // divider on GPIO3 (guess; adjust in cfg)
+// Recovered from the original firmware (2026-04-20):
+//   ServoController ready (TX=17, RX=18, 1000000 baud)
+// Captured by booting firmware_backup/original_20260420-104957.bin and
+// reading the device's own CDC boot log.  Original firmware drives the
+// same Feetech STS bus on these pins with baud 1_000_000 (SERVO_BAUD).
+// I2C pins 8/9 confirmed working (IMU streams clean gravity vector with
+// these defaults).  VBAT ADC pin is still unknown — the stock firmware
+// strips symbol info from its ADC setup and we haven't disassembled the
+// call site.  Override via cfg characteristic when we determine the pin.
+static constexpr uint8_t DEFAULT_SERVO_TX  = 17;  // verified from backup
+static constexpr uint8_t DEFAULT_SERVO_RX  = 18;  // verified from backup
+static constexpr uint8_t DEFAULT_SERVO_DIR = 255; // disabled; original firmware uses no DIR pin
+static constexpr uint8_t DEFAULT_I2C_SDA   =  8;  // verified (MPU-6050 streams gravity)
+static constexpr uint8_t DEFAULT_I2C_SCL   =  9;  // verified
+static constexpr uint8_t DEFAULT_ADC_VBAT  =  1;  // best-guess; reading will be junk until cfg sets the real pin
 
 static constexpr uint8_t  N_SERVOS          = 4;
 static constexpr uint32_t STATE_RATE_HZ     = 10;
 static constexpr uint32_t CMD_TIMEOUT_MS    = 10 * 1000;
 static constexpr int      NEUTRAL_POS       = 2048;    // STS3032 mid-range (12-bit)
-static constexpr uint16_t SERVO_BAUD        = 1000000; // 1 Mbit half-duplex default
+static constexpr uint32_t SERVO_BAUD        = 1000000; // 1 Mbit half-duplex default
 
 // ------------------------------------------------------------------
 // BLE GATT: Nordic UART Service (NUS) + a config characteristic.
@@ -123,21 +132,34 @@ static void servosBegin() {
   // Feetech library needs the HardwareSerial started before use.
   Serial1.begin(SERVO_BAUD, SERIAL_8N1, g_cfg.servo_rx, g_cfg.servo_tx);
   g_sms.pSerial = &Serial1;
-  // Some driver boards have an explicit DE/RE pin for direction. Hold it
-  // high for TX-enable; the SCServo lib handles timing, but if your board
-  // needs per-byte flipping you'll see garbled replies — reconfigure dir.
+  // Some driver boards have an explicit DE/RE pin for direction; 255 = none.
   if (g_cfg.servo_dir != 255) {
     pinMode(g_cfg.servo_dir, OUTPUT);
     digitalWrite(g_cfg.servo_dir, HIGH);
   }
   delay(20);
+  Serial.printf("[servo] Serial1 up: baud=%u rx=%u tx=%u dir=%u ids=[%u,%u,%u,%u]\n",
+                SERVO_BAUD, g_cfg.servo_rx, g_cfg.servo_tx, g_cfg.servo_dir,
+                g_cfg.ids[0], g_cfg.ids[1], g_cfg.ids[2], g_cfg.ids[3]);
+  // Probe: read position of each configured ID and log the result.
+  for (uint8_t i = 0; i < N_SERVOS; ++i) {
+    int p = g_sms.ReadPos(g_cfg.ids[i]);
+    int e = g_sms.getLastError();
+    Serial.printf("[servo] probe id=%u ReadPos=%d err=%d\n", g_cfg.ids[i], p, e);
+  }
 }
 
 static void servosNeutral(uint16_t dur_ms = 800) {
-  uint16_t speed = 0;  // 0 = use accel/default; good enough for a "go home".
+  // speed=0 in FTServo means "use current limits" which on a fresh unit is
+  // often ~0, resulting in no motion.  Use an explicit speed like the
+  // WritePos example (ref: .pio/libdeps/.../FTServo/examples/SMS_STS/WritePos).
+  uint16_t speed = 1500;
   uint8_t  acc   = 50;
   for (uint8_t i = 0; i < N_SERVOS; ++i) {
     g_sms.WritePosEx(g_cfg.ids[i], NEUTRAL_POS, speed, acc);
+    int e = g_sms.getLastError();
+    Serial.printf("[servo] WritePosEx id=%u pos=%d -> err=%d\n",
+                  g_cfg.ids[i], NEUTRAL_POS, e);
     g_last_pos[i] = NEUTRAL_POS;
   }
   (void)dur_ms;
