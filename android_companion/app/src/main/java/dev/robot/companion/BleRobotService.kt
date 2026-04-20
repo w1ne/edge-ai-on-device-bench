@@ -526,25 +526,30 @@ class BleRobotService : Service() {
         }
     }
 
-    /** Buffer BLE TX bytes and emit newline-delimited lines. */
+    /** Buffer BLE TX bytes and emit newline-delimited lines.
+     *  Guarded by [rxLock] — Android can deliver notifications on different
+     *  binder threads back-to-back, which raced this StringBuilder and threw
+     *  StringIndexOutOfBoundsException inside Kotlin's indexOf. */
     private val rxBuffer = StringBuilder()
+    private val rxLock = Any()
 
     private fun handleIncoming(bytes: ByteArray) {
-        val chunk = String(bytes, Charsets.UTF_8)
-        rxBuffer.append(chunk)
-        while (true) {
-            val nl = rxBuffer.indexOf('\n')
-            if (nl < 0) break
-            val line = rxBuffer.substring(0, nl).trimEnd('\r')
-            rxBuffer.delete(0, nl + 1)
-            if (line.isNotBlank()) broadcastBleLine(line)
+        val emit = mutableListOf<String>()
+        synchronized(rxLock) {
+            rxBuffer.append(String(bytes, Charsets.UTF_8))
+            while (true) {
+                val nl = rxBuffer.indexOf('\n')
+                if (nl < 0) break
+                val line = rxBuffer.substring(0, nl).trimEnd('\r')
+                rxBuffer.delete(0, nl + 1)
+                if (line.isNotBlank()) emit.add(line)
+            }
+            if (rxBuffer.length > 8192) {
+                emit.add(rxBuffer.toString())
+                rxBuffer.setLength(0)
+            }
         }
-        // Guard against unbounded growth if peer never sends a newline.
-        if (rxBuffer.length > 8192) {
-            val line = rxBuffer.toString()
-            rxBuffer.setLength(0)
-            broadcastBleLine(line)
-        }
+        for (line in emit) broadcastBleLine(line)
     }
 
     private fun scheduleReconnect() {
