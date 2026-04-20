@@ -1,7 +1,21 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+fun gitSha(): String = try {
+    val p = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+        .directory(rootDir.parentFile)
+        .redirectErrorStream(true)
+        .start()
+    p.inputStream.bufferedReader().readText().trim().ifEmpty { "unknown" }
+} catch (_: Exception) { "unknown" }
+
+fun buildStamp(): String =
+    SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date())
 
 android {
     namespace = "dev.robot.companion"
@@ -11,8 +25,10 @@ android {
         applicationId = "dev.robot.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
+        buildConfigField("String", "GIT_SHA", "\"${gitSha()}\"")
+        buildConfigField("String", "BUILD_STAMP", "\"${buildStamp()}\"")
     }
 
     buildTypes {
@@ -35,6 +51,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     packaging {

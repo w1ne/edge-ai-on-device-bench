@@ -3,7 +3,13 @@
     android:color="#66FFFFFF">
     <item>
         <shape android:shape="oval">
-            <solid android:color="@color/accent" />
+            <gradient
+                android:type="radial"
+                android:gradientRadius="110dp"
+                android:centerX="0.35"
+                android:centerY="0.35"
+                android:startColor="#66BB6A"
+                android:endColor="#2E7D32" />
         </shape>
     </item>
 </ripple>

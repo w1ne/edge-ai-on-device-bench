@@ -10,6 +10,9 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +20,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import dev.robot.companion.databinding.ActivityMainBinding
+import dev.robot.companion.ui.RobotFaceView
+import dev.robot.companion.ui.Timeline
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,18 +31,29 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var orch: Orchestrator
+    private lateinit var timeline: Timeline
     private var voice: VoiceListener? = null
     private var voiceActive = false
     private var walkActive = false
-    private var bleDotPulse: ObjectAnimator? = null
     private var micPulseAnim: ObjectAnimator? = null
     private var lastShownSay = ""
     private var lastShownGoalState = ""
+    private var lastGoalSeen = ""
+    private var lastBattBucket = -1
+    private var lastTripped = false
+    private var lastConnected = false
     // Heat + battery mitigation: BLE state packets arrive at 10 Hz. Rate-
     // limit the expensive per-packet work so we don't burn CPU/GPU at idle.
     private var lastFlashMs = 0L
     private var lastStateLogMs = 0L
     private var lastBattV = -1f
+    private val tickHandler = Handler(Looper.getMainLooper())
+    private val tickRunnable = object : Runnable {
+        override fun run() {
+            timeline.refresh()
+            tickHandler.postDelayed(this, 5_000L)
+        }
+    }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -99,6 +115,16 @@ class MainActivity : AppCompatActivity() {
                         val t = j.optString("t", "")
                         if (t == "event" || j.has("class") || j.has("seen")) {
                             orch.pushVisionEvent(j)
+                            // Mirror seen objects into the timeline for users.
+                            val seenArr = j.optJSONArray("seen")
+                            if (seenArr != null && seenArr.length() > 0) {
+                                val label = seenArr.optString(0, "")
+                                if (label.isNotBlank()) {
+                                    runOnUiThread {
+                                        timeline.push(Timeline.Kind.VISION, "Saw $label")
+                                    }
+                                }
+                            }
                         }
                     } catch (_: Throwable) {}
                 }
@@ -125,6 +151,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         orch = Orchestrator.getOrInit(applicationContext)
+        timeline = Timeline(binding.timelineList)
+
+        // Build info for Debug tab.
+        binding.buildInfo.text =
+            "commit  ${BuildConfig.GIT_SHA}\n" +
+            "built   ${BuildConfig.BUILD_STAMP}\n" +
+            "version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
 
         // Tab switch (Control <-> Debug)
         binding.btnTabControl.setOnClickListener { showTab(0) }
@@ -135,22 +168,29 @@ class MainActivity : AppCompatActivity() {
             startService(Intent(this, BleRobotService::class.java)
                 .setAction(BleRobotService.ACTION_CMD_DISCONNECT))
         }
-        binding.btnMic.setOnClickListener { toggleVoice() }
+        binding.btnMic.setOnClickListener {
+            it.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+            toggleVoice()
+        }
         binding.btnLookFor.setOnClickListener { fireLookFor() }
         binding.btnCancel.setOnClickListener {
             orch.cancelGoal()
             RobotState.appendLog("[ui] goal cancel requested")
+            timeline.push(Timeline.Kind.INFO, "Goal cancelled")
         }
         binding.btnSaveSettings.setOnClickListener { saveSettings() }
 
         // Remote-control buttons (direct-drive, bypass voice/planner).
-        binding.btnPoseNeutral.setOnClickListener    { firePose("neutral") }
-        binding.btnPoseLeanLeft.setOnClickListener   { firePose("lean_left") }
-        binding.btnPoseLeanRight.setOnClickListener  { firePose("lean_right") }
-        binding.btnPoseBow.setOnClickListener        { firePose("bow_front") }
-        binding.btnWalk.setOnClickListener           { toggleWalk() }
-        binding.btnJump.setOnClickListener           { fireJump() }
-        binding.btnEmergencyStop.setOnClickListener  { emergencyStop() }
+        binding.btnPoseNeutral.setOnClickListener    { hap(it); firePose("neutral") }
+        binding.btnPoseLeanLeft.setOnClickListener   { hap(it); firePose("lean_left") }
+        binding.btnPoseLeanRight.setOnClickListener  { hap(it); firePose("lean_right") }
+        binding.btnPoseBow.setOnClickListener        { hap(it); firePose("bow_front") }
+        binding.btnWalk.setOnClickListener           { hap(it); toggleWalk() }
+        binding.btnJump.setOnClickListener           { hap(it); fireJump() }
+        binding.btnEmergencyStop.setOnClickListener  {
+            it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            emergencyStop()
+        }
 
         // Populate settings from prefs.
         val cfg = orch.config
@@ -173,7 +213,7 @@ class MainActivity : AppCompatActivity() {
                 renderGoal(snap.goal, snap.goalState)
                 renderSay(snap.lastSay)
                 renderYouSaid(snap.lastHeard)
-                refreshEmptyState(snap)
+                refreshFaceState(snap)
             }
         }
         lifecycleScope.launch {
@@ -181,6 +221,20 @@ class MainActivity : AppCompatActivity() {
                 binding.bleLog.text = lines.takeLast(40).joinToString("\n")
             }
         }
+        // Surface IMU trips into the timeline + face expression.
+        lifecycleScope.launch {
+            orch.imuReflex.tripped.collect { tripped ->
+                if (tripped && !lastTripped) {
+                    timeline.push(Timeline.Kind.TILT, "IMU tilt → emergency stop")
+                    pulseHeroRedTwice()
+                }
+                lastTripped = tripped
+                refreshFaceState(RobotState.state.value)
+            }
+        }
+
+        // Staggered entry animations.
+        animateEntryStaggered()
 
         requestPermsAndStart()
     }
@@ -197,16 +251,22 @@ class MainActivity : AppCompatActivity() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(receiver, f)
         }
+        tickHandler.postDelayed(tickRunnable, 5_000L)
     }
 
     override fun onStop() {
         super.onStop()
         try { unregisterReceiver(receiver) } catch (_: Throwable) {}
+        tickHandler.removeCallbacks(tickRunnable)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         voice?.stop()
+    }
+
+    private fun hap(v: View) {
+        v.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
     }
 
     private fun requestPermsAndStart() {
@@ -277,6 +337,7 @@ class MainActivity : AppCompatActivity() {
         val v = VoiceListener(this, orch.config, onUtterance = { utt ->
             RobotState.appendLog("[ui] submitting goal: \"$utt\"")
             RobotState.update { it.copy(lastHeard = utt) }
+            runOnUiThread { timeline.push(Timeline.Kind.VOICE, "You said \u201C$utt\u201D") }
             orch.submitGoal(utt)
         })
         v.start()
@@ -291,6 +352,9 @@ class MainActivity : AppCompatActivity() {
             binding.btnMic.setBackgroundResource(R.drawable.talk_button_bg_listening)
             binding.micHint.text = "Listening…"
             binding.micHint.setTextColor(ContextCompat.getColor(this, R.color.bad))
+            binding.waveformRing.setTint(ContextCompat.getColor(this, R.color.bad))
+            binding.waveformRing.setActive(true)
+            binding.robotFace.setState(RobotFaceView.State.LISTENING)
             // Pulse halo
             val pulse = binding.micPulse
             micPulseAnim?.cancel()
@@ -311,11 +375,13 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding.btnMic.text = "🎤\nTalk"
             binding.btnMic.setBackgroundResource(R.drawable.talk_button_bg)
-            binding.micHint.text = "Tap to talk"
+            binding.micHint.text = "Tap to talk · “hey robot, walk forward”"
             binding.micHint.setTextColor(ContextCompat.getColor(this, R.color.fg_dim))
+            binding.waveformRing.setActive(false)
             micPulseAnim?.cancel()
             micPulseAnim = null
             binding.micPulse.alpha = 0f
+            refreshFaceState(RobotState.state.value)
         }
     }
 
@@ -351,6 +417,11 @@ class MainActivity : AppCompatActivity() {
                 .alpha(1f)
                 .setDuration(220)
                 .start()
+            // Trigger talking face briefly.
+            binding.robotFace.setState(RobotFaceView.State.TALKING)
+            binding.robotFace.postDelayed({
+                refreshFaceState(RobotState.state.value)
+            }, 1500L)
         }
         lastShownSay = say
     }
@@ -373,13 +444,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun refreshEmptyState(snap: RobotState.Snapshot) {
+    private fun refreshFaceState(snap: RobotState.Snapshot) {
         val connected = snap.bleStatus.contains("connected", ignoreCase = true)
-        val hasAnyActivity = snap.lastSay.isNotEmpty() ||
-            snap.lastHeard.isNotEmpty() ||
-            (snap.goal.isNotEmpty() && snap.goalState != "idle")
-        binding.emptyState.visibility =
-            if (connected && !hasAnyActivity) View.VISIBLE else View.GONE
+        val newState = when {
+            lastTripped           -> RobotFaceView.State.TRIPPED
+            voiceActive           -> RobotFaceView.State.LISTENING
+            !connected            -> RobotFaceView.State.SLEEPING
+            snap.lastSay.isNotEmpty() -> RobotFaceView.State.TALKING
+            else                  -> RobotFaceView.State.IDLE
+        }
+        binding.robotFace.setState(newState)
+        binding.timelineEmpty.visibility =
+            if (binding.timelineList.childCount == 0) View.VISIBLE else View.GONE
     }
 
     private fun fireLookFor() {
@@ -400,70 +476,72 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // ---- Remote control helpers ---------------------------------------
-
     // ---- UI renderers (semantic colors + animation) ------------------
 
     private fun renderBleState(status: String, mac: String) {
-        val (dotDrawable, textColor, label) = when {
-            status.contains("connected", ignoreCase = true) ->
-                Triple(R.drawable.dot_ok, R.color.ok, "connected")
-            status.contains("scan", ignoreCase = true) ||
-            status.contains("connect", ignoreCase = true) ->
-                Triple(R.drawable.dot_warn, R.color.warn, "connecting…")
-            status.contains("idle", ignoreCase = true) ||
-            status.isEmpty() ->
-                Triple(R.drawable.dot_warn, R.color.fg_dim, "idle")
-            else ->
-                Triple(R.drawable.dot_bad, R.color.bad, status)
+        val connected = status.contains("connected", ignoreCase = true)
+        val connecting = status.contains("scan", ignoreCase = true) ||
+            (status.contains("connect", ignoreCase = true) && !connected)
+        val (heroBg, textColor, label, bars) = when {
+            connected  -> Quad(R.drawable.hero_bg_connected,    R.color.ok,     "Connected",  4)
+            connecting -> Quad(R.drawable.hero_bg_connecting,   R.color.warn,   "Connecting…", 2)
+            status.contains("idle", true) || status.isEmpty() ->
+                          Quad(R.drawable.hero_bg_disconnected, R.color.fg_dim, "Idle",       0)
+            else       -> Quad(R.drawable.hero_bg_disconnected, R.color.bad,    status,       0)
         }
-        binding.bleDot.setBackgroundResource(dotDrawable)
+        binding.heroCard.setBackgroundResource(heroBg)
         binding.bleStatus.text = label
         binding.bleStatus.setTextColor(ContextCompat.getColor(this, textColor))
-        binding.bleMac.text = mac
-        startOrStopBlePulse(status.contains("scan", ignoreCase = true) ||
-            status.contains("connect", ignoreCase = true) && !status.contains("ed"))
-        // On connected, send a quick TX flash to confirm.
-        if (status.contains("connected", ignoreCase = true)) flashActivity(rx = false)
+        binding.bleMac.text = if (mac.isEmpty()) "—" else mac
+        binding.signalBars.setBars(bars)
+        binding.signalBars.setColors(
+            ContextCompat.getColor(this, textColor),
+            ContextCompat.getColor(this, R.color.divider)
+        )
+
+        // On fresh connection: flash green sweep + timeline entry.
+        if (connected && !lastConnected) {
+            timeline.push(Timeline.Kind.INFO, "Connected to robot")
+            flashActivity(rx = false)
+        } else if (!connected && lastConnected) {
+            timeline.push(Timeline.Kind.INFO, "Disconnected")
+        }
+        lastConnected = connected
+
+        refreshFaceState(RobotState.state.value)
     }
 
-    private fun startOrStopBlePulse(connecting: Boolean) {
-        if (connecting) {
-            if (bleDotPulse?.isRunning == true) return
-            bleDotPulse = ObjectAnimator.ofFloat(binding.bleDot, "alpha", 1f, 0.3f, 1f).apply {
-                duration = 900
-                repeatCount = ValueAnimator.INFINITE
-                start()
-            }
-        } else {
-            bleDotPulse?.cancel()
-            bleDotPulse = null
-            binding.bleDot.alpha = 1f
-        }
-    }
+    private data class Quad<A,B,C,D>(val a: A, val b: B, val c: C, val d: D)
 
     private fun renderBattery(v: Float) {
         if (v <= 0f) {
-            binding.battStatus.text = "--"
-            binding.battFill.layoutParams = binding.battFill.layoutParams.apply { width = 0 }
+            binding.battStatus.text = "—"
+            binding.battPct.text = ""
+            binding.battRing.setPercent(0f)
             return
         }
         // 2S Li-ion window: 6.0 V (empty) -> 8.4 V (full).
         val pct = ((v - 6.0f) / (8.4f - 6.0f)).coerceIn(0f, 1f)
-        val color = when {
+        binding.battRing.setPercent(pct)
+        binding.battStatus.text = "%.2fV".format(v)
+        binding.battPct.text = "%d%%".format((pct * 100).toInt())
+        binding.battPct.setTextColor(ContextCompat.getColor(this, when {
             pct > 0.5f -> R.color.batt_full
             pct > 0.2f -> R.color.batt_mid
             else       -> R.color.batt_low
+        }))
+        // Timeline on crossing into low bucket.
+        val bucket = when {
+            pct > 0.5f -> 2
+            pct > 0.2f -> 1
+            else       -> 0
         }
-        binding.battFill.setBackgroundColor(ContextCompat.getColor(this, color))
-        binding.battStatus.text = "%.2f V".format(v)
-        // Width update on next layout pass.
-        binding.battFill.post {
-            val parent = binding.battFill.parent as? View ?: return@post
-            val lp = binding.battFill.layoutParams
-            lp.width = (parent.width * pct).toInt()
-            binding.battFill.layoutParams = lp
+        if (lastBattBucket >= 0 && bucket < lastBattBucket) {
+            val msg = if (bucket == 0) "Battery low — please charge"
+                      else "Battery at ${(pct * 100).toInt()}%"
+            timeline.push(Timeline.Kind.BATTERY, msg)
         }
+        lastBattBucket = bucket
     }
 
     private fun renderGoal(goal: String, state: String) {
@@ -475,7 +553,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val shown = if (goal.isEmpty()) "—" else goal
-        binding.goalStatus.text = "🎯 $shown  · $state"
+        binding.goalStatus.text = "🎯 $shown · $state"
         val color = when (state.lowercase()) {
             "active", "running", "followup" -> R.color.warn
             "done", "completed"              -> R.color.ok
@@ -494,7 +572,6 @@ class MainActivity : AppCompatActivity() {
                 .setDuration(220)
                 .start()
         } else if (state != lastShownGoalState) {
-            // State transition: small scale bump for feedback.
             binding.goalRow.animate().cancel()
             binding.goalRow.scaleX = 1f; binding.goalRow.scaleY = 1f
             binding.goalRow.animate()
@@ -508,6 +585,24 @@ class MainActivity : AppCompatActivity() {
                 }
                 .start()
         }
+        // Timeline transitions.
+        if (goal.isNotEmpty() && (goal != lastGoalSeen || state != lastShownGoalState)) {
+            val kind = when (state.lowercase()) {
+                "done", "completed" -> Timeline.Kind.GOAL
+                "cancelled", "error", "capped" -> Timeline.Kind.ERROR
+                else -> Timeline.Kind.GOAL
+            }
+            val msg = when (state.lowercase()) {
+                "done", "completed"            -> "Goal done: $goal"
+                "cancelled"                    -> "Goal cancelled: $goal"
+                "error", "capped"              -> "Goal failed: $goal"
+                "active", "running", "followup" -> "Goal: $goal"
+                else                           -> "$goal · $state"
+            }
+            if (state.lowercase() in setOf("active","running","followup","done","completed","cancelled","error","capped"))
+                timeline.push(kind, msg)
+            lastGoalSeen = goal
+        }
         lastShownGoalState = state
     }
 
@@ -520,6 +615,33 @@ class MainActivity : AppCompatActivity() {
             .alpha(0f)
             .setDuration(400)
             .start()
+    }
+
+    private fun pulseHeroRedTwice() {
+        val hero = binding.heroCard
+        hero.animate().cancel()
+        hero.alpha = 1f
+        hero.animate().alpha(0.5f).setDuration(120).withEndAction {
+            hero.animate().alpha(1f).setDuration(120).withEndAction {
+                hero.animate().alpha(0.5f).setDuration(120).withEndAction {
+                    hero.animate().alpha(1f).setDuration(120).start()
+                }.start()
+            }.start()
+        }.start()
+    }
+
+    private fun animateEntryStaggered() {
+        val cards = listOf(binding.heroCard, binding.talkCard, binding.remoteCard, binding.timelineCard)
+        cards.forEachIndexed { i, card ->
+            card.alpha = 0f
+            card.translationY = 32f
+            card.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay(80L * i)
+                .setDuration(320)
+                .start()
+        }
     }
 
     private fun sendWireAsync(cmd: JSONObject, label: String) {
@@ -553,18 +675,17 @@ class MainActivity : AppCompatActivity() {
                 .put("step", 400)
             sendWireAsync(cmd, "walk start")
             walkActive = true
-            binding.btnWalk.text = "WALKING…"
-            binding.btnWalk.setTextColor(0xFFD32F2F.toInt())
+            timeline.push(Timeline.Kind.INFO, "Walking")
         } else {
             sendWireAsync(JSONObject().put("c", "stop"), "walk stop")
             walkActive = false
-            binding.btnWalk.text = "WALK"
-            binding.btnWalk.setTextColor(0xFFFFFFFF.toInt())
+            timeline.push(Timeline.Kind.INFO, "Stopped walking")
         }
     }
 
     private fun fireJump() {
         sendWireAsync(JSONObject().put("c", "jump"), "jump")
+        timeline.push(Timeline.Kind.INFO, "Jumped")
     }
 
     private fun emergencyStop() {
@@ -572,8 +693,7 @@ class MainActivity : AppCompatActivity() {
         try { orch.cancelGoal() } catch (_: Throwable) {}
         sendWireAsync(JSONObject().put("c", "stop"), "EMERGENCY STOP")
         walkActive = false
-        binding.btnWalk.text = "WALK"
-        binding.btnWalk.setTextColor(0xFFFFFFFF.toInt())
+        timeline.push(Timeline.Kind.ERROR, "Emergency stop")
     }
 
     private fun saveSettings() {

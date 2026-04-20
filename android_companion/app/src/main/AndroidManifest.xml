@@ -45,7 +45,7 @@
     <application
         android:allowBackup="false"
         android:label="RobotCompanion"
-        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+        android:theme="@style/Theme.RobotCompanion"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 

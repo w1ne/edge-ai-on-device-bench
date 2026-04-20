@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Background / surfaces -->
-    <color name="bg">#0E0E12</color>
-    <color name="bg_card">#1A1A22</color>
-    <color name="divider">#2A2A33</color>
+    <color name="bg">#0B0B10</color>
+    <color name="bg_card">#14141A</color>
+    <color name="bg_elev">#1A1A22</color>
+    <color name="divider">#22222B</color>
 
     <!-- Foreground -->
     <color name="fg">#ECECF0</color>
     <color name="fg_dim">#8B8B94</color>
+    <color name="fg_mute">#5C5C66</color>
 
     <!-- Semantic state -->
     <color name="ok">#4CAF50</color>
     <color name="ok_dim">#1E3520</color>
+    <color name="ok_glow">#66BB6A</color>
     <color name="warn">#FFC107</color>
     <color name="warn_dim">#3A2E0F</color>
     <color name="bad">#EF5350</color>
@@ -19,6 +22,7 @@
 
     <!-- Accent used by existing Button tints -->
     <color name="accent">#4CAF50</color>
+    <color name="accent_cyan">#64B5F6</color>
 
     <!-- Pulse colors for BLE TX/RX activity flashes -->
     <color name="pulse_tx">#81C784</color>
@@ -29,4 +33,3 @@
     <color name="batt_mid">#FFC107</color>
     <color name="batt_low">#EF5350</color>
 </resources>
-

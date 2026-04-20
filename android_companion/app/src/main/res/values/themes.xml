@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.RobotCompanion" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#1E3A22</item>
+        <item name="colorOnPrimaryContainer">@color/fg</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSurface">@color/bg_card</item>
+        <item name="colorOnSurface">@color/fg</item>
+        <item name="colorSurfaceVariant">@color/bg_elev</item>
+        <item name="colorOnSurfaceVariant">@color/fg_dim</item>
+        <item name="colorError">@color/bad</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:textColorPrimary">@color/fg</item>
+        <item name="android:textColorSecondary">@color/fg_dim</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+</resources>
