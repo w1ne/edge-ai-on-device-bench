@@ -56,8 +56,11 @@ class Config(ctx: Context) {
         get() = prefs.getString(K_WAKE_WORD, DEFAULT_WAKE_WORD) ?: DEFAULT_WAKE_WORD
         set(value) { prefs.edit().putString(K_WAKE_WORD, value).apply() }
 
+    // Wake-word is default OFF now — the Talk button is explicit "I'm talking
+    // to the robot," and requiring "hey robot" before every utterance is
+    // friction.  User can re-enable in Debug settings for ambient wake mode.
     var wakeRequired: Boolean
-        get() = prefs.getBoolean(K_WAKE_REQUIRED, true)
+        get() = prefs.getBoolean(K_WAKE_REQUIRED, false)
         set(value) { prefs.edit().putBoolean(K_WAKE_REQUIRED, value).apply() }
 
     var ttsEnabled: Boolean
