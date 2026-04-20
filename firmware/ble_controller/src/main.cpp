@@ -422,8 +422,15 @@ void setup() {
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
   adv->addServiceUUID(SVC_NUS);
   adv->setScanResponse(true);
-  adv->start();
+  // Keep advertising interval short so scanners catch it within a few hundred ms.
+  adv->setMinInterval(32);   // 32 * 0.625 ms = 20 ms
+  adv->setMaxInterval(64);   // 40 ms
+  bool adv_ok = adv->start();
 
+  // Print the BLE MAC so the operator can grep scan output.
+  NimBLEAddress mac = NimBLEDevice::getAddress();
+  Serial.printf("[ble_controller] BLE MAC: %s\n", mac.toString().c_str());
+  Serial.printf("[ble_controller] adv.start() -> %s\n", adv_ok ? "OK" : "FAIL");
   Serial.println("[ble_controller] advertising as PhoneWalker-BLE");
 }
 

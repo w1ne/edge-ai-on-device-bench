@@ -71,4 +71,20 @@ mkdir -p "$HOME/.cache/piper"
 
 log "done. files in \$HOME:"
 ls -la "$HOME" >&2
+
+# Drop a world-readable flag so the host (adb) can verify completion,
+# since Termux's $HOME is not accessible to the shell uid.
+FLAG="/sdcard/Download/edge-ai-phone/bootstrap_ok.flag"
+{
+  echo "ok ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "python=$(command -v python3 || echo missing)"
+  echo "pyver=$(python3 --version 2>&1 || echo missing)"
+  echo "daemon=$([ -f "$HOME/phone_daemon.py" ] && echo present || echo missing)"
+  echo "wire=$([ -f "$HOME/phone_wire.py" ] && echo present || echo missing)"
+  echo "intent=$([ -f "$HOME/phone_intent.py" ] && echo present || echo missing)"
+  echo "stt=$([ -f "$HOME/phone_stt.sh" ] && echo present || echo missing)"
+  echo "tts=$([ -f "$HOME/phone_tts.sh" ] && echo present || echo missing)"
+  echo "dia_key=$([ -f "$HOME/.dia_key" ] && echo present || echo missing)"
+} > "$FLAG" 2>/dev/null || true
+
 exit 0
