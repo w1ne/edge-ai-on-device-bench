@@ -72,6 +72,7 @@
                 <action android:name="dev.robot.SET_API_KEY" />
                 <action android:name="dev.robot.TEST_MIC" />
                 <action android:name="dev.robot.SET_IDLE_ENABLED" />
+                <action android:name="dev.robot.SET_WAKE_REQUIRED" />
                 <action android:name="dev.robot.TEST_IMU_REFLEX" />
             </intent-filter>
         </receiver>

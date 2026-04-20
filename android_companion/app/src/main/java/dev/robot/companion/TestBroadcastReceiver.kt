@@ -36,6 +36,12 @@ class TestBroadcastReceiver : BroadcastReceiver() {
                     RobotState.appendLog("[test] API key set via broadcast (len=${key.length})")
                 }
             }
+            ACTION_SET_WAKE_REQUIRED -> {
+                val on = intent.getBooleanExtra("enabled", false)
+                val o = Orchestrator.getOrInit(context.applicationContext)
+                o.config.wakeRequired = on
+                RobotState.appendLog("[test] wakeRequired=$on")
+            }
             ACTION_SET_IDLE_ENABLED -> {
                 val on = intent.getBooleanExtra("enabled", false)
                 val o = Orchestrator.getOrInit(context.applicationContext)
@@ -82,6 +88,7 @@ class TestBroadcastReceiver : BroadcastReceiver() {
         const val ACTION_SET_API_KEY = "dev.robot.SET_API_KEY"
         const val ACTION_TEST_MIC = "dev.robot.TEST_MIC"
         const val ACTION_SET_IDLE_ENABLED = "dev.robot.SET_IDLE_ENABLED"
+        const val ACTION_SET_WAKE_REQUIRED = "dev.robot.SET_WAKE_REQUIRED"
         const val ACTION_TEST_IMU_REFLEX = "dev.robot.TEST_IMU_REFLEX"
     }
 }
