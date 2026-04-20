@@ -7,6 +7,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.os.Binder
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -87,7 +88,40 @@ class BleRobotService : Service() {
     private val pending = ConcurrentLinkedQueue<PendingWrite>()
     private val bleBusy = AtomicBoolean(false)
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    // ---- LocalBinder: in-process callers get a direct handle ------------
+
+    inner class LocalBinder : Binder() {
+        fun service(): BleRobotService = this@BleRobotService
+    }
+
+    private val localBinder = LocalBinder()
+
+    override fun onBind(intent: Intent?): IBinder = localBinder
+
+    /** Callback register — one callback per listener, thread-safe. */
+    private val lineListeners = java.util.concurrent.CopyOnWriteArrayList<(String) -> Unit>()
+    fun addLineListener(cb: (String) -> Unit) { lineListeners.add(cb) }
+    fun removeLineListener(cb: (String) -> Unit) { lineListeners.remove(cb) }
+
+    /** Current BLE state string (mirror of internal bleState). */
+    fun currentBleState(): String = bleState
+
+    /** Send a newline-terminated JSON line directly to the robot.  Returns
+     *  true if enqueued, false if BLE is not up. */
+    fun sendLine(line: String): Boolean {
+        val trimmed = line.trim()
+        if (trimmed.isEmpty()) return false
+        val bytes = (trimmed + "\n").toByteArray(Charsets.UTF_8)
+        val g = gatt
+        val rx = rxChar
+        if (g != null && rx != null) {
+            enqueueAndWrite(bytes)
+            return true
+        }
+        pending.add(PendingWrite(bytes, System.nanoTime() / 1_000_000))
+        main.postDelayed({ flushOrErrorPending() }, QUEUE_WAIT_MS + 50)
+        return false
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -176,6 +210,7 @@ class BleRobotService : Service() {
 
     private fun setBleState(s: String) {
         bleState = s
+        RobotState.update { it.copy(bleStatus = s) }
         updateNotification()
     }
 
@@ -200,6 +235,13 @@ class BleRobotService : Service() {
             Intent(ACTION_BLE_MESSAGE).setPackage(packageName)
                 .putExtra(EXTRA_LINE, line)
         )
+        // Fan out to in-process listeners (planner, UI, etc.)
+        for (cb in lineListeners) {
+            try { cb(line) } catch (e: Throwable) {
+                Log.w(TAG, "line listener threw: ${e.message}")
+            }
+        }
+        RobotState.update { it.copy(lastWireAck = line) }
     }
 
     // -------- TCP -> BLE --------

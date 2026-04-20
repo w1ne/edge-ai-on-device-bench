@@ -12,28 +12,39 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import dev.robot.companion.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-
-    private val recentBleLines = ArrayDeque<String>(8)
+    private lateinit var orch: Orchestrator
+    private var voice: VoiceListener? = null
+    private var voiceActive = false
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 BleRobotService.ACTION_STATUS -> {
                     val ble = intent.getStringExtra(BleRobotService.EXTRA_BLE_STATUS) ?: "?"
-                    val tcp = intent.getStringExtra(BleRobotService.EXTRA_TCP_STATUS) ?: "?"
-                    binding.bleStatus.text = "BLE: $ble"
-                    binding.tcpStatus.text = "TCP: $tcp"
+                    RobotState.update { it.copy(bleStatus = ble) }
                 }
                 BleRobotService.ACTION_BLE_MESSAGE -> {
                     val line = intent.getStringExtra(BleRobotService.EXTRA_LINE) ?: return
-                    if (recentBleLines.size >= 5) recentBleLines.removeFirst()
-                    recentBleLines.addLast(line)
-                    binding.bleLog.text = recentBleLines.joinToString("\n")
+                    RobotState.appendLog("[ble] $line")
+                    // Parse battery voltage if present.
+                    try {
+                        val j = JSONObject(line)
+                        val v = j.optDouble("batt_v", -1.0)
+                        if (v > 0) RobotState.update { it.copy(battV = v.toFloat()) }
+                        // Convert structured vision/event payloads into goalkeeper events.
+                        val t = j.optString("t", "")
+                        if (t == "event" || j.has("class") || j.has("seen")) {
+                            orch.pushVisionEvent(j)
+                        }
+                    } catch (_: Throwable) {}
                 }
             }
         }
@@ -44,13 +55,12 @@ class MainActivity : AppCompatActivity() {
     ) { grants ->
         val allGood = grants.values.all { it }
         if (!allGood) {
-            Toast.makeText(
-                this,
-                "BLE permissions needed. Scanning may fail.",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this,
+                "Some permissions denied. Features may degrade.",
+                Toast.LENGTH_LONG).show()
         }
         startBleService()
+        setupVision()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,14 +68,46 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.btnScan.setOnClickListener {
-            requestPermsAndStart()
-        }
+        orch = Orchestrator.getOrInit(applicationContext)
+
+        binding.btnScan.setOnClickListener { requestPermsAndStart() }
         binding.btnDisconnect.setOnClickListener {
-            startService(
-                Intent(this, BleRobotService::class.java)
-                    .setAction(BleRobotService.ACTION_CMD_DISCONNECT)
-            )
+            startService(Intent(this, BleRobotService::class.java)
+                .setAction(BleRobotService.ACTION_CMD_DISCONNECT))
+        }
+        binding.btnMic.setOnClickListener { toggleVoice() }
+        binding.btnLookFor.setOnClickListener { fireLookFor() }
+        binding.btnCancel.setOnClickListener {
+            orch.cancelGoal()
+            RobotState.appendLog("[ui] goal cancel requested")
+        }
+        binding.btnSaveSettings.setOnClickListener { saveSettings() }
+
+        // Populate settings from prefs.
+        val cfg = orch.config
+        binding.editApiKey.setText(cfg.apiKey)
+        binding.editPlannerModel.setText(cfg.plannerModel)
+        binding.editWakeWord.setText(cfg.wakeWord)
+        binding.cbWakeRequired.isChecked = cfg.wakeRequired
+        binding.cbTts.isChecked = cfg.ttsEnabled
+
+        // Observe RobotState for UI refresh.
+        lifecycleScope.launch {
+            RobotState.state.collect { snap ->
+                binding.bleStatus.text = "BLE: ${snap.bleStatus}" +
+                    (if (snap.bleMac.isNotEmpty()) "  ${snap.bleMac}" else "")
+                binding.battStatus.text = if (snap.battV > 0) "Batt: ${"%.2f".format(snap.battV)} V"
+                    else "Batt: --"
+                binding.goalStatus.text = "Goal: ${if (snap.goal.isEmpty()) "—" else snap.goal} " +
+                    "[${snap.goalState}]"
+                binding.saySnapshot.text = if (snap.lastSay.isNotEmpty())
+                    "say: \"${snap.lastSay}\"" else ""
+            }
+        }
+        lifecycleScope.launch {
+            RobotState.log.collect { lines ->
+                binding.bleLog.text = lines.takeLast(20).joinToString("\n")
+            }
         }
 
         requestPermsAndStart()
@@ -90,6 +132,11 @@ class MainActivity : AppCompatActivity() {
         try { unregisterReceiver(receiver) } catch (_: Throwable) {}
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        voice?.stop()
+    }
+
     private fun requestPermsAndStart() {
         val needed = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -100,7 +147,6 @@ class MainActivity : AppCompatActivity() {
                 != PackageManager.PERMISSION_GRANTED
             ) needed += Manifest.permission.BLUETOOTH_CONNECT
         } else {
-            // API < 31 also wants FINE_LOCATION for BLE scan
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED
             ) needed += Manifest.permission.ACCESS_FINE_LOCATION
@@ -110,11 +156,18 @@ class MainActivity : AppCompatActivity() {
                 != PackageManager.PERMISSION_GRANTED
             ) needed += Manifest.permission.POST_NOTIFICATIONS
         }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) needed += Manifest.permission.RECORD_AUDIO
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) needed += Manifest.permission.CAMERA
 
         if (needed.isNotEmpty()) {
             permsLauncher.launch(needed.toTypedArray())
         } else {
             startBleService()
+            setupVision()
         }
     }
 
@@ -126,5 +179,67 @@ class MainActivity : AppCompatActivity() {
         } else {
             startService(i)
         }
+    }
+
+    private fun setupVision() {
+        val cam = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (cam) {
+            orch.attachLifecycle(this, this)
+        }
+    }
+
+    private fun toggleVoice() {
+        val mic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!mic) {
+            Toast.makeText(this, "Mic permission missing", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (voiceActive) {
+            voice?.stop()
+            voiceActive = false
+            binding.btnMic.text = "Mic: start"
+            return
+        }
+        val v = VoiceListener(this, orch.config, onUtterance = { utt ->
+            RobotState.appendLog("[ui] submitting goal: \"$utt\"")
+            orch.submitGoal(utt)
+        })
+        v.start()
+        voice = v
+        voiceActive = true
+        binding.btnMic.text = "Mic: stop"
+    }
+
+    private fun fireLookFor() {
+        val v = orch.vision
+        if (v == null) {
+            Toast.makeText(this, "Camera not ready", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val phrases = listOf("a person", "a laptop", "a red mug")
+        RobotState.appendLog("[ui] look_for $phrases")
+        Thread {
+            try {
+                val r = v.query(phrases)
+                RobotState.appendLog("[ui] vision -> $r")
+            } catch (e: Throwable) {
+                RobotState.appendLog("[ui] vision err: ${e.message}")
+            }
+        }.start()
+    }
+
+    private fun saveSettings() {
+        val cfg = orch.config
+        cfg.apiKey = binding.editApiKey.text.toString().trim()
+        cfg.plannerModel = binding.editPlannerModel.text.toString().trim()
+            .ifEmpty { Config.DEFAULT_PLANNER_MODEL }
+        cfg.wakeWord = binding.editWakeWord.text.toString().trim()
+            .ifEmpty { Config.DEFAULT_WAKE_WORD }
+        cfg.wakeRequired = binding.cbWakeRequired.isChecked
+        cfg.ttsEnabled = binding.cbTts.isChecked
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
+        RobotState.appendLog("[ui] settings saved")
     }
 }

@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- BLE on API 30 and lower needs legacy perms + location -->
     <uses-permission android:name="android.permission.BLUETOOTH"
@@ -26,6 +28,19 @@
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <queries>
+        <!-- SpeechRecognizer needs visibility into speech-recog services on API 30+ -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -47,6 +62,17 @@
             android:name=".BleRobotService"
             android:foregroundServiceType="connectedDevice"
             android:exported="false" />
+
+        <receiver
+            android:name=".TestBroadcastReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.robot.TEST_GOAL" />
+                <action android:name="dev.robot.TEST_SAY" />
+                <action android:name="dev.robot.SET_API_KEY" />
+                <action android:name="dev.robot.TEST_MIC" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

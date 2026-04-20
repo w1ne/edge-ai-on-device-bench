@@ -1,81 +1,228 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
     android:background="@color/bg">
-
-    <TextView
-        android:id="@+id/title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Robot BLE Companion"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="@color/fg" />
-
-    <TextView
-        android:id="@+id/bleStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="BLE: idle"
-        android:textColor="@color/fg"
-        android:textSize="16sp" />
-
-    <TextView
-        android:id="@+id/tcpStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="TCP: stopped"
-        android:textColor="@color/fg"
-        android:textSize="16sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="12dp">
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Robot Companion"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/fg" />
+
+        <TextView
+            android:id="@+id/bleStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="BLE: idle"
+            android:textColor="@color/fg"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/battStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Batt: --"
+            android:textColor="@color/fg"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+            <Button
+                android:id="@+id/btnScan"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Connect" />
+            <Button
+                android:id="@+id/btnDisconnect"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:text="Disconnect" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="8dp"
+            android:background="#333" />
+
+        <TextView
+            android:id="@+id/goalStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Goal: —  [idle]"
+            android:textColor="@color/accent"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/saySnapshot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text=""
+            android:textColor="@color/fg"
+            android:textSize="12sp"
+            android:fontFamily="monospace" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+            <Button
+                android:id="@+id/btnMic"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Mic: start" />
+            <Button
+                android:id="@+id/btnLookFor"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:text="Look for…" />
+            <Button
+                android:id="@+id/btnCancel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:text="Cancel" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Log:"
+            android:textColor="@color/fg"
+            android:textStyle="bold"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/bleLog"
+            android:layout_width="match_parent"
+            android:layout_height="280dp"
+            android:layout_marginTop="4dp"
+            android:padding="6dp"
+            android:background="#1E1E1E"
+            android:fontFamily="monospace"
+            android:textSize="11sp"
+            android:textColor="@color/fg"
+            android:scrollbars="vertical" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="8dp"
+            android:background="#333" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Settings"
+            android:textColor="@color/fg"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="DeepInfra API key:"
+            android:textColor="@color/fg"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="paste key"
+            android:textColor="@color/fg"
+            android:textColorHint="#777"
+            android:inputType="textNoSuggestions"
+            android:background="#1E1E1E"
+            android:padding="6dp"
+            android:textSize="12sp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Planner model:"
+            android:textColor="@color/fg"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editPlannerModel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Qwen/Qwen2.5-72B-Instruct"
+            android:textColor="@color/fg"
+            android:inputType="text"
+            android:background="#1E1E1E"
+            android:padding="6dp"
+            android:textSize="12sp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Wake word:"
+            android:textColor="@color/fg"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editWakeWord"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="hey robot"
+            android:textColor="@color/fg"
+            android:inputType="text"
+            android:background="#1E1E1E"
+            android:padding="6dp"
+            android:textSize="12sp"
+            android:fontFamily="monospace" />
+
+        <CheckBox
+            android:id="@+id/cbWakeRequired"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Require wake word"
+            android:textColor="@color/fg"
+            android:checked="true" />
+
+        <CheckBox
+            android:id="@+id/cbTts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="TTS enabled"
+            android:textColor="@color/fg"
+            android:checked="true" />
 
         <Button
-            android:id="@+id/btnScan"
-            android:layout_width="0dp"
+            android:id="@+id/btnSaveSettings"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Scan/Connect" />
-
-        <Button
-            android:id="@+id/btnDisconnect"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="Disconnect" />
+            android:layout_marginTop="6dp"
+            android:text="Save settings" />
 
     </LinearLayout>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Recent BLE messages:"
-        android:textColor="@color/fg"
-        android:textSize="14sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/bleLog"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="8dp"
-        android:padding="8dp"
-        android:background="#1E1E1E"
-        android:fontFamily="monospace"
-        android:textSize="12sp"
-        android:textColor="@color/fg"
-        android:scrollbars="vertical" />
-
-</LinearLayout>
+</ScrollView>
