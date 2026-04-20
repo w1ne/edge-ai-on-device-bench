@@ -1,0 +1,5 @@
+[01:14:25] hw_stress_test start duration=5.0s dry_run=True
+[01:14:25] csv=/home/andrii/Projects/edge-ai-on-device-bench/logs/hw_stress_20260420-011425.csv
+[01:14:25] [imu] entering 30s neutral hold
+[01:14:30] shutdown: stop + neutral
+[01:14:31] summary -> /home/andrii/Projects/edge-ai-on-device-bench/logs/hw_stress_20260420-011425.md
