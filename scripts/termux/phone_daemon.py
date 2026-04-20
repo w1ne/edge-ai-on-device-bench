@@ -966,12 +966,60 @@ def main() -> int:
         threads.append(t)
 
     # voice
+    # Text mode: feed stdin/--text (the debugging path).
+    # Voice mode: use phone_voice.VoiceListener — a continuous STT thread
+    # so the user can actually TALK to the robot, instead of the old
+    # blocking stdin loop.  We still go through voice_thread_fn: it
+    # owns the routing logic (shutdown phrases, goal-keeper vs fast
+    # path).  VoiceListener drops transcripts into a queue that
+    # voice_thread_fn drains as if it were stdin.
     input_source = None
+    voice_listener = None
     if args.mode == "text":
         if args.text is not None:
             input_source = iter([args.text])
         else:
             input_source = iter(sys.stdin)
+    else:
+        try:
+            import phone_voice  # type: ignore
+            utter_q: "queue.Queue[str]" = queue.Queue(maxsize=32)
+
+            def _on_utter(text: str) -> None:
+                try:
+                    utter_q.put_nowait(text)
+                except queue.Full:
+                    log("voice: utterance queue full, dropping")
+
+            # Wake word default matches VoiceListener's own default
+            # ("hey robot").  Set PHONE_VOICE_WAKE_WORD='' to disable.
+            env_wake = os.environ.get("PHONE_VOICE_WAKE_WORD", "hey robot")
+            wake = env_wake if env_wake else None
+            voice_listener = phone_voice.VoiceListener(
+                on_utterance=_on_utter,
+                wake_word=wake,
+                record_seconds=float(args.record_sec),
+                logger=log,
+            )
+            voice_listener.start()
+            turnlog.append(f"voice: listener started wake={wake!r}")
+
+            # Feed the queue to voice_thread_fn as a stdin-like iterator.
+            def _q_iter():
+                while not stop_evt.is_set():
+                    try:
+                        yield utter_q.get(timeout=0.5)
+                    except queue.Empty:
+                        continue
+
+            input_source = _q_iter()
+        except Exception as e:
+            log(f"voice_listener init failed ({type(e).__name__}: {e}) "
+                "— falling back to phone_stt.sh one-shot loop")
+            turnlog.append(
+                f"voice: listener unavailable ({type(e).__name__}: {e})")
+            voice_listener = None
+            input_source = None
     vt = threading.Thread(
         target=voice_thread_fn,
         args=(stop_evt, args, scripts, engine, wire_client,
