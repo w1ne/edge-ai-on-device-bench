@@ -1,281 +1,607 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@color/bg">
 
+    <!-- ===== Top bar: title + debug toggle ============================ -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="14dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp">
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Robot Companion"
-            android:textSize="20sp"
+            android:layout_weight="1"
+            android:text="PhoneWalker"
+            android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="@color/fg" />
 
         <TextView
-            android:id="@+id/bleStatus"
+            android:id="@+id/btnTabControl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:text="Control"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="@color/fg"
+            android:background="@drawable/tab_bg_active"
+            android:layout_marginEnd="6dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btnTabDebug"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:text="🐞"
+            android:textSize="16sp"
+            android:textColor="@color/fg_dim"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- ===== Persistent Status card =================================== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="4dp"
+        android:padding="12dp"
+        android:background="@drawable/card_bg">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <View
+                android:id="@+id/bleDot"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:background="@drawable/dot_bad" />
+            <TextView
+                android:id="@+id/bleStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="disconnected"
+                android:textColor="@color/fg"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+            <View
+                android:id="@+id/activityFlash"
+                android:layout_width="24dp"
+                android:layout_height="4dp"
+                android:background="@color/pulse_tx"
+                android:alpha="0" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/bleMac"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="2dp"
+            android:text=""
+            android:textColor="@color/fg_dim"
+            android:textSize="11sp"
+            android:fontFamily="monospace" />
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:text="BLE: idle"
-            android:textColor="@color/fg"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/battStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Batt: --"
-            android:textColor="@color/fg"
-            android:textSize="14sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-            <Button
-                android:id="@+id/btnScan"
-                android:layout_width="0dp"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Connect" />
-            <Button
-                android:id="@+id/btnDisconnect"
+                android:text="BATT"
+                android:textColor="@color/fg_dim"
+                android:textSize="11sp" />
+            <FrameLayout
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="16dp"
                 android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="Disconnect" />
+                android:layout_marginStart="10dp"
+                android:background="@drawable/batt_bar_bg">
+                <View
+                    android:id="@+id/battFill"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start|center_vertical"
+                    android:background="@color/batt_full" />
+            </FrameLayout>
+            <TextView
+                android:id="@+id/battStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="--"
+                android:textColor="@color/fg"
+                android:textSize="12sp"
+                android:fontFamily="monospace" />
         </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="8dp"
-            android:background="#333" />
-
-        <TextView
-            android:id="@+id/goalStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Goal: —  [idle]"
-            android:textColor="@color/accent"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-        <TextView
-            android:id="@+id/saySnapshot"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text=""
-            android:textColor="@color/fg"
-            android:textSize="12sp"
-            android:fontFamily="monospace" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-            <Button
-                android:id="@+id/btnMic"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Mic: start" />
-            <Button
-                android:id="@+id/btnLookFor"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="Look for…" />
-            <Button
-                android:id="@+id/btnCancel"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="Cancel" />
-        </LinearLayout>
-
-        <!-- Remote control: direct-drive buttons (bypass voice/planner). -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Remote"
-            android:textColor="@color/fg"
-            android:textStyle="bold"
-            android:textSize="13sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="6dp">
-            <Button android:id="@+id/btnPoseNeutral"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="Neutral" />
-            <Button android:id="@+id/btnPoseLeanLeft"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:layout_marginStart="4dp"
-                android:text="Lean L" />
-            <Button android:id="@+id/btnPoseLeanRight"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:layout_marginStart="4dp"
-                android:text="Lean R" />
-            <Button android:id="@+id/btnPoseBow"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:layout_marginStart="4dp"
-                android:text="Bow" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="4dp">
-            <Button android:id="@+id/btnWalk"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="WALK" />
-            <Button android:id="@+id/btnJump"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:layout_marginStart="4dp"
-                android:text="JUMP" />
-            <Button android:id="@+id/btnEmergencyStop"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="2" android:layout_marginStart="4dp"
-                android:text="STOP"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#D32F2F" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Log:"
-            android:textColor="@color/fg"
-            android:textStyle="bold"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/bleLog"
-            android:layout_width="match_parent"
-            android:layout_height="280dp"
-            android:layout_marginTop="4dp"
-            android:padding="6dp"
-            android:background="#1E1E1E"
-            android:fontFamily="monospace"
-            android:textSize="11sp"
-            android:textColor="@color/fg"
-            android:scrollbars="vertical" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="14dp"
-            android:layout_marginBottom="8dp"
-            android:background="#333" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Settings"
-            android:textColor="@color/fg"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="DeepInfra API key:"
-            android:textColor="@color/fg"
-            android:textSize="12sp" />
-        <EditText
-            android:id="@+id/editApiKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="paste key"
-            android:textColor="@color/fg"
-            android:textColorHint="#777"
-            android:inputType="textNoSuggestions"
-            android:background="#1E1E1E"
-            android:padding="6dp"
-            android:textSize="12sp"
-            android:fontFamily="monospace" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Planner model:"
-            android:textColor="@color/fg"
-            android:textSize="12sp" />
-        <EditText
-            android:id="@+id/editPlannerModel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Qwen/Qwen2.5-72B-Instruct"
-            android:textColor="@color/fg"
-            android:inputType="text"
-            android:background="#1E1E1E"
-            android:padding="6dp"
-            android:textSize="12sp"
-            android:fontFamily="monospace" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Wake word:"
-            android:textColor="@color/fg"
-            android:textSize="12sp" />
-        <EditText
-            android:id="@+id/editWakeWord"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="hey robot"
-            android:textColor="@color/fg"
-            android:inputType="text"
-            android:background="#1E1E1E"
-            android:padding="6dp"
-            android:textSize="12sp"
-            android:fontFamily="monospace" />
-
-        <CheckBox
-            android:id="@+id/cbWakeRequired"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Require wake word"
-            android:textColor="@color/fg"
-            android:checked="true" />
-
-        <CheckBox
-            android:id="@+id/cbTts"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="TTS enabled"
-            android:textColor="@color/fg"
-            android:checked="true" />
-
-        <Button
-            android:id="@+id/btnSaveSettings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Save settings" />
-
     </LinearLayout>
-</ScrollView>
+    <!-- ===== /Status card ============================================= -->
+
+    <!-- ===== Tab pager (Control | Debug) ============================== -->
+    <ViewFlipper
+        android:id="@+id/tabFlipper"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:inAnimation="@android:anim/fade_in"
+        android:outAnimation="@android:anim/fade_out">
+
+        <!-- ========================= CONTROL TAB ======================= -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="14dp">
+
+                <!-- Empty state / friendly ready hint -->
+                <LinearLayout
+                    android:id="@+id/emptyState"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="4dp"
+                    android:visibility="visible">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🤖"
+                        android:textSize="56sp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Ready."
+                        android:textColor="@color/fg"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="4dp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Try: “hey robot, walk forward”"
+                        android:textColor="@color/fg_dim"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <!-- Speech bubble: you said -->
+                <LinearLayout
+                    android:id="@+id/bubbleYouRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="start"
+                    android:layout_marginTop="10dp"
+                    android:visibility="gone">
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:background="@drawable/bubble_bg">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="You said"
+                            android:textColor="@color/fg_dim"
+                            android:textSize="10sp"
+                            android:textAllCaps="true" />
+                        <TextView
+                            android:id="@+id/bubbleYou"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textColor="@color/fg"
+                            android:textSize="15sp"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Speech bubble: robot said -->
+                <LinearLayout
+                    android:id="@+id/bubbleRobotRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="end"
+                    android:layout_marginTop="6dp"
+                    android:visibility="gone">
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:background="@drawable/bubble_robot_bg">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🤖 Robot"
+                            android:textColor="@color/ok"
+                            android:textSize="10sp"
+                            android:textAllCaps="true" />
+                        <TextView
+                            android:id="@+id/saySnapshot"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textColor="@color/fg"
+                            android:textSize="15sp"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Goal status pill -->
+                <LinearLayout
+                    android:id="@+id/goalRow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_gravity="start"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/pill_bg"
+                    android:visibility="gone">
+                    <TextView
+                        android:id="@+id/goalStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎯 —  [idle]"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Big Talk button -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp">
+                    <View
+                        android:id="@+id/micPulse"
+                        android:layout_width="140dp"
+                        android:layout_height="140dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/talk_button_bg_listening"
+                        android:alpha="0" />
+                    <TextView
+                        android:id="@+id/btnMic"
+                        android:layout_width="120dp"
+                        android:layout_height="120dp"
+                        android:layout_gravity="center"
+                        android:gravity="center"
+                        android:text="🎤\nTalk"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="@drawable/talk_button_bg" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/micHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="Tap to talk"
+                    android:textColor="@color/fg_dim"
+                    android:textSize="13sp" />
+
+                <!-- Remote pose row (compact) -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:text="REMOTE"
+                    android:textColor="@color/fg_dim"
+                    android:textSize="11sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.15" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="6dp">
+                    <TextView android:id="@+id/btnPoseNeutral"
+                        android:layout_width="0dp" android:layout_height="44dp"
+                        android:layout_weight="1" android:text="Neutral"
+                        android:textSize="12sp"
+                        android:textColor="@color/fg"
+                        android:gravity="center"
+                        android:clickable="true" android:focusable="true"
+                        android:background="@drawable/action_button_bg" />
+                    <TextView android:id="@+id/btnPoseLeanLeft"
+                        android:layout_width="0dp" android:layout_height="44dp"
+                        android:layout_weight="1" android:layout_marginStart="6dp"
+                        android:text="Lean L"
+                        android:textSize="12sp"
+                        android:textColor="@color/fg"
+                        android:gravity="center"
+                        android:clickable="true" android:focusable="true"
+                        android:background="@drawable/action_button_bg" />
+                    <TextView android:id="@+id/btnPoseLeanRight"
+                        android:layout_width="0dp" android:layout_height="44dp"
+                        android:layout_weight="1" android:layout_marginStart="6dp"
+                        android:text="Lean R"
+                        android:textSize="12sp"
+                        android:textColor="@color/fg"
+                        android:gravity="center"
+                        android:clickable="true" android:focusable="true"
+                        android:background="@drawable/action_button_bg" />
+                    <TextView android:id="@+id/btnPoseBow"
+                        android:layout_width="0dp" android:layout_height="44dp"
+                        android:layout_weight="1" android:layout_marginStart="6dp"
+                        android:text="Bow"
+                        android:textSize="12sp"
+                        android:textColor="@color/fg"
+                        android:gravity="center"
+                        android:clickable="true" android:focusable="true"
+                        android:background="@drawable/action_button_bg" />
+                </LinearLayout>
+
+                <!-- Spacer pushes action bar content before actions; actions below are pinned -->
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="12dp" />
+
+                <!-- Bottom action bar: Walk / Jump / STOP -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="4dp">
+                    <TextView android:id="@+id/btnWalk"
+                        android:layout_width="0dp" android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:text="WALK"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:textColor="@color/fg"
+                        android:gravity="center"
+                        android:clickable="true" android:focusable="true"
+                        android:background="@drawable/action_button_bg" />
+                    <TextView android:id="@+id/btnJump"
+                        android:layout_width="0dp" android:layout_height="56dp"
+                        android:layout_weight="1" android:layout_marginStart="6dp"
+                        android:text="JUMP"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:textColor="@color/fg"
+                        android:gravity="center"
+                        android:clickable="true" android:focusable="true"
+                        android:background="@drawable/action_button_bg" />
+                    <TextView android:id="@+id/btnEmergencyStop"
+                        android:layout_width="0dp" android:layout_height="56dp"
+                        android:layout_weight="1.6" android:layout_marginStart="6dp"
+                        android:text="■ STOP"
+                        android:textStyle="bold"
+                        android:textSize="15sp"
+                        android:textColor="#FFFFFF"
+                        android:gravity="center"
+                        android:clickable="true" android:focusable="true"
+                        android:background="@drawable/stop_button_bg" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ========================= DEBUG TAB ========================= -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="14dp">
+
+                <!-- Connect / disconnect / vision / cancel row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="6dp">
+                    <Button
+                        android:id="@+id/btnScan"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Connect" />
+                    <Button
+                        android:id="@+id/btnDisconnect"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="Disconnect" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="6dp">
+                    <Button
+                        android:id="@+id/btnLookFor"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Look for…" />
+                    <Button
+                        android:id="@+id/btnCancel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="Cancel goal" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="LOG"
+                    android:textColor="@color/fg_dim"
+                    android:textSize="11sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.15" />
+
+                <TextView
+                    android:id="@+id/bleLog"
+                    android:layout_width="match_parent"
+                    android:layout_height="280dp"
+                    android:layout_marginTop="4dp"
+                    android:padding="8dp"
+                    android:background="#1E1E1E"
+                    android:fontFamily="monospace"
+                    android:textSize="11sp"
+                    android:textColor="@color/fg"
+                    android:scrollbars="vertical" />
+
+                <!-- Settings -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="SETTINGS"
+                    android:textColor="@color/fg_dim"
+                    android:textSize="11sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.15" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="DeepInfra API key"
+                    android:textColor="@color/fg"
+                    android:textSize="12sp" />
+                <EditText
+                    android:id="@+id/editApiKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="paste key"
+                    android:textColor="@color/fg"
+                    android:textColorHint="#777"
+                    android:inputType="textNoSuggestions"
+                    android:background="#1E1E1E"
+                    android:padding="8dp"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Planner model"
+                    android:textColor="@color/fg"
+                    android:textSize="12sp" />
+                <EditText
+                    android:id="@+id/editPlannerModel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Qwen/Qwen2.5-72B-Instruct"
+                    android:textColor="@color/fg"
+                    android:inputType="text"
+                    android:background="#1E1E1E"
+                    android:padding="8dp"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Wake word"
+                    android:textColor="@color/fg"
+                    android:textSize="12sp" />
+                <EditText
+                    android:id="@+id/editWakeWord"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="hey robot"
+                    android:textColor="@color/fg"
+                    android:inputType="text"
+                    android:background="#1E1E1E"
+                    android:padding="8dp"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace" />
+
+                <CheckBox
+                    android:id="@+id/cbWakeRequired"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Require wake word"
+                    android:textColor="@color/fg"
+                    android:checked="true" />
+
+                <CheckBox
+                    android:id="@+id/cbTts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="TTS enabled"
+                    android:textColor="@color/fg"
+                    android:checked="true" />
+
+                <Button
+                    android:id="@+id/btnSaveSettings"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Save settings" />
+
+            </LinearLayout>
+        </ScrollView>
+
+    </ViewFlipper>
+</LinearLayout>

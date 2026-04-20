@@ -18,6 +18,7 @@ object RobotState {
         val goalState: String = "idle",
         val walking: Boolean = false,
         val lastSay: String = "",
+        val lastHeard: String = "",
         val lastWireAck: String = "",
     )
 

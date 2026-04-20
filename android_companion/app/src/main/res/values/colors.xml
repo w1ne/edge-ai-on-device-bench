@@ -1,8 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#121212</color>
-    <color name="fg">#E0E0E0</color>
-    <color name="accent">#4CAF50</color>
+    <!-- Background / surfaces -->
+    <color name="bg">#0E0E12</color>
+    <color name="bg_card">#1A1A22</color>
+    <color name="divider">#2A2A33</color>
+
+    <!-- Foreground -->
+    <color name="fg">#ECECF0</color>
+    <color name="fg_dim">#8B8B94</color>
+
+    <!-- Semantic state -->
+    <color name="ok">#4CAF50</color>
+    <color name="ok_dim">#1E3520</color>
     <color name="warn">#FFC107</color>
-    <color name="bad">#F44336</color>
+    <color name="warn_dim">#3A2E0F</color>
+    <color name="bad">#EF5350</color>
+    <color name="bad_dim">#3A1F1F</color>
+
+    <!-- Accent used by existing Button tints -->
+    <color name="accent">#4CAF50</color>
+
+    <!-- Pulse colors for BLE TX/RX activity flashes -->
+    <color name="pulse_tx">#81C784</color>
+    <color name="pulse_rx">#64B5F6</color>
+
+    <!-- Battery gradient -->
+    <color name="batt_full">#4CAF50</color>
+    <color name="batt_mid">#FFC107</color>
+    <color name="batt_low">#EF5350</color>
 </resources>
+
