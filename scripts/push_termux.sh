@@ -64,6 +64,8 @@ PHONE_FILES=(
   phone_tts.sh
   phone_wire.py
   phone_daemon.py
+  phone_vision.py
+  phone_vision_bootstrap.sh
   mock_wire_server.py
   termux_bootstrap.sh
 )
