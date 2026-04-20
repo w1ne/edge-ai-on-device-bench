@@ -14,7 +14,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import dev.robot.companion.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
@@ -23,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var orch: Orchestrator
     private var voice: VoiceListener? = null
     private var voiceActive = false
+    private var walkActive = false
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -82,6 +85,15 @@ class MainActivity : AppCompatActivity() {
             RobotState.appendLog("[ui] goal cancel requested")
         }
         binding.btnSaveSettings.setOnClickListener { saveSettings() }
+
+        // Remote-control buttons (direct-drive, bypass voice/planner).
+        binding.btnPoseNeutral.setOnClickListener    { firePose("neutral") }
+        binding.btnPoseLeanLeft.setOnClickListener   { firePose("lean_left") }
+        binding.btnPoseLeanRight.setOnClickListener  { firePose("lean_right") }
+        binding.btnPoseBow.setOnClickListener        { firePose("bow_front") }
+        binding.btnWalk.setOnClickListener           { toggleWalk() }
+        binding.btnJump.setOnClickListener           { fireJump() }
+        binding.btnEmergencyStop.setOnClickListener  { emergencyStop() }
 
         // Populate settings from prefs.
         val cfg = orch.config
@@ -228,6 +240,59 @@ class MainActivity : AppCompatActivity() {
                 RobotState.appendLog("[ui] vision err: ${e.message}")
             }
         }.start()
+    }
+
+    // ---- Remote control helpers ---------------------------------------
+
+    private fun sendWireAsync(cmd: JSONObject, label: String) {
+        RobotState.appendLog("[remote] $label")
+        lifecycleScope.launch {
+            try {
+                val ack = withContext(Dispatchers.IO) { orch.wire.send(cmd) }
+                RobotState.appendLog("[remote]   ack=$ack")
+            } catch (e: Throwable) {
+                RobotState.appendLog("[remote]   err: ${e.message}")
+            }
+        }
+    }
+
+    private fun firePose(name: String) {
+        val cmd = JSONObject()
+            .put("c", "pose")
+            .put("n", name)
+            .put("d", 800)
+        sendWireAsync(cmd, "pose($name, d=800)")
+    }
+
+    private fun toggleWalk() {
+        if (!walkActive) {
+            val cmd = JSONObject()
+                .put("c", "walk")
+                .put("stride", 150)
+                .put("step", 400)
+            sendWireAsync(cmd, "walk start")
+            walkActive = true
+            binding.btnWalk.text = "WALKING…"
+            binding.btnWalk.setTextColor(0xFFD32F2F.toInt())
+        } else {
+            sendWireAsync(JSONObject().put("c", "stop"), "walk stop")
+            walkActive = false
+            binding.btnWalk.text = "WALK"
+            binding.btnWalk.setTextColor(0xFFFFFFFF.toInt())
+        }
+    }
+
+    private fun fireJump() {
+        sendWireAsync(JSONObject().put("c", "jump"), "jump")
+    }
+
+    private fun emergencyStop() {
+        // Cancel any active planner goal + slam the brakes.
+        try { orch.cancelGoal() } catch (_: Throwable) {}
+        sendWireAsync(JSONObject().put("c", "stop"), "EMERGENCY STOP")
+        walkActive = false
+        binding.btnWalk.text = "WALK"
+        binding.btnWalk.setTextColor(0xFFFFFFFF.toInt())
     }
 
     private fun saveSettings() {

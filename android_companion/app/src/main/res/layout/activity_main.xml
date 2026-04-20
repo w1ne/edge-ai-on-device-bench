@@ -107,6 +107,59 @@
                 android:text="Cancel" />
         </LinearLayout>
 
+        <!-- Remote control: direct-drive buttons (bypass voice/planner). -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Remote"
+            android:textColor="@color/fg"
+            android:textStyle="bold"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+            <Button android:id="@+id/btnPoseNeutral"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="Neutral" />
+            <Button android:id="@+id/btnPoseLeanLeft"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="4dp"
+                android:text="Lean L" />
+            <Button android:id="@+id/btnPoseLeanRight"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="4dp"
+                android:text="Lean R" />
+            <Button android:id="@+id/btnPoseBow"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="4dp"
+                android:text="Bow" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+            <Button android:id="@+id/btnWalk"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="WALK" />
+            <Button android:id="@+id/btnJump"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="4dp"
+                android:text="JUMP" />
+            <Button android:id="@+id/btnEmergencyStop"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="2" android:layout_marginStart="4dp"
+                android:text="STOP"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#D32F2F" />
+        </LinearLayout>
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
