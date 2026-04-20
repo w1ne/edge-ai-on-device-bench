@@ -26,6 +26,7 @@
 #include "poses.h"
 #include "safety.h"
 #include "ble_wire.h"
+#include "led.h"
 
 static constexpr uint32_t STATE_RATE_HZ  = 10;
 static constexpr uint32_t CMD_TIMEOUT_MS = 10 * 1000;
@@ -38,11 +39,16 @@ static robot::Battery            g_battery;
 static robot::Gait               g_gait;
 static robot::Jump               g_jump;
 static robot::ConnectionWatchdog g_watchdog;
+static robot::Led                g_led;
+static constexpr uint16_t LOW_BATT_CENTIVOLTS = 620;  // 6.20 V cutoff
 
 void setup() {
   Serial.begin(115200);
   delay(50);
   Serial.println("[ble_controller] boot");
+
+  g_led.begin();
+  g_led.setState(robot::LedState::BOOT);
 
   // 1. Config: defaults overlaid by anything persisted in NVS.
   g_cfg = robot::kDefaultConfig;
@@ -71,6 +77,7 @@ void setup() {
     &g_bus, &g_imu, &g_battery, &g_gait, &g_jump, &g_cfg, &g_watchdog,
   };
   robot::bleBegin(BLE_NAME, ctx);
+  g_led.setState(robot::LedState::IDLE);
 }
 
 void loop() {
@@ -89,5 +96,16 @@ void loop() {
   }
 
   g_gait.tick(now, g_bus, g_cfg);
+
+  // LED state follows the most-urgent condition first.
+  const uint16_t cv = g_battery.readCentiVolts();
+  robot::LedState desired;
+  if (cv > 0 && cv < LOW_BATT_CENTIVOLTS)  desired = robot::LedState::LOW_BATT;
+  else if (g_gait.walking())               desired = robot::LedState::WALKING;
+  else if (robot::bleConnected())          desired = robot::LedState::CONNECTED;
+  else                                     desired = robot::LedState::IDLE;
+  g_led.setState(desired);
+  g_led.tick(now);
+
   delay(2);
 }
