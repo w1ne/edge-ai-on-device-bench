@@ -33,6 +33,11 @@ class MainActivity : AppCompatActivity() {
     private var micPulseAnim: ObjectAnimator? = null
     private var lastShownSay = ""
     private var lastShownGoalState = ""
+    // Heat + battery mitigation: BLE state packets arrive at 10 Hz. Rate-
+    // limit the expensive per-packet work so we don't burn CPU/GPU at idle.
+    private var lastFlashMs = 0L
+    private var lastStateLogMs = 0L
+    private var lastBattV = -1f
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -43,19 +48,40 @@ class MainActivity : AppCompatActivity() {
                 }
                 BleRobotService.ACTION_BLE_MESSAGE -> {
                     val line = intent.getStringExtra(BleRobotService.EXTRA_LINE) ?: return
-                    RobotState.appendLog("[ble] $line")
-                    // Brief activity flash on every BLE frame (RX = blue).
-                    flashActivity(rx = true)
+                    val now = System.currentTimeMillis()
+                    // State packets arrive at 10 Hz — throttle the per-packet
+                    // UI work so we don't burn CPU at idle:
+                    //   * log at most 1 state packet per 2 s
+                    //   * flash activity at most 2 per second
+                    val isStateFrame = line.contains("\"t\":\"state\"")
+                    if (!isStateFrame || now - lastStateLogMs > 2000) {
+                        RobotState.appendLog("[ble] $line")
+                        if (isStateFrame) lastStateLogMs = now
+                    }
+                    if (now - lastFlashMs > 500) {
+                        flashActivity(rx = true)
+                        lastFlashMs = now
+                    }
                     // Parse battery voltage if present.
                     try {
                         val j = JSONObject(line)
                         // Firmware state packet: v = voltage*10 (centi-volts / 10)
                         val vCenti = j.optInt("v", -1)
                         if (vCenti > 0) {
-                            RobotState.update { it.copy(battV = vCenti / 10f) }
+                            val newV = vCenti / 10f
+                            if (kotlin.math.abs(newV - lastBattV) > 0.05f) {
+                                RobotState.update { it.copy(battV = newV) }
+                                lastBattV = newV
+                            }
                         }
                         val vFallback = j.optDouble("batt_v", -1.0)
-                        if (vFallback > 0) RobotState.update { it.copy(battV = vFallback.toFloat()) }
+                        if (vFallback > 0) {
+                            val newV = vFallback.toFloat()
+                            if (kotlin.math.abs(newV - lastBattV) > 0.05f) {
+                                RobotState.update { it.copy(battV = newV) }
+                                lastBattV = newV
+                            }
+                        }
                         // F2: feed IMU samples into the tilt reflex.  State packets
                         // arrive at 10 Hz with "imu":[ax,ay,az,gx,gy,gz] in g / deg-s.
                         val imu = j.optJSONArray("imu")
